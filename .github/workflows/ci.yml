@@ -1,0 +1,151 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Lint & Typecheck
+    # WarpBuild runner: warp-ubuntu-latest-x64-4x
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/setup@84cb39b217b10273981911c288cd62326dc7c6d2 # v2.0.2
+        with:
+          runtime: node@24
+          cache: true
+          install: false
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Read the pinned Rust version
+        id: rust
+        run: echo "version=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
+        with:
+          toolchain: ${{ steps.rust.outputs.version }}
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: ci-wasm
+
+      - uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
+        with:
+          tool: wasm-pack@0.14.0
+
+      - name: Install Binaryen
+        uses: sigoden/install-binary@7eb4b088aedf19fe9b2bc6c6bbdc12379ffb355c # v1.2.0
+        with:
+          repo: WebAssembly/binaryen
+          tag: version_117
+          name: wasm-opt
+          cache: true
+
+      - name: Quality checks
+        run: pnpm check
+
+      - name: TypeScript
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+  tests:
+    name: Tests & Migrations
+    # WarpBuild runner: warp-ubuntu-latest-x64-4x
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/setup@84cb39b217b10273981911c288cd62326dc7c6d2 # v2.0.2
+        with:
+          runtime: node@24
+          cache: true
+          install: false
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Read the pinned Rust version
+        id: rust
+        run: echo "version=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
+        with:
+          toolchain: ${{ steps.rust.outputs.version }}
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: ci-wasm
+
+      - uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
+        with:
+          tool: wasm-pack@0.14.0
+
+      - name: Install Binaryen
+        uses: sigoden/install-binary@7eb4b088aedf19fe9b2bc6c6bbdc12379ffb355c # v1.2.0
+        with:
+          repo: WebAssembly/binaryen
+          tag: version_117
+          name: wasm-opt
+          cache: true
+
+      - name: Build DAT parser WASM
+        run: pnpm build:wasm
+
+      - name: JavaScript tests
+        run: pnpm test:js
+
+      - name: D1 migration smoke test
+        run: pnpm db:migrate:local
+
+  rust:
+    name: Rust
+    # WarpBuild runner: warp-ubuntu-latest-x64-4x
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Read the pinned Rust version
+        id: rust
+        run: echo "version=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
+        with:
+          toolchain: ${{ steps.rust.outputs.version }}
+          components: clippy, rustfmt
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: ci-rust
+          cache-on-failure: true
+
+      - name: Rust format
+        run: cargo fmt --all -- --check
+
+      - name: Rust lint
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
+
+      # The site loads one of two browser builds; keep both compiling.
+      - name: Site renderer wasm lint
+        run: |
+          cargo clippy --locked -p dat-parser-wasm --target wasm32-unknown-unknown -- -D warnings
+          cargo clippy --locked -p hsd-render-web --target wasm32-unknown-unknown --features webgpu -- -D warnings
+          cargo clippy --locked -p hsd-render-web --target wasm32-unknown-unknown --features webgl -- -D warnings
+
+      - name: Rust tests
+        run: cargo test --locked --workspace

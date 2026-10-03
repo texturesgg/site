@@ -1,0 +1,17 @@
+[package]
+name = "dat-parser-wasm"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+authors.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+dat-parser = "0.1.0"
+wasm-bindgen = "0.2"
+
+[lints]
+workspace = true

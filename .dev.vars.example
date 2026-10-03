@@ -1,0 +1,30 @@
+# Manual deployment variables for the persistent shared preview environment.
+#
+# Copy this file to `.dev.vars.preview`, populate the blank values, then
+# export it before running the root deployment command:
+#
+#   set -a
+#   . ./.dev.vars.preview
+#   set +a
+#   pnpm deploy:preview
+#
+# Vite does not automatically load this root file. Sourcing it is required so
+# these VITE_* values are embedded in the preview web build.
+#
+# This file is not used for `pnpm preview:refresh-data`. Preview deployment and
+# destructive catalog refresh must remain separate.
+
+# Cloudflare authentication for Wrangler. For token-based CI or agent
+# deployments, uncomment and populate CLOUDFLARE_API_TOKEN. When using a local
+# `wrangler login` session, leave it commented so Wrangler uses OAuth instead.
+CLOUDFLARE_ACCOUNT_ID=
+# CLOUDFLARE_API_TOKEN=
+
+# Public preview web build configuration.
+VITE_API_URL=https://api-preview.textures.gg
+VITE_ASSETS_URL=https://api-preview.textures.gg/api/files
+VITE_TURNSTILE_SITE_KEY=
+VITE_ENABLE_EMAIL_PASSWORD_AUTH=false
+
+# API OAuth credentials and other Worker secrets are managed as remote
+# Cloudflare secrets. Do not copy them into this root deployment file.

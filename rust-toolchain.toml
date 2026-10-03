@@ -1,0 +1,7 @@
+# The Rust release CI installs, and rustup selects outside the Nix shell. Keep
+# it on the version the flake's Fenix `stable` resolves to (`rustc --version`
+# in the dev shell).
+[toolchain]
+channel = "1.98.0"
+components = ["clippy", "rustfmt"]
+targets = ["wasm32-unknown-unknown"]

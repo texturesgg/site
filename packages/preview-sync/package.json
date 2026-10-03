@@ -1,0 +1,23 @@
+{
+  "name": "@vgskins/preview-sync",
+  "version": "0.1.0",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "wrangler deploy --env production --dry-run --outdir dist",
+    "deploy:production": "wrangler deploy --env production",
+    "refresh": "wrangler workflows trigger vgskins-preview-sync --env production",
+    "cf-typegen": "wrangler types src/worker-configuration.d.ts --config wrangler.toml --env production --include-runtime false --strict-vars false --env-interface PreviewSyncEnv",
+    "test": "vitest run",
+    "typecheck": "pnpm cf-typegen --check && tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "^4.1.10",
+    "wrangler": "catalog:"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "name": "vgskins",
+  "version": "0.1.0",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "scripts": {
+    "dev": "pnpm build:wasm && concurrently -n workers,web -c blue,green \"pnpm dev:workers\" \"pnpm dev:web\"",
+    "dev:workers": "wrangler dev -c packages/api/wrangler.toml -c packages/queue/wrangler.toml --port 8787",
+    "dev:web": "pnpm --filter @vgskins/web dev",
+    "build": "turbo run build --ui tui",
+    "build:api": "turbo run build --filter=@vgskins/api --ui tui",
+    "build:web": "turbo run build --filter=@vgskins/web --ui tui",
+    "build:wasm": "turbo run build --filter=@vgskins/dat-parser --filter=@vgskins/hsd-render --ui tui",
+    "deploy:production": "turbo run deploy:production --filter=@vgskins/api --filter=@vgskins/queue --filter=@vgskins/web --filter=@vgskins/preview-sync --ui tui",
+    "deploy:preview": "turbo run deploy:preview --filter=@vgskins/api --filter=@vgskins/queue --filter=@vgskins/web --ui tui",
+    "preview:refresh-data": "pnpm --filter @vgskins/preview-sync refresh",
+    "test": "turbo run test --ui tui && pnpm test:rust",
+    "test:js": "turbo run test --ui tui",
+    "test:rust": "cargo test --locked --workspace",
+    "typecheck": "turbo run typecheck --ui tui",
+    "lint": "oxlint packages",
+    "format": "oxfmt packages package.json pnpm-workspace.yaml",
+    "format:check": "oxfmt --check packages package.json pnpm-workspace.yaml",
+    "check": "pnpm lint && pnpm format:check",
+    "db:generate": "pnpm --filter @vgskins/db run db:generate",
+    "db:migrate:local": "pnpm --filter @vgskins/db run db:migrate:local",
+    "db:migrate:production": "pnpm --filter @vgskins/db run db:migrate:production",
+    "db:migrate:preview": "pnpm --filter @vgskins/db run db:migrate:preview",
+    "db:seed:local": "pnpm --filter @vgskins/db run db:seed:local",
+    "db:reset:local": "pnpm --filter @vgskins/db run db:reset:local",
+    "db:studio": "pnpm --filter @vgskins/db run db:studio"
+  },
+  "dependencies": {
+    "@cloudflare/workers-types": "^5.20260804.1",
+    "@types/react": "^19.2.18",
+    "better-auth": "^1.6.25",
+    "drizzle-orm": "^0.45.2",
+    "react": "^19.2.8",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.118.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "drizzle-kit": "^0.31.10",
+    "oxfmt": "^0.62.0",
+    "oxlint": "^1.77.0",
+    "turbo": "^2.10.8"
+  },
+  "packageManager": "pnpm@12.0.0-beta.4"
+}

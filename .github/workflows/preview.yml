@@ -1,0 +1,79 @@
+name: Preview
+
+on:
+  pull_request:
+    branches: [main]
+    types: [labeled, synchronize]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-preview
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  VITE_API_URL: https://api-preview.textures.gg
+  VITE_ASSETS_URL: https://api-preview.textures.gg/api/files
+  VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_PREVIEW_TURNSTILE_SITE_KEY }}
+  VITE_ENABLE_EMAIL_PASSWORD_AUTH: "false"
+
+jobs:
+  deploy:
+    name: Deploy shared preview
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(github.event.pull_request.labels.*.name, 'deploy-preview'))
+    # WarpBuild runner: warp-ubuntu-latest-x64-4x
+    runs-on: ubuntu-latest
+    environment: preview
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: pnpm/setup@84cb39b217b10273981911c288cd62326dc7c6d2 # v2.0.2
+        with:
+          runtime: node@24
+          cache: true
+          install: false
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Read the pinned Rust version
+        id: rust
+        run: echo "version=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
+        with:
+          toolchain: ${{ steps.rust.outputs.version }}
+          targets: wasm32-unknown-unknown
+
+      - uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
+        with:
+          tool: wasm-pack@0.14.0
+      - name: Install Binaryen
+        uses: sigoden/install-binary@7eb4b088aedf19fe9b2bc6c6bbdc12379ffb355c # v1.2.0
+        with:
+          repo: WebAssembly/binaryen
+          tag: version_117
+          name: wasm-opt
+          cache: true
+
+      - name: Build DAT parser WASM
+        run: pnpm build:wasm
+
+      - name: Apply preview migrations
+        run: pnpm db:migrate:preview
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy preview workers
+        run: pnpm deploy:preview
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

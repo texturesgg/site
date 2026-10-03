@@ -1,0 +1,22 @@
+[workspace.package]
+license = "GPL-3.0-or-later"
+authors = ["SaavyLab LLC <jayson@saavylab.com>"]
+
+[workspace]
+members = [
+  "packages/dat-parser-wasm",
+  "packages/hsd-render-web",
+]
+resolver = "2"
+
+# No crate here needs `unsafe`; the parsers read untrusted files.
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+# Browser builds (wasm-pack --profile wasm-release): smaller downloads over peak
+# native speed. Native release builds keep the default profile.
+[profile.wasm-release]
+inherits = "release"
+opt-level = "s"
+lto = true
+codegen-units = 1

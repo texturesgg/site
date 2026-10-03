@@ -1,0 +1,16 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!pkg-webgpu/**",
+        "!pkg-webgl/**",
+        "../../Cargo.toml",
+        "../../Cargo.lock"
+      ],
+      "outputs": ["pkg-webgpu/**", "pkg-webgl/**"]
+    }
+  }
+}

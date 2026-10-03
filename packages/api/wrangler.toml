@@ -1,0 +1,252 @@
+# The top-level configuration is for local development. Its name differs from
+# the deployed Workers so that `wrangler deploy` without `--env` cannot replace
+# one of them.
+name = "vgskins-api-dev"
+main = "src/index.ts"
+compatibility_date = "2025-06-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Serve only at the custom domain; the account-level workers.dev subdomain is a
+# personal name outside the zones' controls. Keep it disabled for every env.
+workers_dev = false
+
+# D1 Database
+# Run: wrangler d1 create vgskins-db
+# Then update database_id below
+[[d1_databases]]
+binding = "DB"
+database_name = "vgskins-db"
+database_id = "f1af501c-5fec-4615-a005-5895bba5e1f1"
+
+# R2 Storage for textures, thumbnails, models
+# Run: wrangler r2 bucket create vgskins-assets
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "vgskins-assets"
+
+# Analytics Engine for tracking upvotes, downloads, views
+# Automatically available, no setup needed
+[[analytics_engine_datasets]]
+binding = "ANALYTICS"
+
+# Queue for processing .dat files and generating thumbnails
+# Run: wrangler queues create vgskins-processing
+# Consumer is in @vgskins/queue package
+[[queues.producers]]
+binding = "PROCESSING_QUEUE"
+queue = "vgskins-processing"
+
+# Transactional and notification email. Local development simulates delivery.
+[[send_email]]
+name = "EMAIL"
+allowed_sender_addresses = ["noreply@textures.gg"]
+
+
+# Rate limiting
+# General API: 1200 requests per 60s per key
+[[ratelimits]]
+name = "RATE_LIMIT_API"
+namespace_id = "1001"
+[ratelimits.simple]
+limit = 1200
+period = 60
+
+# Auth endpoints: 100 requests per 60s per key
+[[ratelimits]]
+name = "RATE_LIMIT_AUTH"
+namespace_id = "1002"
+[ratelimits.simple]
+limit = 100
+period = 60
+
+# Upload/comment endpoints: 50 requests per 60s per key
+[[ratelimits]]
+name = "RATE_LIMIT_UPLOAD"
+namespace_id = "1003"
+[ratelimits.simple]
+limit = 50
+period = 60
+
+# Editor problem reports (no account): 5 requests per 60s per key
+[[ratelimits]]
+name = "RATE_LIMIT_EDITOR_REPORT"
+namespace_id = "1004"
+[ratelimits.simple]
+limit = 5
+period = 60
+
+# Download counting: a client's downloads of one pack count once per 60s
+[[ratelimits]]
+name = "RATE_LIMIT_DOWNLOAD_COUNT"
+namespace_id = "1005"
+[ratelimits.simple]
+limit = 1
+period = 60
+
+# Environment variables (development default)
+[vars]
+ENVIRONMENT = "development"
+API_BASE_URL = "http://localhost:8787"
+SITE_BASE_URL = "http://localhost:5174"
+ASSETS_BASE_URL = "http://localhost:8787/api/files"
+
+# Production environment - deploy with: wrangler deploy --env production
+[env.production]
+name = "vgskins-api"
+vars = { ENVIRONMENT = "production", API_BASE_URL = "https://api.textures.gg", SITE_BASE_URL = "https://textures.gg", ASSETS_BASE_URL = "https://assets.textures.gg" }
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "vgskins-db"
+database_id = "f1af501c-5fec-4615-a005-5895bba5e1f1"
+
+[[env.production.r2_buckets]]
+binding = "BUCKET"
+bucket_name = "vgskins-assets"
+
+[[env.production.analytics_engine_datasets]]
+binding = "ANALYTICS"
+
+[[env.production.queues.producers]]
+binding = "PROCESSING_QUEUE"
+queue = "vgskins-processing"
+
+[[env.production.send_email]]
+name = "EMAIL"
+allowed_sender_addresses = ["noreply@textures.gg"]
+
+
+[[env.production.ratelimits]]
+name = "RATE_LIMIT_API"
+namespace_id = "1001"
+[env.production.ratelimits.simple]
+limit = 1200
+period = 60
+
+[[env.production.ratelimits]]
+name = "RATE_LIMIT_AUTH"
+namespace_id = "1002"
+[env.production.ratelimits.simple]
+limit = 100
+period = 60
+
+[[env.production.ratelimits]]
+name = "RATE_LIMIT_UPLOAD"
+namespace_id = "1003"
+[env.production.ratelimits.simple]
+limit = 50
+period = 60
+
+# Editor problem reports (no account): 5 requests per 60s per key
+[[env.production.ratelimits]]
+name = "RATE_LIMIT_EDITOR_REPORT"
+namespace_id = "1004"
+[env.production.ratelimits.simple]
+limit = 5
+period = 60
+
+# Download counting: a client's downloads of one pack count once per 60s
+[[env.production.ratelimits]]
+name = "RATE_LIMIT_DOWNLOAD_COUNT"
+namespace_id = "1005"
+[env.production.ratelimits.simple]
+limit = 1
+period = 60
+
+# Shared preview environment
+[env.preview]
+name = "vgskins-api-preview"
+routes = [{ pattern = "api-preview.textures.gg", custom_domain = true }]
+vars = { ENVIRONMENT = "preview", API_BASE_URL = "https://api-preview.textures.gg", SITE_BASE_URL = "https://preview.textures.gg", ASSETS_BASE_URL = "https://assets.textures.gg" }
+
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "vgskins-preview-db"
+database_id = "1fbcf108-4dbb-4923-95bc-a9758c309238"
+
+[[env.preview.r2_buckets]]
+binding = "BUCKET"
+bucket_name = "vgskins-preview-assets"
+
+[[env.preview.analytics_engine_datasets]]
+binding = "ANALYTICS"
+dataset = "vgskins_preview_analytics"
+
+
+[[env.preview.queues.producers]]
+binding = "PROCESSING_QUEUE"
+queue = "vgskins-preview-processing"
+
+[[env.preview.ratelimits]]
+name = "RATE_LIMIT_API"
+namespace_id = "2001"
+[env.preview.ratelimits.simple]
+limit = 1200
+period = 60
+
+[[env.preview.ratelimits]]
+name = "RATE_LIMIT_AUTH"
+namespace_id = "2002"
+[env.preview.ratelimits.simple]
+limit = 100
+period = 60
+
+[[env.preview.ratelimits]]
+name = "RATE_LIMIT_UPLOAD"
+namespace_id = "2003"
+[env.preview.ratelimits.simple]
+limit = 50
+period = 60
+
+# Editor problem reports (no account): 5 requests per 60s per key
+[[env.preview.ratelimits]]
+name = "RATE_LIMIT_EDITOR_REPORT"
+namespace_id = "2004"
+[env.preview.ratelimits.simple]
+limit = 5
+period = 60
+
+# Download counting: a client's downloads of one pack count once per 60s
+[[env.preview.ratelimits]]
+name = "RATE_LIMIT_DOWNLOAD_COUNT"
+namespace_id = "2005"
+[env.preview.ratelimits.simple]
+limit = 1
+period = 60
+
+# Environment-specific Worker secrets. Repeat with `--env preview` using
+# preview-only values for integrations that are intentionally enabled there.
+# Production authentication:
+# wrangler secret put BETTER_AUTH_SECRET --env production
+# wrangler secret put DISCORD_CLIENT_ID --env production
+# wrangler secret put DISCORD_CLIENT_SECRET --env production
+# wrangler secret put GOOGLE_CLIENT_ID --env production
+# wrangler secret put GOOGLE_CLIENT_SECRET --env production
+# wrangler secret put GITHUB_CLIENT_ID --env production
+# wrangler secret put GITHUB_CLIENT_SECRET --env production
+# wrangler secret put TWITTER_CLIENT_ID --env production
+# wrangler secret put TWITTER_CLIENT_SECRET --env production
+# Bot verification (the upload route enforces Turnstile when this is set):
+# wrangler secret put TURNSTILE_SECRET --env production
+# Optional API Discord webhooks:
+# wrangler secret put DISCORD_WEBHOOK_REPORTS --env production
+# wrangler secret put DISCORD_WEBHOOK_UPLOADS --env production
+# DISCORD_WEBHOOK_MOD belongs to the Queue Worker, not the API Worker.
+
+[dev]
+port = 8787
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = true
+persist = true
+head_sampling_rate = 1

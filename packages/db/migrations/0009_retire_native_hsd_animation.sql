@@ -1,0 +1,1 @@
+UPDATE `targets` SET `native_hsd_animation_key` = NULL;

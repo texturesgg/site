@@ -1,0 +1,7 @@
+{
+  "recommendations": [
+    "oxc.oxc-vscode",
+    "cloudflare.vscode-cloudflare-workers",
+    "rust-lang.rust-analyzer"
+  ]
+}

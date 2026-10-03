@@ -1,0 +1,97 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1773261789659,
+      "tag": "0000_cold_beast",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1773277639605,
+      "tag": "0001_chief_ultron",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1773282014883,
+      "tag": "0002_lowly_sway",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1785461514920,
+      "tag": "0003_boring_rictor",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1785466884824,
+      "tag": "0004_sturdy_diamondback",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1785565151771,
+      "tag": "0005_simple_rocket_racer",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1785995078287,
+      "tag": "0006_ambiguous_lady_bullseye",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1786042142511,
+      "tag": "0007_icy_warstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1786692144030,
+      "tag": "0008_petite_cassandra_nova",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1786993895659,
+      "tag": "0009_retire_native_hsd_animation",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1790196397081,
+      "tag": "0010_costume_file_codes",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1790223390300,
+      "tag": "0011_fix_percent_encoded_slugs",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1791062480153,
+      "tag": "0012_comment_replies_and_indexes",
+      "breakpoints": true
+    }
+  ]
+}

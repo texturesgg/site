@@ -1,0 +1,49 @@
+{
+  "name": "@vgskins/web",
+  "version": "0.1.0",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "sideEffects": [
+    "*.css"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && tsc",
+    "preview": "vite preview",
+    "deploy:production": "wrangler deploy --env production",
+    "deploy:preview": "wrangler deploy --env preview",
+    "cf-typegen": "wrangler types src/worker-configuration.d.ts --config wrangler.toml --config ../api/wrangler.toml --include-runtime false --strict-vars false",
+    "typecheck": "pnpm cf-typegen --check && tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@base-ui/react": "1.8.0",
+    "@marsidev/react-turnstile": "^1.5.4",
+    "@stylexjs/stylex": "0.19.1",
+    "@tanstack/react-query": "^5.101.4",
+    "@tanstack/react-router": "1.170.38",
+    "@vgskins/hsd-render": "workspace:*",
+    "@vgskins/logger": "workspace:*",
+    "@vgskins/shared": "workspace:*",
+    "better-auth": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "sonner": "^2.0.7",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@stylexjs/unplugin": "0.19.1",
+    "@tanstack/router-plugin": "^1.168.40",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vgskins/api": "workspace:*",
+    "@vitejs/plugin-react": "^6.0.5",
+    "hono": "catalog:",
+    "typescript": "catalog:",
+    "vite": "^8.2.0",
+    "vitest": "^4.1.10",
+    "wrangler": "catalog:"
+  }
+}

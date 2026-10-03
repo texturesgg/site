@@ -1,0 +1,23 @@
+{
+  "name": "@vgskins/hsd-render",
+  "version": "0.1.0",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "exports": {
+    "./webgpu": {
+      "types": "./pkg-webgpu/hsd_render_web.d.ts",
+      "import": "./pkg-webgpu/hsd_render_web.js"
+    },
+    "./webgl": {
+      "types": "./pkg-webgl/hsd_render_web.d.ts",
+      "import": "./pkg-webgl/hsd_render_web.js"
+    }
+  },
+  "scripts": {
+    "build": "pnpm run build:webgpu && pnpm run build:webgl",
+    "build:webgpu": "wasm-pack build . --target web --out-dir pkg-webgpu --out-name hsd_render_web --profile wasm-release --no-pack -- --features webgpu",
+    "build:webgl": "wasm-pack build . --target web --out-dir pkg-webgl --out-name hsd_render_web --profile wasm-release --no-pack -- --features webgl",
+    "build:debug-panics": "wasm-pack build . --target web --out-dir pkg-webgpu --out-name hsd_render_web --profile wasm-release --no-pack -- --features webgpu,debug-panics && wasm-pack build . --target web --out-dir pkg-webgl --out-name hsd_render_web --profile wasm-release --no-pack -- --features webgl,debug-panics"
+  }
+}

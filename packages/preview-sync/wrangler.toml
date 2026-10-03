@@ -1,0 +1,37 @@
+name = "vgskins-preview-sync"
+main = "src/index.ts"
+compatibility_date = "2026-08-05"
+workers_dev = false
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = true
+persist = true
+head_sampling_rate = 1
+
+[env.production]
+name = "vgskins-preview-sync"
+
+[[env.production.workflows]]
+name = "vgskins-preview-sync"
+binding = "PREVIEW_SYNC"
+class_name = "PreviewSyncWorkflow"
+
+[[env.production.d1_databases]]
+binding = "SOURCE_DB"
+database_name = "vgskins-db"
+database_id = "f1af501c-5fec-4615-a005-5895bba5e1f1"
+
+[[env.production.d1_databases]]
+binding = "TARGET_DB"
+database_name = "vgskins-preview-db"
+database_id = "1fbcf108-4dbb-4923-95bc-a9758c309238"

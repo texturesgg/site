@@ -1,0 +1,36 @@
+packages:
+  - "packages/*"
+
+overrides:
+  "esbuild@<=0.24.2": 0.25.12
+  # Temporary supply-chain age-policy fallback; remove after 4.23.6 matures.
+  "tsx@4.23.6": 4.23.5
+  "undici@>=7.0.0 <7.29.0": 7.29.0
+
+catalog:
+  # Shared tooling - versions managed by pnpm add
+  typescript: ^7.0.2
+  wrangler: ^4.118.0
+
+  # Cloudflare types
+  "@cloudflare/workers-types": ^5.20260804.1
+
+  # React ecosystem
+  react: ^19.2.8
+  react-dom: ^19.2.8
+  "@types/react": ^19.2.18
+  "@types/react-dom": ^19.2.4
+
+  # Hono
+  hono: ^4.13.8
+
+  # Database
+  drizzle-orm: ^0.45.2
+  drizzle-kit: ^0.31.10
+
+  # Auth
+  better-auth: ^1.6.25
+
+allowBuilds:
+  esbuild: true
+  workerd: true

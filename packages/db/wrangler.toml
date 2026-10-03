@@ -1,0 +1,16 @@
+# Not a deployed Worker: this file gives `wrangler d1` the database bindings.
+name = "vgskins-db"
+compatibility_date = "2025-06-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "vgskins-db"
+database_id = "f1af501c-5fec-4615-a005-5895bba5e1f1"
+
+[env.preview]
+name = "vgskins-db-preview"
+
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "vgskins-preview-db"
+database_id = "1fbcf108-4dbb-4923-95bc-a9758c309238"

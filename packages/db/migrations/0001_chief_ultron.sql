@@ -1,0 +1,1 @@
+ALTER TABLE `mods` ADD `glb_key` text;

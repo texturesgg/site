@@ -1,0 +1,114 @@
+/*
+ * Base styles. Components are styled with StyleX (src/ui), which emits unlayered
+ * CSS; everything here sits in the `base` layer, so any component style wins over
+ * it without specificity tricks. Keep this file to resets and document-level rules.
+ */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    border: 0 solid;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    tab-size: 4;
+    line-height: 1.5;
+    scrollbar-gutter: stable;
+  }
+
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  /* Background, text color, and font come from the Gallery tokens on <html>
+     (src/ui/patterns/layout.ts). body is positioned for iOS Safari backdrops. */
+  body {
+    position: relative;
+    min-width: 320px;
+  }
+
+  /* Base UI renders popovers, menus, dialogs, and drawers in portals after
+     #root. Isolating #root keeps the app's z-indices inside it, so portals
+     always paint on top. */
+  #root {
+    isolation: isolate;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-size: inherit;
+    font-weight: inherit;
+  }
+
+  ol,
+  ul {
+    list-style: none;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: inherit;
+  }
+
+  b,
+  strong {
+    font-weight: bolder;
+  }
+
+  code,
+  kbd,
+  pre,
+  samp {
+    font-family: inherit;
+    font-size: 1em;
+  }
+
+  img,
+  svg,
+  video,
+  canvas {
+    display: block;
+    max-width: 100%;
+  }
+
+  img,
+  video {
+    height: auto;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+    letter-spacing: inherit;
+    background-color: transparent;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  ::placeholder {
+    opacity: 1;
+  }
+
+  table {
+    border-collapse: collapse;
+  }
+
+  [hidden] {
+    display: none;
+  }
+}

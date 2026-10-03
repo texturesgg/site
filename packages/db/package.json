@@ -1,0 +1,31 @@
+{
+  "name": "@vgskins/db",
+  "version": "0.1.0",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local --persist-to ../api/.wrangler/state",
+    "db:migrate:production": "wrangler d1 migrations apply DB --remote",
+    "db:seed:local": "wrangler d1 execute DB --local --persist-to ../api/.wrangler/state --file seed.sql",
+    "db:migrate:preview": "wrangler d1 migrations apply DB --env preview --remote",
+    "db:reset:local": "rm -rf ../api/.wrangler/state/v3/d1 && pnpm db:migrate:local && pnpm db:seed:local",
+    "db:studio": "drizzle-kit studio",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test scripts/*.test.mjs",
+    "legacy-backfill": "node scripts/legacy-backfill.mjs"
+  },
+  "dependencies": {
+    "drizzle-orm": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@vgskins/shared": "workspace:*",
+    "drizzle-kit": "catalog:",
+    "typescript": "catalog:",
+    "wrangler": "catalog:"
+  }
+}

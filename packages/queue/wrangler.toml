@@ -1,0 +1,141 @@
+name = "vgskins-queue"
+main = "src/index.ts"
+compatibility_date = "2025-06-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Serve only at the custom domain; the account-level workers.dev subdomain is a
+# personal name outside the zones' controls. Keep it disabled for every env.
+workers_dev = false
+
+# D1 Database (same as API)
+[[d1_databases]]
+binding = "DB"
+database_name = "vgskins-db"
+database_id = "f1af501c-5fec-4615-a005-5895bba5e1f1"
+
+# R2 Storage (same as API)
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "vgskins-assets"
+
+# Cloudflare Images (for image optimization)
+[images]
+binding = "IMAGES"
+
+# Notification email. Local development simulates delivery.
+[[send_email]]
+name = "EMAIL"
+allowed_sender_addresses = ["notifications@textures.gg"]
+
+# Queue consumer
+[[queues.consumers]]
+queue = "vgskins-processing"
+max_batch_size = 10
+max_batch_timeout = 30
+max_retries = 5
+dead_letter_queue = "vgskins-processing-dlq"
+
+# Dead-letter consumer: surfaces messages that exhausted retries instead of
+# leaving them unread and unobserved. See packages/queue/src/dead-letter.ts.
+[[queues.consumers]]
+queue = "vgskins-processing-dlq"
+max_batch_size = 10
+max_batch_timeout = 30
+max_retries = 3
+
+[triggers]
+crons = ["17 * * * *"]
+
+[vars]
+ENVIRONMENT = "development"
+
+# Production environment - deploy with: wrangler deploy --env production
+[env.production]
+name = "vgskins-queue"
+vars = { ENVIRONMENT = "production" }
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "vgskins-db"
+database_id = "f1af501c-5fec-4615-a005-5895bba5e1f1"
+
+[[env.production.r2_buckets]]
+binding = "BUCKET"
+bucket_name = "vgskins-assets"
+
+[env.production.images]
+binding = "IMAGES"
+
+[[env.production.send_email]]
+name = "EMAIL"
+allowed_sender_addresses = ["notifications@textures.gg"]
+
+[[env.production.queues.consumers]]
+queue = "vgskins-processing"
+max_batch_size = 10
+max_batch_timeout = 30
+max_retries = 5
+dead_letter_queue = "vgskins-processing-dlq"
+
+[[env.production.queues.consumers]]
+queue = "vgskins-processing-dlq"
+max_batch_size = 10
+max_batch_timeout = 30
+max_retries = 3
+
+[env.production.triggers]
+crons = ["17 * * * *"]
+
+# Shared preview environment
+[env.preview]
+name = "vgskins-queue-preview"
+vars = { ENVIRONMENT = "preview" }
+
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "vgskins-preview-db"
+database_id = "1fbcf108-4dbb-4923-95bc-a9758c309238"
+
+[[env.preview.r2_buckets]]
+binding = "BUCKET"
+bucket_name = "vgskins-preview-assets"
+
+[env.preview.images]
+binding = "IMAGES"
+
+[[env.preview.queues.consumers]]
+queue = "vgskins-preview-processing"
+max_batch_size = 10
+max_batch_timeout = 30
+max_retries = 5
+dead_letter_queue = "vgskins-preview-processing-dlq"
+
+[[env.preview.queues.consumers]]
+queue = "vgskins-preview-processing-dlq"
+max_batch_size = 10
+max_batch_timeout = 30
+max_retries = 3
+
+# Optional production moderation webhook. Leave it unset in preview unless
+# outbound notifications are being tested intentionally.
+# wrangler secret put DISCORD_WEBHOOK_MOD --env production
+#
+# Optional dead-letter alert webhook. When set, messages that exhaust retries
+# and land in a dead-letter queue are reported to it; without it they are still
+# logged at error level. Use an operations channel, not the moderation one.
+# wrangler secret put DISCORD_WEBHOOK_ALERTS --env production
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = true
+persist = true
+head_sampling_rate = 1

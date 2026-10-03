@@ -1,0 +1,1 @@
+CREATE INDEX `downloaded_at_idx` ON `downloads` (`downloaded_at`);

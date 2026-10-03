@@ -1,0 +1,17 @@
+{
+  "name": "@vgskins/dat-parser",
+  "version": "0.1.0",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./pkg/dat_parser.d.ts",
+      "import": "./pkg/dat_parser.js"
+    },
+    "./dat_parser_bg.wasm": "./pkg/dat_parser_bg.wasm"
+  },
+  "scripts": {
+    "build": "wasm-pack build . --target web --out-dir pkg --out-name dat_parser --profile wasm-release --no-pack"
+  }
+}

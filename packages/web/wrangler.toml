@@ -1,0 +1,74 @@
+name = "vgskins-web"
+main = "src/worker.ts"
+compatibility_date = "2025-06-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Serve only at the custom domain; the account-level workers.dev subdomain is a
+# personal name outside the zones' controls. Keep it disabled for every env.
+workers_dev = false
+
+[vars]
+ENVIRONMENT = "production"
+API_BASE_URL = "https://api.textures.gg"
+ASSETS_BASE_URL = "https://assets.textures.gg"
+
+[[services]]
+binding = "API"
+service = "vgskins-api"
+entrypoint = "PublicCatalogEntrypoint"
+
+# Workers Static Assets configuration
+# Serves the built Vite output as a static site
+[assets]
+directory = "./dist"
+# SPA mode: serve index.html for all unmatched routes (client-side routing)
+not_found_handling = "single-page-application"
+binding = "ASSETS"
+# Let the Worker handle these paths before static asset serving kicks in
+run_worker_first = true
+
+[env.production]
+name = "vgskins-web"
+vars = { ENVIRONMENT = "production", API_BASE_URL = "https://api.textures.gg", ASSETS_BASE_URL = "https://assets.textures.gg" }
+
+[[env.production.services]]
+binding = "API"
+service = "vgskins-api"
+entrypoint = "PublicCatalogEntrypoint"
+
+[env.production.assets]
+directory = "./dist"
+not_found_handling = "single-page-application"
+binding = "ASSETS"
+run_worker_first = true
+
+[env.preview]
+name = "vgskins-web-preview"
+routes = [{ pattern = "preview.textures.gg", custom_domain = true }]
+vars = { ENVIRONMENT = "preview", API_BASE_URL = "https://api-preview.textures.gg", ASSETS_BASE_URL = "https://api-preview.textures.gg/api/files" }
+
+[[env.preview.services]]
+binding = "API"
+service = "vgskins-api-preview"
+entrypoint = "PublicCatalogEntrypoint"
+
+[env.preview.assets]
+directory = "./dist"
+not_found_handling = "single-page-application"
+binding = "ASSETS"
+run_worker_first = true
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = true
+persist = true
+head_sampling_rate = 1

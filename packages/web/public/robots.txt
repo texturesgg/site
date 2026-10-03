@@ -1,0 +1,7 @@
+# Welcome to textures.gg — a community archive of video game texture mods.
+# You're free to look around. Preserving gaming history, one texture at a time.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://textures.gg/sitemap.xml
