@@ -11,7 +11,6 @@ compile_error!("build with exactly one of the `webgpu` or `webgl` features");
 #[cfg(not(any(feature = "webgpu", feature = "webgl")))]
 compile_error!("build with exactly one of the `webgpu` or `webgl` features");
 
-use std::cell::OnceCell;
 use std::fmt::Display;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -19,8 +18,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use dat_parser::hsd::draw::HsdDrawEvaluationPolicy;
 use hsd_render::{CameraView, HsdRenderer, Orbit, PreparedGeometry, neutral_preview_lighting};
 use js_sys::{Array, Reflect, Uint8Array};
-use melee_dat::MeleeModel;
-use melee_dat::{MeleeReferenceCatalog, MeleeReferenceStore};
+use melee_dat::{
+    FighterAttachOutcome, MeleeModel, MeleeModelKind, MeleeReferenceCatalog, MeleeReferenceStore,
+};
 use wasm_bindgen::prelude::*;
 
 #[cfg(feature = "webgpu")]
@@ -30,10 +30,6 @@ const BACKENDS: wgpu::Backends = wgpu::Backends::GL;
 
 /// The site preview stops zooming short of the model; the editor goes closer.
 const PREVIEW_MIN_ZOOM: f64 = 0.35;
-
-thread_local! {
-    static CATALOG: OnceCell<Result<MeleeReferenceCatalog, String>> = const { OnceCell::new() };
-}
 
 /// With `debug-panics`, a Rust panic reaches the console with its message
 /// instead of trapping as a bare `unreachable`.
@@ -73,15 +69,6 @@ fn error(code: &str, message: impl Display) -> JsValue {
     error.into()
 }
 
-fn with_catalog<T>(use_catalog: impl FnOnce(&MeleeReferenceCatalog) -> T) -> Result<T, JsValue> {
-    CATALOG.with(|cell| {
-        match cell.get_or_init(|| MeleeReferenceCatalog::checked_in().map_err(|e| e.to_string())) {
-            Ok(catalog) => Ok(use_catalog(catalog)),
-            Err(message) => Err(error("invalid-catalog", message)),
-        }
-    })
-}
-
 /// A parsed costume or model, before it has a canvas.
 #[wasm_bindgen]
 pub struct HsdScene {
@@ -108,30 +95,29 @@ impl HsdScene {
     /// pass the bytes to [`Self::attach_idle`].
     #[wasm_bindgen(js_name = idleReferenceAssets, unchecked_return_type = "{ key: string; byteLength: number }[] | undefined")]
     pub fn idle_reference_assets(&self) -> Result<JsValue, JsValue> {
-        let Some(MeleeModel::Static(source)) = &self.model else {
+        let Some(model) = &self.model else {
             return Ok(JsValue::UNDEFINED);
         };
-        if source.policy != HsdDrawEvaluationPolicy::MELEE_FIGHTER {
+        if model.static_policy() != Some(HsdDrawEvaluationPolicy::MELEE_FIGHTER) {
             return Ok(JsValue::UNDEFINED);
         }
-        with_catalog(|catalog| {
-            let Some(assets) = catalog.idle_reference_assets(&source.scene) else {
-                return JsValue::UNDEFINED;
-            };
-            let list = Array::new();
-            for asset in assets {
-                let entry = js_sys::Object::new();
-                // Setting properties on a fresh plain object cannot fail.
-                let _ = Reflect::set(&entry, &"key".into(), &asset.key.as_str().into());
-                let _ = Reflect::set(
-                    &entry,
-                    &"byteLength".into(),
-                    &(asset.byte_length as f64).into(),
-                );
-                list.push(&entry);
-            }
-            list.into()
-        })
+        let catalog = MeleeReferenceCatalog::checked_in();
+        let Some(assets) = catalog.idle_reference_assets(model.scene()) else {
+            return Ok(JsValue::UNDEFINED);
+        };
+        let list = Array::new();
+        for asset in assets {
+            let entry = js_sys::Object::new();
+            // Setting properties on a fresh plain object cannot fail.
+            let _ = Reflect::set(&entry, &"key".into(), &asset.key.as_str().into());
+            let _ = Reflect::set(
+                &entry,
+                &"byteLength".into(),
+                &(asset.byte_length as f64).into(),
+            );
+            list.push(&entry);
+        }
+        Ok(list.into())
     }
 
     /// Attach the catalog idle from fetched reference bytes, each admitted only
@@ -140,9 +126,9 @@ impl HsdScene {
     /// when a reference is missing or wrong, or native attachment fails.
     #[wasm_bindgen(js_name = attachIdle)]
     pub fn attach_idle(&mut self, files: Array) -> Result<bool, JsValue> {
-        let Some(MeleeModel::Static(_)) = &self.model else {
+        if self.model.as_ref().map(MeleeModel::kind) != Some(MeleeModelKind::Static) {
             return Err(error("invalid-state", "idle is already attached"));
-        };
+        }
         let bytes: Vec<Vec<u8>> = files
             .iter()
             .map(|file| {
@@ -154,13 +140,15 @@ impl HsdScene {
         let Some(model) = self.model.take() else {
             return Err(error("invalid-state", "scene has no model"));
         };
-        with_catalog(|catalog| {
-            let store = MeleeReferenceStore::from_bytes(catalog, bytes);
-            let (model, failure) = model.attach_fighter(catalog, &store);
-            let attached = model.fighter().is_some();
-            self.model = Some(model);
-            failure.map_or(Ok(attached), |e| Err(error("idle-failed", e)))
-        })?
+        let catalog = MeleeReferenceCatalog::checked_in();
+        let store = MeleeReferenceStore::from_bytes(catalog, bytes);
+        let (model, outcome) = model.attach_fighter(catalog, &store);
+        self.model = Some(model);
+        match outcome {
+            FighterAttachOutcome::Attached => Ok(true),
+            FighterAttachOutcome::Failed(e) => Err(error("idle-failed", e)),
+            _ => Ok(false),
+        }
     }
 
     #[wasm_bindgen(getter, js_name = hasIdle)]

@@ -188,9 +188,9 @@ dependencies = [
 
 [[package]]
 name = "dat-parser"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5777c179f635fa08a69346f901d429167e318718d4699eda89f92d23fad09b3"
+checksum = "6a788b3ee337b2c59aeff1b224508e08af325a00acc1293890057307270afcf3"
 dependencies = [
  "gx-texture",
  "hal-dat-raw",
@@ -369,9 +369,9 @@ dependencies = [
 
 [[package]]
 name = "gx-texture"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fbab9dd05d4b28a8d02ee2e672ff2fc656eb6127390c8077d6a9885030ef051"
+checksum = "20d93e238c6dc4fa84959c9804e64c934c42efa508f20f471b0b9f826856cd53"
 dependencies = [
  "rayon",
  "thiserror",
@@ -379,9 +379,9 @@ dependencies = [
 
 [[package]]
 name = "hal-dat-raw"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92774b17e75def90e7f3a14f66360c141e2b01c54e1e463bb6816fb6d1f33d14"
+checksum = "1f3a842e3404370683330b09a7ed8ff4c9dcd548eb882cf5e5b26f476141b3e0"
 
 [[package]]
 name = "half"
@@ -429,9 +429,9 @@ checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
 
 [[package]]
 name = "hsd-render"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a57b63ff4982139b9641de8546a4e70d3e7ec83c12cac2e44a5e64dfc614046b"
+checksum = "32a6154b5cabe43a265e093f853f93af6d17c450f0f70b28cb26f47462add96e"
 dependencies = [
  "bytemuck",
  "dat-parser",
@@ -574,9 +574,9 @@ checksum = "0ceec5bc11778974d1bcb055b18002eba7f4b3518b6a0081b3af5f21666da9ad"
 
 [[package]]
 name = "melee-dat"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "903d0d15113e8b2c403ab19d175df45352ae6213ad376a6789740fd66a723748"
+checksum = "5825c7183ffdfc9f6b0dd95d972ac45f2fd3acd870303a65eee29afd179e9911"
 dependencies = [
  "dat-parser",
  "serde",
