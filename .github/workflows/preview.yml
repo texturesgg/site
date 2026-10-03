@@ -1,10 +1,20 @@
 name: Preview
 
+# Deploys a pull request to the shared preview. Pull requests by the authors
+# in the PREVIEW_TRUSTED_AUTHORS variable (a JSON array of logins) deploy in
+# the `preview` environment; anyone else's wait for approval in
+# `preview-review`. A fork's pull request gets no secrets, so a maintainer
+# deploys it by hand: Run workflow with its number.
+
 on:
   pull_request:
     branches: [main]
     types: [labeled, synchronize]
   workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull request number (empty deploys the chosen branch)
+        required: false
 
 concurrency:
   group: deploy-preview
@@ -20,20 +30,55 @@ env:
   VITE_ENABLE_EMAIL_PASSWORD_AUTH: "false"
 
 jobs:
-  deploy:
-    name: Deploy shared preview
+  resolve:
+    name: Choose what to deploy
     if: >-
       github.event_name != 'pull_request' ||
       (github.event.pull_request.head.repo.full_name == github.repository &&
       contains(github.event.pull_request.labels.*.name, 'deploy-preview'))
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      sha: ${{ steps.pick.outputs.sha }}
+      environment: ${{ steps.pick.outputs.environment }}
+    steps:
+      - id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          PR_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          DISPATCH_PR: ${{ inputs.pr }}
+          TRUSTED: ${{ vars.PREVIEW_TRUSTED_AUTHORS || '[]' }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            sha=$PR_SHA author=$PR_AUTHOR
+          elif [ -n "$DISPATCH_PR" ]; then
+            read -r sha author < <(gh api "repos/$GITHUB_REPOSITORY/pulls/$DISPATCH_PR" --jq '"\(.head.sha) \(.user.login)"')
+          else
+            sha=$GITHUB_SHA author=$GITHUB_ACTOR
+          fi
+          if jq -e --arg author "$author" 'index($author) != null' <<<"$TRUSTED" >/dev/null; then
+            environment=preview
+          else
+            environment=preview-review
+          fi
+          echo "Deploying $sha by $author in $environment"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "environment=$environment" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy shared preview
+    needs: resolve
     # WarpBuild runner: warp-ubuntu-latest-x64-4x
     runs-on: ubuntu-latest
-    environment: preview
+    environment: ${{ needs.resolve.outputs.environment }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ needs.resolve.outputs.sha }}
 
       - uses: pnpm/setup@84cb39b217b10273981911c288cd62326dc7c6d2 # v2.0.2
         with:
