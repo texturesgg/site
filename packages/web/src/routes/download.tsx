@@ -1,8 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
 import { createFileRoute } from "@tanstack/react-router";
-import { ASSETS_URL, DISCORD_URL } from "@/lib/config";
+import { DISCORD_URL } from "@/lib/config";
 import { DownloadIcon } from "@/ui/icons";
-import { Article, ArticleSection, Strong } from "@/ui/patterns/Article";
+import { Article, ArticleSection, Code, Strong } from "@/ui/patterns/Article";
 import { layout } from "@/ui/patterns/layout";
 import { PageHeader } from "@/ui/patterns/PageHeader";
 import { AnchorButton, TextAnchor, TextLink } from "@/ui/primitives";
@@ -10,24 +10,30 @@ import { color, font, radius, space, text } from "@/ui/tokens.stylex";
 
 const VERSION = "0.1.0";
 
-const PLATFORMS = [
+const PLATFORMS: { name: string; requirement: string; file?: string }[] = [
   {
-    name: "Windows",
-    requirement: "Windows 10 or later",
-    file: `textures.gg_${VERSION}_x64-setup.exe`,
+    name: "macOS",
+    requirement: "macOS 12 or later, Apple silicon",
+    file: `textures.gg-${VERSION}-macos-arm64.dmg`,
   },
-  { name: "Linux", requirement: "Debian or Ubuntu", file: `textures.gg_${VERSION}_amd64.deb` },
-] as const;
+  {
+    name: "Linux",
+    requirement: "x86-64: Ubuntu 22.04, Debian 12, Fedora 36, or later",
+    file: `textures.gg-${VERSION}-linux-x86_64.tar.gz`,
+  },
+  { name: "Windows", requirement: "Coming soon" },
+];
 
-const downloadUrl = (file: string) => `${ASSETS_URL}/desktop/v${VERSION}/${file}`;
+const downloadUrl = (file: string) =>
+  `https://github.com/texturesgg/texturesgg/releases/download/app-v${VERSION}/${file}`;
 
 export const Route = createFileRoute("/download")({
   head: () => ({
     meta: [
-      { title: "Download the desktop app - textures.gg" },
+      { title: "Download the app - textures.gg" },
       {
         name: "description",
-        content: "Download the textures.gg desktop app to apply texture mods to your Melee ISO.",
+        content: "Get the textures.gg app to put skins into the Melee you play on Slippi.",
       },
     ],
   }),
@@ -58,36 +64,40 @@ function Download() {
   return (
     <div {...stylex.props(layout.container, layout.page, styles.page)}>
       <PageHeader
-        title="Download the desktop app"
-        description={`Apply texture mods to your Melee ISO: drop in .dat files or .zip packs, press Save, done. Version ${VERSION}.`}
+        title="Download the app"
+        description={`Get skins into the Melee you play on Slippi, and see them in 3D before you play. Version ${VERSION}.`}
       />
       <div {...stylex.props(layout.narrow)}>
         <Article>
           <ul aria-label="Downloads" {...stylex.props(styles.platforms)}>
             {PLATFORMS.map((platform) => (
-              <li key={platform.file} {...stylex.props(styles.platform)}>
+              <li key={platform.name} {...stylex.props(styles.platform)}>
                 <span {...stylex.props(styles.platformText)}>
                   <span {...stylex.props(styles.platformName)}>{platform.name}</span>
                   <span {...stylex.props(styles.platformMeta)}>{platform.requirement}</span>
-                  <span {...stylex.props(styles.file)}>{platform.file}</span>
+                  {platform.file && <span {...stylex.props(styles.file)}>{platform.file}</span>}
                 </span>
-                <AnchorButton
-                  href={downloadUrl(platform.file)}
-                  variant="primary"
-                  icon={<DownloadIcon />}
-                  aria-label={`Download for ${platform.name}`}
-                >
-                  Download
-                </AnchorButton>
+                {platform.file && (
+                  <AnchorButton
+                    href={downloadUrl(platform.file)}
+                    variant="primary"
+                    icon={<DownloadIcon />}
+                    aria-label={`Download for ${platform.name}`}
+                  >
+                    Download
+                  </AnchorButton>
+                )}
               </li>
             ))}
           </ul>
 
-          <ArticleSection title="First launch">
+          <ArticleSection title="Installing">
             <p>
-              On Windows, SmartScreen may warn about an unknown publisher. Choose{" "}
-              <Strong>More info</Strong>, then <Strong>Run anyway</Strong>. You only need to do this
-              once.
+              <Strong>macOS:</Strong> open the .dmg and drag textures.gg into Applications.
+            </p>
+            <p>
+              <Strong>Linux:</Strong> extract it and run <Code>install.sh</Code>, then it&apos;ll
+              show up in your app menu.
             </p>
           </ArticleSection>
 
