@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { DISCORD_URL } from "@/lib/config";
+import { DISCORD_URL, GITHUB_URL } from "@/lib/config";
 import { createLink } from "@tanstack/react-router";
 import type { ComponentProps, Ref } from "react";
 import { color, radius, space, text } from "../tokens.stylex";
@@ -55,9 +55,10 @@ export function SiteFooter() {
         <p>textures.gg — a community archive of Super Smash Bros. Melee textures</p>
         <nav aria-label="Footer" {...stylex.props(styles.nav)}>
           <FooterLink to="/guides">Install guide</FooterLink>
-          <FooterLink to="/download">Desktop app</FooterLink>
+          <FooterLink to="/download">App</FooterLink>
           <FooterLink to="/about">About</FooterLink>
           <FooterAnchor href={DISCORD_URL}>Discord</FooterAnchor>
+          <FooterAnchor href={GITHUB_URL}>GitHub</FooterAnchor>
         </nav>
       </div>
     </footer>
