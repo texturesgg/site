@@ -1,22 +1,5 @@
 {
   "nodes": {
-    "core": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1791095781,
-        "narHash": "sha256-9PRYLuwnQ3WMJebyjFHaK2eB2wB3e1dmfygSCc2TJB0=",
-        "owner": "texturesgg",
-        "repo": "texturesgg",
-        "rev": "d03cf8e23ac4c5380330b7cb7df706b5bdb9b882",
-        "type": "github"
-      },
-      "original": {
-        "owner": "texturesgg",
-        "repo": "texturesgg",
-        "rev": "d03cf8e23ac4c5380330b7cb7df706b5bdb9b882",
-        "type": "github"
-      }
-    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1790822859,
@@ -35,7 +18,6 @@
     },
     "root": {
       "inputs": {
-        "core": "core",
         "nixpkgs": "nixpkgs"
       }
     }

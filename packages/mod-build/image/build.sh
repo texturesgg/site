@@ -25,7 +25,7 @@ repository="registry.cloudflare.com/${CLOUDFLARE_ACCOUNT_ID:?}/tgg-mod-builder"
 # Bump when the steps below change what goes into the image.
 format=1
 # Everything that decides the image's contents names it.
-inputs=$( (echo "format $format" && cd "$here" && cat layouts.json flake.nix flake.lock tgg-cli/Cargo.toml tgg-cli/Cargo.lock) |
+inputs=$( (echo "format $format" && cd "$here" && cat layouts.json flake.nix flake.lock) |
   sha256sum | cut -c1-32)
 tag="$repository:inputs-$inputs"
 
@@ -111,7 +111,8 @@ prepare() {
   fi
 }
 status=pending
-for _ in $(seq 180); do
+# Preparing a new image has taken close to an hour.
+for _ in $(seq 540); do
   status=$(prepare)
   [ "$status" = "ready" ] && break
   sleep 10
