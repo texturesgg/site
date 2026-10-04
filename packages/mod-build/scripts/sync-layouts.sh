@@ -23,5 +23,9 @@ sql=$(jq -r --arg now "$now" '
     + (map(.id | q) | if length == 0 then ["'"'"''"'"'"] else . end | join(", ")) + ");"
 ' "$layouts")
 
+# The db package's wrangler.toml is production at its top level, with preview
+# as its one environment.
+env_args=()
+[ "$env" = preview ] && env_args=(--env preview)
 cd "$here/../db"
-pnpm exec wrangler d1 execute DB --env "$env" --remote --command "$sql"
+pnpm exec wrangler d1 execute DB "${env_args[@]}" --remote --command "$sql"
