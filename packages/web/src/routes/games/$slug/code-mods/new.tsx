@@ -12,10 +12,10 @@ import { PageHeader } from "@/ui/patterns/PageHeader";
 import { Button, TextArea, TextField } from "@/ui/primitives";
 import { color, space, text } from "@/ui/tokens.stylex";
 
-export const Route = createFileRoute("/code-mods/new")({
-  beforeLoad: async ({ context }) => {
+export const Route = createFileRoute("/games/$slug/code-mods/new")({
+  beforeLoad: async ({ context, params }) => {
     const session = await context.queryClient.ensureQueryData(sessionQuery);
-    if (!session?.user) throw redirect({ to: "/code-mods" });
+    if (!session?.user) throw redirect({ to: "/games/$slug/code-mods", params });
   },
   loader: ({ context }) => requireFeatureFlag(context.queryClient, "codeMods"),
   head: () => ({ meta: [{ title: "New code mod - textures.gg" }] }),
@@ -31,6 +31,7 @@ const styles = stylex.create({
 
 function NewCodeMod() {
   const navigate = useNavigate();
+  const { slug: game } = Route.useParams();
   const [slug, setSlug] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -52,7 +53,12 @@ function NewCodeMod() {
       return parseResponse(res);
     },
     onSuccess: (mod) => {
-      if (mod) void navigate({ to: "/code-mods/$slug", params: { slug: mod.slug } });
+      if (mod) {
+        void navigate({
+          to: "/games/$slug/code-mods/$modSlug",
+          params: { slug: game, modSlug: mod.slug },
+        });
+      }
     },
   });
 

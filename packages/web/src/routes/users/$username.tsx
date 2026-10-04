@@ -1,13 +1,15 @@
 import * as stylex from "@stylexjs/stylex";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, type UseQueryResult, useQuery } from "@tanstack/react-query";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { displayName } from "@vgskins/shared";
-import { parseResponse } from "hono/client";
+import { type InferResponseType, parseResponse } from "hono/client";
 import type { ReactNode } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { api } from "@/lib/api";
 import { Description } from "@/ui/patterns/Description";
 import { EmptyState } from "@/ui/patterns/EmptyState";
+import { useFeatureFlag } from "@/lib/feature-flags";
+import { CodeModList } from "@/ui/patterns/CodeModList";
 import { layout } from "@/ui/patterns/layout";
 import { PackGrid, PackGridSkeleton, type PackTileData } from "@/ui/patterns/PackTile";
 import { PageHeader } from "@/ui/patterns/PageHeader";
@@ -21,7 +23,7 @@ const SORTS = [
   { value: "likes", label: "Most liked" },
 ] as const;
 type Sort = (typeof SORTS)[number]["value"];
-type Tab = "packs" | "likes";
+type Tab = "packs" | "mods" | "likes";
 
 interface ProfileSearch {
   tab?: Tab;
@@ -34,7 +36,7 @@ const FEATURED = 3;
 
 export const Route = createFileRoute("/users/$username")({
   validateSearch: (search: Record<string, unknown>): ProfileSearch => ({
-    tab: search.tab === "likes" ? "likes" : undefined,
+    tab: search.tab === "likes" || search.tab === "mods" ? search.tab : undefined,
     sort: SORTS.find((option) => option.value === search.sort && option.value !== "newest")?.value,
     page: typeof search.page === "number" && search.page > 1 ? search.page : undefined,
   }),
@@ -139,6 +141,22 @@ function ProfilePage() {
         api.users[":identifier"].uploads.$get({
           param: { identifier: username },
           query: { sort, page: String(tab === "packs" ? page : 1), pageSize: String(PAGE_SIZE) },
+        })
+      ),
+    placeholderData: keepPreviousData,
+  });
+  const codeModsOn = useFeatureFlag("codeMods");
+  const codeMods = useQuery({
+    queryKey: ["user", username, "code-mods", tab === "mods" ? page : 1],
+    enabled: codeModsOn,
+    queryFn: () =>
+      parseResponse(
+        api["code-mods"].$get({
+          query: {
+            owner: username,
+            page: String(tab === "mods" ? page : 1),
+            pageSize: String(PAGE_SIZE),
+          },
         })
       ),
     placeholderData: keepPreviousData,
@@ -324,6 +342,23 @@ function ProfilePage() {
               </div>
             ),
           },
+          ...(codeModsOn
+            ? [
+                {
+                  value: "mods" as const,
+                  label: "Code mods",
+                  count: codeMods.data?.total,
+                  panel: (
+                    <CodeModPanel
+                      query={codeMods}
+                      label={`${name}'s code mods`}
+                      page={tab === "mods" ? page : 1}
+                      onPage={(next) => update({ page: next > 1 ? next : undefined })}
+                    />
+                  ),
+                },
+              ]
+            : []),
           {
             value: "likes",
             label: "Liked",
@@ -393,6 +428,43 @@ function PackList({
       <Pagination
         page={page}
         totalPages={query.data?.totalPages ?? 1}
+        onPageChange={(next) => {
+          onPage(next);
+          window.scrollTo({ top: 0 });
+        }}
+      />
+    </div>
+  );
+}
+
+function CodeModPanel({
+  query,
+  label,
+  page,
+  onPage,
+}: {
+  query: UseQueryResult<InferResponseType<(typeof api)["code-mods"]["$get"], 200>>;
+  label: string;
+  page: number;
+  onPage: (page: number) => void;
+}) {
+  if (query.isPending) return <EmptyState title="Loading…" />;
+  if (query.isError) {
+    return (
+      <EmptyState
+        title="Code mods couldn't be loaded"
+        body="This may be a temporary problem."
+        action={<Button onClick={() => query.refetch()}>Try again</Button>}
+      />
+    );
+  }
+  if (query.data.items.length === 0) return <EmptyState title="No code mods yet." />;
+  return (
+    <div {...stylex.props(styles.panel)}>
+      <CodeModList mods={query.data.items} label={label} />
+      <Pagination
+        page={page}
+        totalPages={query.data.totalPages}
         onPageChange={(next) => {
           onPage(next);
           window.scrollTo({ top: 0 });

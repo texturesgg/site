@@ -21,6 +21,7 @@ import { DownloadIcon, FlagIcon, HeartIcon, MoreIcon, TrashIcon } from "@/ui/ico
 import { Comments } from "@/ui/patterns/Comments";
 import { Description } from "@/ui/patterns/Description";
 import { layout } from "@/ui/patterns/layout";
+import { ModEyebrow, ModHeader } from "@/ui/patterns/ModHeader";
 import { MediaViewer } from "@/ui/patterns/MediaViewer";
 import { ReportDialog } from "@/ui/patterns/ReportDialog";
 import {
@@ -80,22 +81,6 @@ const styles = stylex.create({
   details: { order: 4, display: "flex", flexDirection: "column", gap: space.lg, minWidth: 0 },
   comments: { order: 5, minWidth: 0 },
   aboutTitle: { margin: 0, fontSize: text.h3, fontWeight: 800, letterSpacing: tracking.tight },
-  eyebrow: {
-    margin: 0,
-    fontSize: text.md,
-    fontWeight: 600,
-    color: color.accentText,
-    textDecoration: { default: "none", ":hover": "underline" },
-  },
-  title: {
-    margin: 0,
-    fontSize: { default: text.h1, [WIDE]: text.display },
-    fontWeight: 800,
-    letterSpacing: tracking.tighter,
-    lineHeight: 0.98,
-    overflowWrap: "anywhere",
-  },
-  byline: { margin: 0, fontSize: text.lg, color: color.muted },
   creator: { color: color.text, textDecoration: { default: "none", ":hover": "underline" } },
   actions: { display: "flex", flexDirection: "column", gap: space.xs },
   actionRow: { display: "flex", gap: space.xs },
@@ -348,37 +333,40 @@ function PackPage() {
       </div>
 
       <div {...stylex.props(styles.column)}>
-        <header {...stylex.props(styles.head)}>
-          {pack.target && (
-            <Link
-              to="/games/$slug"
-              params={{ slug: gameSlug }}
-              search={{ target: pack.target.slug }}
-              {...stylex.props(styles.eyebrow)}
-            >
-              {pack.target.name} · {pack.game?.name ?? gameSlug}
-            </Link>
-          )}
-          <h1 {...stylex.props(styles.title)}>{pack.title}</h1>
-          <p {...stylex.props(styles.byline)}>
-            {pack.user && (
-              <>
-                by{" "}
-                <Link
-                  to="/users/$username"
-                  params={{ username: pack.user.name || pack.user.id }}
-                  {...stylex.props(styles.creator)}
-                >
-                  {pack.user.name && displayName(pack.user.name)}
-                </Link>{" "}
-                ·{" "}
-              </>
-            )}
-            <time dateTime={published.toISOString()}>
-              {published.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-            </time>
-          </p>
-
+        <ModHeader
+          eyebrow={
+            pack.target && (
+              <ModEyebrow
+                to="/games/$slug"
+                params={{ slug: gameSlug }}
+                search={{ target: pack.target.slug }}
+              >
+                {pack.target.name} · {pack.game?.name ?? gameSlug}
+              </ModEyebrow>
+            )
+          }
+          title={pack.title}
+          byline={
+            <>
+              {pack.user && (
+                <>
+                  by{" "}
+                  <Link
+                    to="/users/$username"
+                    params={{ username: pack.user.name || pack.user.id }}
+                    {...stylex.props(styles.creator)}
+                  >
+                    {pack.user.name && displayName(pack.user.name)}
+                  </Link>{" "}
+                  ·{" "}
+                </>
+              )}
+              <time dateTime={published.toISOString()}>
+                {published.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+              </time>
+            </>
+          }
+        >
           {(isOwner || isModerator) && pack.status !== "approved" && <StatusNotice pack={pack} />}
 
           <div {...stylex.props(styles.actions)}>
@@ -464,7 +452,7 @@ function PackPage() {
               {pack.mods.length === 1 ? "file" : "files"}
             </span>
           </p>
-        </header>
+        </ModHeader>
 
         <div {...stylex.props(styles.details)}>
           <section aria-labelledby="files-heading" {...stylex.props(styles.section)}>

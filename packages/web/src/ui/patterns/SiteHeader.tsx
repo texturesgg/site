@@ -152,7 +152,6 @@ export function SiteHeader({ user, isLoading, onSignIn, onSignOut }: SiteHeaderP
             </NavLink>
             <NavLink to="/guides">Install</NavLink>
             <NavLink to="/download">App</NavLink>
-            {codeMods && <NavLink to="/code-mods">Code mods</NavLink>}
           </nav>
         </div>
 
@@ -162,9 +161,28 @@ export function SiteHeader({ user, isLoading, onSignIn, onSignOut }: SiteHeaderP
           ) : user ? (
             <>
               <span {...stylex.props(styles.wideOnly)}>
-                <ButtonLink to="/upload" variant="primary" icon={<UploadIcon />}>
-                  Upload
-                </ButtonLink>
+                {codeMods ? (
+                  <MenuRoot>
+                    <MenuTrigger>
+                      <Button variant="primary" icon={<UploadIcon />}>
+                        New
+                      </Button>
+                    </MenuTrigger>
+                    <MenuPanel>
+                      <MenuLink to="/upload">Texture pack</MenuLink>
+                      <MenuLink
+                        to="/games/$slug/code-mods/new"
+                        params={{ slug: PRIMARY_GAME_SLUG }}
+                      >
+                        Code mod
+                      </MenuLink>
+                    </MenuPanel>
+                  </MenuRoot>
+                ) : (
+                  <ButtonLink to="/upload" variant="primary" icon={<UploadIcon />}>
+                    Upload
+                  </ButtonLink>
+                )}
               </span>
               <MenuRoot>
                 <MenuTrigger>
@@ -212,11 +230,6 @@ export function SiteHeader({ user, isLoading, onSignIn, onSignOut }: SiteHeaderP
                 <SheetLink to="/guides" onClick={close}>
                   Install guide
                 </SheetLink>
-                {codeMods && (
-                  <SheetLink to="/code-mods" onClick={close}>
-                    Code mods
-                  </SheetLink>
-                )}
                 <SheetLink to="/download" onClick={close}>
                   Desktop app
                 </SheetLink>
@@ -226,6 +239,15 @@ export function SiteHeader({ user, isLoading, onSignIn, onSignOut }: SiteHeaderP
                 {user && (
                   <SheetLink to="/upload" onClick={close}>
                     Upload a pack
+                  </SheetLink>
+                )}
+                {user && codeMods && (
+                  <SheetLink
+                    to="/games/$slug/code-mods/new"
+                    params={{ slug: PRIMARY_GAME_SLUG }}
+                    onClick={close}
+                  >
+                    Publish a code mod
                   </SheetLink>
                 )}
               </nav>

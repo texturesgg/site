@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { createFileRoute, notFound, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, useRouter } from "@tanstack/react-router";
+import { displayName } from "@vgskins/shared";
 import { parseResponse } from "hono/client";
 import { useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
@@ -8,15 +9,21 @@ import { api, apiError } from "@/lib/api";
 import { API_BASE_URL } from "@/lib/config";
 import { EmptyState } from "@/ui/patterns/EmptyState";
 import { layout } from "@/ui/patterns/layout";
-import { PageHeader } from "@/ui/patterns/PageHeader";
+import { ModEyebrow, ModHeader } from "@/ui/patterns/ModHeader";
 import { AnchorButton, Badge, Button } from "@/ui/primitives";
 import { color, font, radius, space, text } from "@/ui/tokens.stylex";
 
-export const Route = createFileRoute("/code-mods/$slug")({
+export const Route = createFileRoute("/games/$slug/code-mods/$modSlug")({
   loader: async ({ params }) => {
-    const res = await api["code-mods"][":slug"].$get({ param: { slug: params.slug } });
-    if (res.status === 404) throw notFound();
-    return parseResponse(res);
+    const [res, gameRes] = await Promise.all([
+      api["code-mods"][":slug"].$get({ param: { slug: params.modSlug } }),
+      api.games[":slug"].$get({ param: { slug: params.slug } }),
+    ]);
+    if (res.status === 404 || gameRes.status === 404) throw notFound();
+    const [mod, game] = await Promise.all([parseResponse(res), parseResponse(gameRes)]);
+    // A mod belongs to one game; another game's URL for it is not a page.
+    if (mod.game !== game.slug) throw notFound();
+    return { ...mod, gameName: game.name };
   },
   head: ({ loaderData }) => ({
     meta: [{ title: `${loaderData?.name ?? "Code mod"} - textures.gg` }],
@@ -28,8 +35,31 @@ type Mod = ReturnType<typeof Route.useLoaderData>;
 type Release = Mod["releases"][number];
 type Build = Release["builds"][number];
 
+const WIDE = "@media (min-width: 1024px)";
+
 const styles = stylex.create({
-  page: { display: "flex", flexDirection: "column", gap: space.xl },
+  // The pack page's frame: on wide screens the work on the left and the
+  // header in a side column; on phones the header first.
+  page: {
+    display: { default: "flex", [WIDE]: "grid" },
+    flexDirection: "column",
+    gridTemplateColumns: "minmax(0, 1fr) 400px",
+    alignItems: { default: "stretch", [WIDE]: "start" },
+    gap: { default: space.lg, [WIDE]: space.xl },
+  },
+  side: {
+    order: { default: 1, [WIDE]: 2 },
+    display: "flex",
+    flexDirection: "column",
+    gap: space.xl,
+    minWidth: 0,
+  },
+  main: { order: { default: 2, [WIDE]: 1 }, minWidth: 0 },
+  // The header is order 1 (ModHeader), so what follows it in the column
+  // comes after it.
+  afterHead: { order: 2 },
+  creator: { color: color.text, textDecoration: { default: "none", ":hover": "underline" } },
+  description: { margin: 0, fontSize: text.md, lineHeight: 1.5, color: color.muted },
   section: { display: "flex", flexDirection: "column", gap: space.md },
   heading: { margin: 0, fontSize: text.lg, fontWeight: 700 },
   id: { fontFamily: font.mono },
@@ -74,26 +104,59 @@ function CodeMod() {
   const mod = Route.useLoaderData();
   const { user } = useAuth();
   const canReview = user?.role === "moderator" || user?.role === "admin";
+  const created = new Date(mod.createdAt);
+  const latest = mod.releases.find((release) => release.status === "approved") ?? mod.releases[0];
 
   return (
     <div {...stylex.props(layout.container, layout.page, styles.page)}>
-      <PageHeader
-        title={mod.name}
-        description={
-          <>
+      <div {...stylex.props(styles.side)}>
+        <ModHeader
+          eyebrow={
+            <ModEyebrow to="/games/$slug/code-mods" params={{ slug: mod.game }}>
+              Code mod · {mod.gameName}
+            </ModEyebrow>
+          }
+          title={mod.name}
+          byline={
+            <>
+              {mod.owner && (
+                <>
+                  by{" "}
+                  <Link
+                    to="/users/$username"
+                    params={{ username: mod.owner }}
+                    {...stylex.props(styles.creator)}
+                  >
+                    {displayName(mod.owner)}
+                  </Link>{" "}
+                  ·{" "}
+                </>
+              )}
+              <time dateTime={created.toISOString()}>
+                {created.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+              </time>
+            </>
+          }
+        >
+          <div {...stylex.props(styles.row)}>
             <span {...stylex.props(styles.id)}>{mod.slug}</span>
-            {mod.owner && ` by ${mod.owner}`}
-          </>
-        }
-      />
-      {mod.description && <p {...stylex.props(styles.muted)}>{mod.description}</p>}
-      {mod.mine && <Publish slug={mod.slug} />}
-      <section {...stylex.props(styles.section)}>
+            {latest && <Badge>{latest.version}</Badge>}
+            {latest && <Badge>{latest.netplay === "gameplay" ? "Gameplay" : "Cosmetic"}</Badge>}
+          </div>
+          {mod.description && <p {...stylex.props(styles.description)}>{mod.description}</p>}
+        </ModHeader>
+        {mod.mine && (
+          <div {...stylex.props(styles.afterHead)}>
+            <Publish slug={mod.slug} />
+          </div>
+        )}
+      </div>
+      <section {...stylex.props(styles.main, styles.section)}>
         <h2 {...stylex.props(styles.heading)}>Releases</h2>
         {mod.releases.length === 0 ? (
           <EmptyState
             title="No releases yet"
-            body={mod.mine ? "Push a tag to build one." : undefined}
+            body={mod.mine ? "Publish a version to build one." : undefined}
           />
         ) : (
           mod.releases.map((release) => (
