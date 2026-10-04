@@ -120,15 +120,12 @@ function Publish({ slug }: { slug: string }) {
       <h2 {...stylex.props(styles.heading)}>Publish</h2>
       <div {...stylex.props(styles.card)}>
         <p {...stylex.props(styles.muted)}>
-          Tag a commit with the version in manifest.json and push it. Each tag builds a release.
+          Each version you push builds a release. From your mod&apos;s folder, with tgg-mod:
         </p>
         {access.data ? (
           <>
             <pre {...stylex.props(styles.code)}>
-              {[
-                `git remote add textures.gg ${access.data.remote}`,
-                `git -c http.extraHeader="Authorization: Bearer ${access.data.token}" push textures.gg main --tags`,
-              ].join("\n")}
+              {`env TGG_PUSH_TOKEN=${access.data.token} tgg-mod publish --remote ${access.data.remote}`}
             </pre>
             <p {...stylex.props(styles.muted)}>The token works for an hour.</p>
           </>
