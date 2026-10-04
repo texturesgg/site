@@ -3,9 +3,12 @@
 
 import { NonRetryableError } from "cloudflare:workflows";
 
-// A mod's source is manifest.json and C under src/; nothing else is copied.
-const MAX_FILES = 256;
-const MAX_SOURCE_BYTES = 4 * 1024 * 1024;
+// A mod's source is manifest.json, C under src/, and game files under files/;
+// nothing else is copied. Game files make a mod megabytes. The source, and
+// the package that comes back, pass through this Worker's memory, so the
+// registry takes less than tgg's own 256 MiB.
+const MAX_FILES = 2048;
+const MAX_SOURCE_BYTES = 64 * 1024 * 1024;
 
 export type Commit = { id: string; tree: string };
 
@@ -56,7 +59,10 @@ export async function readManifest(repo: ArtifactsRepo, commit: string): Promise
   };
 }
 
-/** Every file a build needs: manifest.json and everything under src/. */
+/**
+ * Every file a build needs: manifest.json, everything under src/, and
+ * everything under files/ but names starting with "." (tgg leaves those out).
+ */
 export async function readSource(
   repo: ArtifactsRepo,
   tree: string
@@ -68,7 +74,11 @@ export async function readSource(
     if (!entries) throw new Error(`tree ${hash} not found`);
     for (const entry of entries) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
-      const wanted = path === "manifest.json" || path === "src" || path.startsWith("src/");
+      const top = path.split("/")[0];
+      const wanted =
+        path === "manifest.json" ||
+        top === "src" ||
+        (top === "files" && !entry.name.startsWith("."));
       if (!wanted) continue;
       if (entry.type === "tree") {
         await walk(entry.hash, path);

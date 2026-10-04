@@ -2,7 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, notFound, useRouter } from "@tanstack/react-router";
 import { displayName } from "@vgskins/shared";
-import { parseResponse } from "hono/client";
+import { type InferResponseType, parseResponse } from "hono/client";
 import { useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { api, apiError } from "@/lib/api";
@@ -31,8 +31,10 @@ export const Route = createFileRoute("/games/$slug/code-mods/$modSlug")({
   component: CodeMod,
 });
 
-type Mod = ReturnType<typeof Route.useLoaderData>;
-type Release = Mod["releases"][number];
+type Release = InferResponseType<
+  (typeof api)["code-mods"][":slug"]["$get"],
+  200
+>["releases"][number];
 type Build = Release["builds"][number];
 
 const WIDE = "@media (min-width: 1024px)";
@@ -241,6 +243,19 @@ function ReleaseCard({ release, canReview }: { release: Release; canReview: bool
   );
 }
 
+function formatSize(bytes: number): string {
+  return bytes < 1024 * 1024
+    ? `${(bytes / 1024).toFixed(1)} KB`
+    : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/** The game files a build ships, the first few by name. */
+function fileSummary(files: Build["files"]): string {
+  const shown = files.slice(0, 6).map((file) => file.path);
+  const more = files.length - shown.length;
+  return `Files: ${shown.join(", ")}${more > 0 ? `, and ${more} more` : ""}`;
+}
+
 function hookSummary(hooks: Build["hooks"]): string | null {
   if (!hooks) return null;
   const parts = [
@@ -271,7 +286,7 @@ function BuildRow({ build }: { build: Build }) {
           <span {...stylex.props(styles.id)}>{build.layout}</span>
           <Badge tone={build.status === "succeeded" ? "neutral" : "accent"}>{build.status}</Badge>
           {build.size !== null && (
-            <span {...stylex.props(styles.muted)}>{(build.size / 1024).toFixed(1)} KB</span>
+            <span {...stylex.props(styles.muted)}>{formatSize(build.size)}</span>
           )}
           {build.state !== null && <span {...stylex.props(styles.muted)}>Keeps state</span>}
         </div>
@@ -289,6 +304,7 @@ function BuildRow({ build }: { build: Build }) {
         </div>
       </div>
       {hooks && <p {...stylex.props(styles.muted)}>{hooks}</p>}
+      {build.files.length > 0 && <p {...stylex.props(styles.muted)}>{fileSummary(build.files)}</p>}
       {build.error && <p {...stylex.props(styles.error)}>{build.error}</p>}
       {showLog && (
         <pre {...stylex.props(styles.code)}>
