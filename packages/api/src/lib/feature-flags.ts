@@ -1,3 +1,5 @@
+import { createMiddleware } from "hono/factory";
+import type { HonoEnv } from "../types";
 import type { AuthUser } from "./auth";
 
 /**
@@ -9,3 +11,14 @@ export function codeModsEnabled(flags: Flagship, user: AuthUser | null): Promise
   if (!user) return Promise.resolve(false);
   return flags.getBooleanValue("code-mods", false, { userId: `user:${user.id}`, role: user.role });
 }
+
+/**
+ * Returns 404 unless code mods are on for the viewer, so flagged routes read
+ * as missing. Use after `optionalAuth` or `requireAuth`.
+ */
+export const requireCodeMods = createMiddleware<HonoEnv>(async (c, next) => {
+  if (!(await codeModsEnabled(c.env.FLAGS, c.get("user")))) {
+    return c.json({ error: "Not found" }, 404);
+  }
+  await next();
+});

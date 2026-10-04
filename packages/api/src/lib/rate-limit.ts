@@ -2,6 +2,7 @@ import type { Context, MiddlewareHandler } from "hono";
 import type { HonoEnv } from "../types";
 
 const FILE_DELIVERY_PATH = /^\/api\/packs\/by-id\/[^/]+\/(?:download|mods\/[^/]+\/download)$/;
+const CODE_MOD_PACKAGE_PATH = /^\/api\/code-mods\/packages\/[^/]+$/;
 const MOD_RETRY_PATH = /^\/api\/packs\/by-id\/[^/]+\/mods\/[^/]+\/retry$/;
 const COMMENT_PATH = /^\/api\/packs\/by-id\/[^/]+\/comments$/;
 const EDITOR_REPORT_PATH = "/api/editor/reports";
@@ -36,7 +37,7 @@ export function shouldApplyGeneralApiRateLimit(method: string, pathname: string)
   if (isWithin("/api/auth") || isWithin("/api/files")) {
     return false;
   }
-  if (FILE_DELIVERY_PATH.test(pathname)) {
+  if (FILE_DELIVERY_PATH.test(pathname) || CODE_MOD_PACKAGE_PATH.test(pathname)) {
     return false;
   }
   if (normalizedMethod !== "POST") {
@@ -44,6 +45,7 @@ export function shouldApplyGeneralApiRateLimit(method: string, pathname: string)
   }
   return !(
     pathname === "/api/packs" ||
+    pathname === "/api/code-mods" ||
     pathname === EDITOR_REPORT_PATH ||
     pathname === REPORT_PATH ||
     MOD_RETRY_PATH.test(pathname) ||

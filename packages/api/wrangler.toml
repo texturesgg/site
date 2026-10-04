@@ -44,6 +44,17 @@ allowed_sender_addresses = ["noreply@textures.gg"]
 
 # Rate limiting
 # General API: 1200 requests per 60s per key
+# Code mods: each mod's source is an Artifacts repo (mod-<id>), and built
+# packages and compiler logs live in a private bucket that only this API
+# serves. Builds run in packages/mod-build.
+[[artifacts]]
+binding = "MOD_SOURCES"
+namespace = "tgg-mods-dev"
+
+[[r2_buckets]]
+binding = "CODE_MODS"
+bucket_name = "tgg-code-mods-dev"
+
 # Feature flags (Cloudflare Flagship), one app per environment. Local
 # development reads the development app remotely.
 [[flagship]]
@@ -101,6 +112,14 @@ ASSETS_BASE_URL = "http://localhost:8787/api/files"
 [env.production]
 name = "vgskins-api"
 vars = { ENVIRONMENT = "production", API_BASE_URL = "https://api.textures.gg", SITE_BASE_URL = "https://textures.gg", ASSETS_BASE_URL = "https://assets.textures.gg" }
+
+[[env.production.artifacts]]
+binding = "MOD_SOURCES"
+namespace = "tgg-mods"
+
+[[env.production.r2_buckets]]
+binding = "CODE_MODS"
+bucket_name = "tgg-code-mods"
 
 [[env.production.flagship]]
 binding = "FLAGS"
@@ -169,6 +188,14 @@ period = 60
 name = "vgskins-api-preview"
 routes = [{ pattern = "api-preview.textures.gg", custom_domain = true }]
 vars = { ENVIRONMENT = "preview", API_BASE_URL = "https://api-preview.textures.gg", SITE_BASE_URL = "https://preview.textures.gg", ASSETS_BASE_URL = "https://assets.textures.gg" }
+
+[[env.preview.artifacts]]
+binding = "MOD_SOURCES"
+namespace = "tgg-mods-preview"
+
+[[env.preview.r2_buckets]]
+binding = "CODE_MODS"
+bucket_name = "tgg-code-mods-preview"
 
 [[env.preview.flagship]]
 binding = "FLAGS"

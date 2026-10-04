@@ -1,6 +1,8 @@
 import { zValidator } from "@hono/zod-validator";
 import {
   accounts,
+  codeModReleases,
+  codeMods,
   comments,
   createDb,
   deletePackObjects,
@@ -11,6 +13,7 @@ import {
   sessions,
   targets,
   transitionPack,
+  transitionRelease,
   users,
   votes,
 } from "@vgskins/db";
@@ -22,6 +25,7 @@ import { z } from "zod";
 import { isModerator, requireAdmin, requireAuth, requireModerator } from "../lib/auth";
 import { packApprovedEmbed, sendDiscordWebhook, thumbnailUrl } from "../lib/discord";
 import { moderationResultHtml, sendNotification } from "../lib/email";
+import { requireCodeMods } from "../lib/feature-flags";
 import { deleteComment, dismissReportsOnDeletedTargets } from "../lib/moderation";
 import {
   likeContains,
@@ -342,6 +346,92 @@ const app = new Hono<HonoEnv>()
 
     return c.json({ success: true, status: "rejected" }, 200);
   })
+  // List code mod releases waiting for review
+  .get("/code-mods/releases/pending", requireAuth, requireModerator, requireCodeMods, async (c) => {
+    const db = createDb(c.env.DB);
+    const items = await db
+      .select({
+        id: codeModReleases.id,
+        version: codeModReleases.version,
+        netplay: codeModReleases.netplay,
+        createdAt: codeModReleases.createdAt,
+        slug: codeMods.slug,
+        name: codeMods.name,
+        gameSlug: codeMods.gameId,
+        userName: users.name,
+      })
+      .from(codeModReleases)
+      .innerJoin(codeMods, eq(codeMods.id, codeModReleases.codeModId))
+      .leftJoin(users, eq(users.id, codeMods.userId))
+      .where(and(eq(codeModReleases.status, "pending"), isNull(codeMods.deletedAt)))
+      .orderBy(desc(codeModReleases.createdAt));
+    return c.json({ items }, 200);
+  })
+  // Approve a code mod release
+  .post(
+    "/code-mods/releases/:id/approve",
+    requireAuth,
+    requireModerator,
+    requireCodeMods,
+    async (c) => {
+      const user = c.get("user");
+      const db = createDb(c.env.DB);
+      const releaseId = c.req.param("id");
+
+      logger.info({ userId: user.id, releaseId }, "Approving code mod release");
+
+      const now = new Date();
+      const approved = await transitionRelease(db, releaseId, {
+        from: ["pending"],
+        to: "approved",
+        set: { reviewedBy: user.id, reviewedAt: now, publishedAt: now },
+      });
+      if (!approved) {
+        const [release] = await db
+          .select({ id: codeModReleases.id })
+          .from(codeModReleases)
+          .where(eq(codeModReleases.id, releaseId));
+        return release
+          ? c.json({ error: "Release is not pending" }, 409)
+          : c.json({ error: "Release not found" }, 404);
+      }
+
+      logger.info({ releaseId }, "Code mod release approved");
+      return c.json({ success: true, status: "approved" }, 200);
+    }
+  )
+  // Reject a code mod release
+  .post(
+    "/code-mods/releases/:id/reject",
+    requireAuth,
+    requireModerator,
+    requireCodeMods,
+    async (c) => {
+      const user = c.get("user");
+      const db = createDb(c.env.DB);
+      const releaseId = c.req.param("id");
+
+      logger.info({ userId: user.id, releaseId }, "Rejecting code mod release");
+
+      const rejected = await transitionRelease(db, releaseId, {
+        from: ["pending"],
+        to: "rejected",
+        set: { reviewedBy: user.id, reviewedAt: new Date() },
+      });
+      if (!rejected) {
+        const [release] = await db
+          .select({ id: codeModReleases.id })
+          .from(codeModReleases)
+          .where(eq(codeModReleases.id, releaseId));
+        return release
+          ? c.json({ error: "Release is not pending" }, 409)
+          : c.json({ error: "Release not found" }, 404);
+      }
+
+      logger.info({ releaseId }, "Code mod release rejected");
+      return c.json({ success: true, status: "rejected" }, 200);
+    }
+  )
   // List users with their auth providers (moderator + admin)
   .get(
     "/users",

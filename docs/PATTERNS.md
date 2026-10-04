@@ -281,11 +281,12 @@ limiter convention.
 - `RATE_LIMIT_API` is a generous abuse ceiling, not a product quota. It is
   partitioned by client and top-level API area so normal requests to one area do
   not consume another area's allowance.
-- CORS preflights, Better Auth, file/download delivery, and routes already using
-  a stricter limiter (pack upload, mod retry, comments, reports, editor
-  reports) are excluded from the general counter.
-- Better Auth uses `RATE_LIMIT_AUTH` by IP; pack upload, mod retry, comments,
-  and reports use `RATE_LIMIT_UPLOAD` by user; editor reports use
+- CORS preflights, Better Auth, file/download delivery (code mod packages
+  included), and routes already using a stricter limiter (pack upload, code mod
+  creation, mod retry, comments, reports, editor reports) are excluded from the
+  general counter.
+- Better Auth uses `RATE_LIMIT_AUTH` by IP; pack upload, code mod creation, mod
+  retry, comments, and reports use `RATE_LIMIT_UPLOAD` by user; editor reports use
   `RATE_LIMIT_EDITOR_REPORT` by IP. These limits must not also consume the general
   counter.
 - Pack downloads are never refused. `RATE_LIMIT_DOWNLOAD_COUNT`, keyed by IP and
@@ -580,6 +581,18 @@ const pack = await loadPack(db, { id }, { requester: null });
 Lists and aggregates filter on `status = 'approved'` and `deleted_at IS NULL`
 in their own query.
 
+### Code Mod Visibility
+
+Code mods follow the same rule through `lib/queries.ts`. A code mod is visible
+when it is not deleted and has an approved release, or the requester owns it
+or moderates; its unapproved releases and builds are only for its owner and
+moderators (`canViewUnapprovedReleases`). Routes load a single mod with
+`loadCodeMod` and a build (for its log or package) with `loadCodeModBuild`,
+lists filter with `visibleCodeMods`, and anything hidden answers 404 as if
+missing. `transitionRelease` in `packages/db` is the only writer of a
+release's status after the build pipeline inserts it, as `transitionPack` is
+for packs, and moderators review releases in `routes/admin.ts`.
+
 ### Role Hierarchy
 
 Roles follow this hierarchy: `admin > moderator > user`
@@ -587,6 +600,15 @@ Roles follow this hierarchy: `admin > moderator > user`
 - `requireAdmin` - Only admins
 - `requireModerator` - Moderators AND admins
 - `isModerator(user)` - Returns true for moderators AND admins
+
+### Feature Flags
+
+Flags come from Cloudflare Flagship through the `FLAGS` binding; there is no
+flag table or wrapper around it. `lib/feature-flags.ts` asks Flagship with the
+user's id and role as context (`codeModsEnabled`), and `GET /api/flags/me`
+tells the signed-in viewer which flags are on. A route area behind a flag
+mounts its middleware (`requireCodeMods`), which answers 404 so the area reads
+as missing to anyone the flag is off for.
 
 ## Shared Package
 

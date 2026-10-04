@@ -12,6 +12,7 @@ import {
 } from "./lib/public-catalog";
 import { generalApiRateLimit, rateLimitByIp } from "./lib/rate-limit";
 import adminRoutes from "./routes/admin";
+import codeModsRoutes from "./routes/code-mods";
 import editorRoutes from "./routes/editor";
 import filesRoutes from "./routes/files";
 import flagsRoutes from "./routes/flags";
@@ -52,6 +53,7 @@ const app = new Hono<HonoEnv>()
   .route("/api/reports", reportsRoutes)
   .route("/api/sitemap", sitemapRoutes)
   .route("/api/admin", adminRoutes)
+  .route("/api/code-mods", codeModsRoutes)
   .route("/api/editor", editorRoutes);
 
 // Health check
