@@ -441,6 +441,136 @@ export const reports = sqliteTable(
 );
 
 // ============================================================================
+// Code mod tables
+// ============================================================================
+
+// A code mod: a hook-based mod for the textures.gg mod runtime (tgg/1). Its
+// source lives in the Artifacts repo `mod-<id>`; versions are its releases.
+export const codeMods = sqliteTable(
+  "code_mods",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    gameId: text("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    // The manifest `id`, which names the installed folder: lowercase letters,
+    // digits, `.`, `-`, `_`. Unique across the registry.
+    slug: text("slug").notNull().unique(),
+    name: text("name").notNull(),
+    description: text("description"),
+    // Where releases come from: a public GitHub repo the sync worker mirrors, or
+    // pushes straight to the Artifacts repo.
+    sourceKind: text("source_kind", { enum: ["github", "push"] }).notNull(),
+    sourceUrl: text("source_url"),
+    downloadCount: integer("download_count").default(0).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+  },
+  (table) => [
+    index("code_mod_user_idx").on(table.userId),
+    index("code_mod_game_idx").on(table.gameId),
+  ]
+);
+
+// One version of a code mod: a tag on its Artifacts repo, built once per game
+// layout. Review covers the source at `commitSha`, so a later build of the same
+// release for a new layout needs no new review.
+export const codeModReleases = sqliteTable(
+  "code_mod_releases",
+  {
+    id: text("id").primaryKey(),
+    codeModId: text("code_mod_id")
+      .notNull()
+      .references(() => codeMods.id, { onDelete: "cascade" }),
+    version: text("version").notNull(),
+    tag: text("tag").notNull(),
+    commitSha: text("commit_sha").notNull(),
+    netplay: text("netplay", { enum: ["cosmetic", "gameplay"] }).notNull(),
+    license: text("license"),
+    status: text("status", {
+      enum: ["processing", "pending", "approved", "rejected", "failed"],
+    })
+      .default("processing")
+      .notNull(),
+    // Why a failed release failed, such as a tag that doesn't match the
+    // manifest's version or no build succeeding.
+    error: text("error"),
+    reviewedBy: text("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+    reviewedAt: integer("reviewed_at", { mode: "timestamp_ms" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    publishedAt: integer("published_at", { mode: "timestamp_ms" }),
+  },
+  (table) => [
+    uniqueIndex("code_mod_release_version_idx").on(table.codeModId, table.version),
+    index("code_mod_release_status_idx").on(table.status, table.publishedAt),
+  ]
+);
+
+// A game layout a port build exposes to mods (tgg/1 `game_abi`). A mod library
+// loads only into a build with the same layout id, so the pipeline builds each
+// release once per active layout, against that layout's game SDK and symbol
+// list in the builder image. A retired layout gets no new builds, but its
+// packages stay downloadable for players who haven't updated their port.
+export const codeModLayouts = sqliteTable("code_mod_layouts", {
+  // 16 hex digits, read from the port executable's `tgg_port` section.
+  id: text("id").primaryKey(),
+  api: text("api").notNull(), // e.g. "tgg/1"
+  port: text("port").notNull(), // the port's name, e.g. "melee-pc"
+  target: text("target").notNull(), // the target triple, e.g. "x86_64-linux-gnu"
+  portVersion: text("port_version").notNull(), // the port build the SDK came from
+  active: integer("active", { mode: "boolean" }).default(true).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+});
+
+// A release built for one layout: the package players of that layout install.
+export const codeModBuilds = sqliteTable(
+  "code_mod_builds",
+  {
+    id: text("id").primaryKey(),
+    releaseId: text("release_id")
+      .notNull()
+      .references(() => codeModReleases.id, { onDelete: "cascade" }),
+    layoutId: text("layout_id")
+      .notNull()
+      .references(() => codeModLayouts.id, { onDelete: "cascade" }),
+    status: text("status", { enum: ["queued", "building", "succeeded", "failed"] })
+      .default("queued")
+      .notNull(),
+    runId: text("run_id"), // the build Workflow instance
+    image: text("image"), // the builder image this build ran in, pinned by digest
+    // The package zip in R2, keyed by its SHA-256, which identifies the build.
+    packageKey: text("package_key"),
+    packageSha256: text("package_sha256"),
+    packageSize: integer("package_size"),
+    // The packed manifest as read back from the package, including the hook
+    // lists the packer took from the library.
+    manifest: text("manifest", { mode: "json" }).$type<Record<string, unknown>>(),
+    // The manifest's hooks under their canonical names (`name` for an exported
+    // function, `file.c:name` for a static), checked against the layout's
+    // symbols. Conflicts compare these, as the runtime does.
+    canonicalHooks: text("canonical_hooks", { mode: "json" }).$type<{
+      before?: string[];
+      after?: string[];
+      replaces?: string[];
+    }>(),
+    logKey: text("log_key"), // the compiler log in R2
+    signature: text("signature"),
+    error: text("error"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    finishedAt: integer("finished_at", { mode: "timestamp_ms" }),
+  },
+  (table) => [
+    uniqueIndex("code_mod_build_release_layout_idx").on(table.releaseId, table.layoutId),
+    index("code_mod_build_layout_idx").on(table.layoutId, table.status),
+  ]
+);
+
+// ============================================================================
 // Relations
 // ============================================================================
 
@@ -448,6 +578,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   accounts: many(accounts),
   sessions: many(sessions),
   packs: many(packs),
+  codeMods: many(codeMods),
   collections: many(collections),
   votes: many(votes),
   favorites: many(favorites),
@@ -465,6 +596,7 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
 export const gamesRelations = relations(games, ({ many }) => ({
   targets: many(targets),
   packs: many(packs),
+  codeMods: many(codeMods),
 }));
 
 export const targetsRelations = relations(targets, ({ one, many }) => ({
@@ -549,4 +681,31 @@ export const commentsRelations = relations(comments, ({ one }) => ({
 export const reportsRelations = relations(reports, ({ one }) => ({
   reporter: one(users, { fields: [reports.reporterId], references: [users.id] }),
   resolver: one(users, { fields: [reports.resolvedBy], references: [users.id] }),
+}));
+
+export const codeModsRelations = relations(codeMods, ({ one, many }) => ({
+  user: one(users, { fields: [codeMods.userId], references: [users.id] }),
+  game: one(games, { fields: [codeMods.gameId], references: [games.id] }),
+  releases: many(codeModReleases),
+}));
+
+export const codeModReleasesRelations = relations(codeModReleases, ({ one, many }) => ({
+  codeMod: one(codeMods, { fields: [codeModReleases.codeModId], references: [codeMods.id] }),
+  reviewer: one(users, { fields: [codeModReleases.reviewedBy], references: [users.id] }),
+  builds: many(codeModBuilds),
+}));
+
+export const codeModLayoutsRelations = relations(codeModLayouts, ({ many }) => ({
+  builds: many(codeModBuilds),
+}));
+
+export const codeModBuildsRelations = relations(codeModBuilds, ({ one }) => ({
+  release: one(codeModReleases, {
+    fields: [codeModBuilds.releaseId],
+    references: [codeModReleases.id],
+  }),
+  layout: one(codeModLayouts, {
+    fields: [codeModBuilds.layoutId],
+    references: [codeModLayouts.id],
+  }),
 }));
