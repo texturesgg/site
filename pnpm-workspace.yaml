@@ -13,7 +13,7 @@ catalog:
   wrangler: ^4.118.0
 
   # Cloudflare types
-  "@cloudflare/workers-types": ^5.20260804.1
+  "@cloudflare/workers-types": ^5.20261001.1
 
   # React ecosystem
   react: ^19.2.8

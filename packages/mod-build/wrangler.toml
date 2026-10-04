@@ -1,0 +1,124 @@
+# The code mod build pipeline: a Workflow that a tag pushed to a mod's
+# Artifacts repo starts, and the Builder containers it compiles mods in.
+#
+# The top-level configuration is for local type generation and checks; its
+# name differs from the deployed Workers so that `wrangler deploy` without
+# `--env` cannot replace one of them. Builds need Cloudflare's containers and
+# Artifacts, so they run in the preview and production environments only.
+name = "tgg-mod-build-dev"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+
+# The Builder Durable Object owns a build's container.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Builder"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "vgskins-db"
+database_id = "f1af501c-5fec-4615-a005-5895bba5e1f1"
+
+# Packages and compiler logs, under code-mods/. Private: the API serves them.
+[[r2_buckets]]
+binding = "PACKAGES"
+bucket_name = "tgg-code-mods-dev"
+
+[[artifacts]]
+binding = "ARTIFACTS"
+namespace = "tgg-mods-dev"
+
+[[durable_objects.bindings]]
+name = "BUILDER"
+class_name = "Builder"
+
+[[workflows]]
+name = "tgg-mod-build-dev"
+binding = "BUILD"
+class_name = "BuildMod"
+
+# The builder image: GCC and tgg-mod (image/flake.nix) plus the game SDK and
+# symbol list of every active layout, pushed by image/push.sh to the
+# account's private registry. It holds decomp headers, so it never goes to a
+# public one. Update the digest when a layout is registered (image/README.md).
+[[containers]]
+class_name = "Builder"
+scheduling_policy = "durable_object"
+images.builder.image = "registry.cloudflare.com/aef405d01b3d36d6b5ebeed5efe8c2f8/tgg-mod-builder@sha256:340d887187427f5d6fa9108e940daa413b7e3a4cd253626e899352cb0bb3fc67"
+
+[observability]
+enabled = true
+
+[env.preview]
+name = "tgg-mod-build-preview"
+
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "vgskins-preview-db"
+database_id = "1fbcf108-4dbb-4923-95bc-a9758c309238"
+
+[[env.preview.r2_buckets]]
+binding = "PACKAGES"
+bucket_name = "tgg-code-mods-preview"
+
+[[env.preview.artifacts]]
+binding = "ARTIFACTS"
+namespace = "tgg-mods-preview"
+
+[[env.preview.durable_objects.bindings]]
+name = "BUILDER"
+class_name = "Builder"
+
+[[env.preview.workflows]]
+name = "tgg-mod-build-preview"
+binding = "BUILD"
+class_name = "BuildMod"
+
+[[env.preview.containers]]
+class_name = "Builder"
+scheduling_policy = "durable_object"
+images.builder.image = "registry.cloudflare.com/aef405d01b3d36d6b5ebeed5efe8c2f8/tgg-mod-builder@sha256:340d887187427f5d6fa9108e940daa413b7e3a4cd253626e899352cb0bb3fc67"
+
+# Every push to a repo in the namespace starts the Workflow; it skips anything
+# but a tag on a mod- repo that a code mod row names.
+[[env.preview.triggers.events]]
+type = "cf.artifacts.repo.pushed"
+filter = { namespace = "tgg-mods-preview" }
+targets = [{ type = "workflow", workflow_name = "tgg-mod-build-preview" }]
+
+[env.production]
+name = "tgg-mod-build"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "vgskins-db"
+database_id = "f1af501c-5fec-4615-a005-5895bba5e1f1"
+
+[[env.production.r2_buckets]]
+binding = "PACKAGES"
+bucket_name = "tgg-code-mods"
+
+[[env.production.artifacts]]
+binding = "ARTIFACTS"
+namespace = "tgg-mods"
+
+[[env.production.durable_objects.bindings]]
+name = "BUILDER"
+class_name = "Builder"
+
+[[env.production.workflows]]
+name = "tgg-mod-build"
+binding = "BUILD"
+class_name = "BuildMod"
+
+[[env.production.containers]]
+class_name = "Builder"
+scheduling_policy = "durable_object"
+images.builder.image = "registry.cloudflare.com/aef405d01b3d36d6b5ebeed5efe8c2f8/tgg-mod-builder@sha256:340d887187427f5d6fa9108e940daa413b7e3a4cd253626e899352cb0bb3fc67"
+
+[[env.production.triggers.events]]
+type = "cf.artifacts.repo.pushed"
+filter = { namespace = "tgg-mods" }
+targets = [{ type = "workflow", workflow_name = "tgg-mod-build" }]
