@@ -147,7 +147,7 @@ function CodeMod() {
         </ModHeader>
         {mod.mine && (
           <div {...stylex.props(styles.afterHead)}>
-            <Publish slug={mod.slug} />
+            <Publish />
           </div>
         )}
       </div>
@@ -168,38 +168,17 @@ function CodeMod() {
   );
 }
 
-/** The commands an owner pushes with, with a fresh token. */
-function Publish({ slug }: { slug: string }) {
-  const access = useMutation({
-    mutationFn: async () => {
-      const res = await api["code-mods"][":slug"]["push-token"].$post({ param: { slug } });
-      if (!res.ok) throw await apiError(res);
-      return parseResponse(res);
-    },
-  });
-
+/** How the owner publishes a version, with the tgg command line. */
+function Publish() {
   return (
     <section {...stylex.props(styles.section)}>
       <h2 {...stylex.props(styles.heading)}>Publish</h2>
       <div {...stylex.props(styles.card)}>
         <p {...stylex.props(styles.muted)}>
-          Each version you push builds a release. From your mod&apos;s folder, with tgg-mod:
+          Bump the version in manifest.json, commit, then from your mod&apos;s folder:
         </p>
-        {access.data ? (
-          <>
-            <pre {...stylex.props(styles.code)}>
-              {`env TGG_PUSH_TOKEN=${access.data.token} tgg-mod publish --remote ${access.data.remote}`}
-            </pre>
-            <p {...stylex.props(styles.muted)}>The token works for an hour.</p>
-          </>
-        ) : (
-          <div {...stylex.props(styles.row)}>
-            <Button onClick={() => access.mutate()} disabled={access.isPending}>
-              Get push access
-            </Button>
-          </div>
-        )}
-        {access.error && <p {...stylex.props(styles.error)}>{access.error.message}</p>}
+        <pre {...stylex.props(styles.code)}>{"tgg login\ntgg mod publish"}</pre>
+        <p {...stylex.props(styles.muted)}>Each version you publish builds a release.</p>
       </div>
     </section>
   );
