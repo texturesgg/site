@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { createFileRoute } from "@tanstack/react-router";
-import { DISCORD_URL } from "@/lib/config";
+import { DISCORD_URL, GITHUB_URL } from "@/lib/config";
 import { Article, ArticleSection, Step, Steps } from "@/ui/patterns/Article";
 import { layout } from "@/ui/patterns/layout";
 import { PageHeader } from "@/ui/patterns/PageHeader";
@@ -77,8 +77,8 @@ function About() {
               </Step>
               <Step number={3}>
                 <p>
-                  Load them into your game with the <TextLink to="/download">desktop app</TextLink>{" "}
-                  or <TextLink to="/guides">another method</TextLink>.
+                  Load them into your game with the <TextLink to="/download">app</TextLink> or{" "}
+                  <TextLink to="/guides">another method</TextLink>.
                 </p>
               </Step>
             </Steps>
@@ -90,6 +90,18 @@ function About() {
               and a screenshot or two. Packs are checked automatically, then reviewed by a moderator
               before they go public.
             </p>
+          </ArticleSection>
+
+          <ArticleSection title="Open source">
+            <p>
+              The site, the app, and the Rust crates that read Melee&apos;s files are all open
+              source. Poke around, open an issue, or send a PR.
+            </p>
+            <span {...stylex.props(styles.action)}>
+              <AnchorButton href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
+                textures.gg on GitHub
+              </AnchorButton>
+            </span>
           </ArticleSection>
 
           <ArticleSection title="Community and support">

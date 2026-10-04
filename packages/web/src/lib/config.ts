@@ -5,3 +5,6 @@ export const ASSETS_URL =
 
 /** The community Discord, linked from the footer, About, and Download. */
 export const DISCORD_URL = "https://discord.gg/RzFFFg3J4g";
+
+/** The GitHub organization with the site, the app, and its crates. */
+export const GITHUB_URL = "https://github.com/texturesgg";
