@@ -69,7 +69,10 @@ function NewCodeMod() {
 
   return (
     <div {...stylex.props(layout.container, layout.page, styles.page)}>
-      <PageHeader title="New code mod" />
+      <PageHeader
+        title="New code mod"
+        description="Or run tgg mod new in your mod's folder, after tgg login."
+      />
       <form onSubmit={submit} {...stylex.props(layout.narrow, styles.form)}>
         <TextField
           label="Mod id"
