@@ -44,6 +44,13 @@ allowed_sender_addresses = ["noreply@textures.gg"]
 
 # Rate limiting
 # General API: 1200 requests per 60s per key
+# Feature flags (Cloudflare Flagship), one app per environment. Local
+# development reads the development app remotely.
+[[flagship]]
+binding = "FLAGS"
+app_id = "ea74005e-8545-45f3-abd0-eed90c9400b8"
+remote = true
+
 [[ratelimits]]
 name = "RATE_LIMIT_API"
 namespace_id = "1001"
@@ -94,6 +101,10 @@ ASSETS_BASE_URL = "http://localhost:8787/api/files"
 [env.production]
 name = "vgskins-api"
 vars = { ENVIRONMENT = "production", API_BASE_URL = "https://api.textures.gg", SITE_BASE_URL = "https://textures.gg", ASSETS_BASE_URL = "https://assets.textures.gg" }
+
+[[env.production.flagship]]
+binding = "FLAGS"
+app_id = "17fad2a7-905a-46dd-8da8-81bf210fd4d5"
 
 [[env.production.d1_databases]]
 binding = "DB"
@@ -158,6 +169,10 @@ period = 60
 name = "vgskins-api-preview"
 routes = [{ pattern = "api-preview.textures.gg", custom_domain = true }]
 vars = { ENVIRONMENT = "preview", API_BASE_URL = "https://api-preview.textures.gg", SITE_BASE_URL = "https://preview.textures.gg", ASSETS_BASE_URL = "https://assets.textures.gg" }
+
+[[env.preview.flagship]]
+binding = "FLAGS"
+app_id = "05369737-a4a9-4273-b195-5451b740377d"
 
 [[env.preview.d1_databases]]
 binding = "DB"

@@ -14,6 +14,7 @@ import { generalApiRateLimit, rateLimitByIp } from "./lib/rate-limit";
 import adminRoutes from "./routes/admin";
 import editorRoutes from "./routes/editor";
 import filesRoutes from "./routes/files";
+import flagsRoutes from "./routes/flags";
 import gamesRoutes from "./routes/games";
 import packsRoutes from "./routes/packs";
 import reportsRoutes from "./routes/reports";
@@ -42,6 +43,7 @@ const app = new Hono<HonoEnv>()
   })
   .use("/api/*", generalApiRateLimit())
   .route("/api/files", filesRoutes)
+  .route("/api/flags", flagsRoutes)
   .route("/api/games", gamesRoutes)
   .route("/api/packs", packsRoutes)
   .route("/api/stats", statsRoutes)
