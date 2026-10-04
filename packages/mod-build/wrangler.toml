@@ -40,13 +40,14 @@ binding = "BUILD"
 class_name = "BuildMod"
 
 # The builder image: GCC and tgg-mod (image/flake.nix) plus the game SDK and
-# symbol list of every active layout, pushed by image/push.sh to the
+# symbol list of every active layout, built by image/build.sh into the
 # account's private registry. It holds decomp headers, so it never goes to a
-# public one. Update the digest when a layout is registered (image/README.md).
+# public one. Each deploy pins the digest for image/layouts.json
+# (scripts/prepare-deploy.sh); the one here is the last one built.
 [[containers]]
 class_name = "Builder"
 scheduling_policy = "durable_object"
-images.builder.image = "registry.cloudflare.com/aef405d01b3d36d6b5ebeed5efe8c2f8/tgg-mod-builder@sha256:340d887187427f5d6fa9108e940daa413b7e3a4cd253626e899352cb0bb3fc67"
+images.builder.image = "registry.cloudflare.com/aef405d01b3d36d6b5ebeed5efe8c2f8/tgg-mod-builder@sha256:58eabaacf98c837c0dbd6a3d3f3155211c9ed1be1304805e5edc4eb030294494"
 
 [observability]
 enabled = true
@@ -79,7 +80,7 @@ class_name = "BuildMod"
 [[env.preview.containers]]
 class_name = "Builder"
 scheduling_policy = "durable_object"
-images.builder.image = "registry.cloudflare.com/aef405d01b3d36d6b5ebeed5efe8c2f8/tgg-mod-builder@sha256:340d887187427f5d6fa9108e940daa413b7e3a4cd253626e899352cb0bb3fc67"
+images.builder.image = "registry.cloudflare.com/aef405d01b3d36d6b5ebeed5efe8c2f8/tgg-mod-builder@sha256:58eabaacf98c837c0dbd6a3d3f3155211c9ed1be1304805e5edc4eb030294494"
 
 # Every push to a repo in the namespace starts the Workflow; it skips anything
 # but a tag on a mod- repo that a code mod row names.
@@ -116,7 +117,7 @@ class_name = "BuildMod"
 [[env.production.containers]]
 class_name = "Builder"
 scheduling_policy = "durable_object"
-images.builder.image = "registry.cloudflare.com/aef405d01b3d36d6b5ebeed5efe8c2f8/tgg-mod-builder@sha256:340d887187427f5d6fa9108e940daa413b7e3a4cd253626e899352cb0bb3fc67"
+images.builder.image = "registry.cloudflare.com/aef405d01b3d36d6b5ebeed5efe8c2f8/tgg-mod-builder@sha256:58eabaacf98c837c0dbd6a3d3f3155211c9ed1be1304805e5edc4eb030294494"
 
 [[env.production.triggers.events]]
 type = "cf.artifacts.repo.pushed"
