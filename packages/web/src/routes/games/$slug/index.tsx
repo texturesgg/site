@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { ChevronDownIcon, FiltersIcon } from "@/ui/icons";
 import { EmptyState } from "@/ui/patterns/EmptyState";
 import { layout } from "@/ui/patterns/layout";
+import { GameSections } from "@/ui/patterns/GameSections";
 import { PageHeader } from "@/ui/patterns/PageHeader";
 import { PackGrid, PackGridSkeleton } from "@/ui/patterns/PackTile";
 import { Pagination } from "@/ui/patterns/Pagination";
@@ -261,7 +262,9 @@ function BrowsePage() {
             />
           </div>
         }
-      />
+      >
+        <GameSections slug={game.slug} />
+      </PageHeader>
 
       <div {...stylex.props(styles.bar)}>
         <div {...stylex.props(styles.wideOnly)}>
