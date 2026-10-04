@@ -42,13 +42,31 @@ function repoName(codeModId: string): string {
  * word; a mod that calls itself cosmetic but replaces a function, or runs
  * before one, may change the match.
  */
-function reviewNotes(netplay: string, hooks: CanonicalHooks[]): string[] {
+/** The game files a build's package ships, from its packed manifest. */
+function shippedFiles(manifest: Record<string, unknown> | null): { path: string; size: number }[] {
+  const files = manifest?.files;
+  if (!Array.isArray(files)) return [];
+  return files.flatMap((file) =>
+    typeof file?.path === "string" && typeof file?.size === "number"
+      ? [{ path: file.path, size: file.size }]
+      : []
+  );
+}
+
+function reviewNotes(netplay: string, hooks: CanonicalHooks[], files: string[]): string[] {
   if (netplay !== "cosmetic") return [];
   const replaces = new Set(hooks.flatMap((h) => h.replaces ?? []));
   const before = new Set(hooks.flatMap((h) => h.before ?? []));
   const notes: string[] = [];
   if (replaces.size > 0) notes.push(`Marked cosmetic but replaces ${[...replaces].join(", ")}`);
   if (before.size > 0) notes.push(`Marked cosmetic but runs before ${[...before].join(", ")}`);
+  // A cosmetic mod's files don't count toward netplay's mod set, so one that
+  // changes how the game plays would desync.
+  if (files.length > 0) {
+    notes.push(
+      `Marked cosmetic and ships ${[...new Set(files)].join(", ")}; check none changes gameplay`
+    );
+  }
   return notes;
 }
 
@@ -247,7 +265,8 @@ const app = new Hono<HonoEnv>()
             reviewNotes: isModerator(user)
               ? reviewNotes(
                   release.netplay,
-                  releaseBuilds.flatMap((build) => build.canonicalHooks ?? [])
+                  releaseBuilds.flatMap((build) => build.canonicalHooks ?? []),
+                  releaseBuilds.flatMap((build) => shippedFiles(build.manifest).map((f) => f.path))
                 )
               : [],
             builds: releaseBuilds.map((build) => ({
@@ -259,6 +278,7 @@ const app = new Hono<HonoEnv>()
               size: build.packageSize,
               hooks: build.canonicalHooks,
               state: (build.manifest as { state?: number } | null)?.state ?? null,
+              files: shippedFiles(build.manifest),
               hasLog: build.logKey !== null,
               finishedAt: build.finishedAt,
             })),
