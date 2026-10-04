@@ -5,32 +5,26 @@
     # The revision tgg-mod-runtime builds ports with, so mods compile with the
     # same GCC as the game they load into.
     nixpkgs.url = "github:NixOS/nixpkgs/c59305bab2065cfecc4944690d9eedbb56f3a9fa";
-    # tgg-cli, whose `tgg mod build` builds and packs each mod.
-    core = {
-      url = "github:texturesgg/texturesgg/d03cf8e23ac4c5380330b7cb7df706b5bdb9b882";
-      flake = false;
-    };
   };
 
   outputs =
-    { nixpkgs, core, ... }:
+    { nixpkgs, ... }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
 
-      tgg = pkgs.rustPlatform.buildRustPackage {
+      # tgg's released static Linux build, the same binary `tgg mod build`
+      # runs as on a mod maker's machine, so registry packages match theirs.
+      tgg = pkgs.stdenvNoCC.mkDerivation rec {
         pname = "tgg";
         version = "0.1.0";
-        src = pkgs.runCommand "tgg-src" { } ''
-          mkdir -p $out
-          cp ${./tgg-cli/Cargo.toml} $out/Cargo.toml
-          cp ${./tgg-cli/Cargo.lock} $out/Cargo.lock
-          cp -r ${core}/crates/tgg-mod $out/tgg-mod
-          cp -r ${core}/crates/tgg-cli $out/tgg-cli
+        src = pkgs.fetchurl {
+          url = "https://github.com/texturesgg/texturesgg/releases/download/cli-v${version}/tgg-${version}-x86_64-unknown-linux-musl.tar.gz";
+          hash = "sha256-slXmpJksZm+4Aw3Q7FlfkY3Lgl8mWcs3oU2lQbqdFog=";
+        };
+        installPhase = ''
+          install -Dm755 tgg $out/bin/tgg
         '';
-        cargoLock.lockFile = ./tgg-cli/Cargo.lock;
-        cargoBuildFlags = [ "-p" "tgg-cli" ];
-        doCheck = false;
       };
 
       toolchain = pkgs.buildEnv {
