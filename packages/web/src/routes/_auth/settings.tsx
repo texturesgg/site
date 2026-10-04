@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { displayName, LIMITS, validateUsername } from "@vgskins/shared";
 import { parseResponse } from "hono/client";
@@ -286,7 +286,67 @@ function SettingsPage() {
             </dd>
           </dl>
         </section>
+
+        <CommandLineSessions />
       </form>
     </div>
+  );
+}
+
+const dateFormat: Intl.DateTimeFormatOptions = { month: "long", day: "numeric", year: "numeric" };
+
+/** Where the tgg command line is signed in as this user, each one revocable. */
+function CommandLineSessions() {
+  const queryClient = useQueryClient();
+  const sessions = useQuery({
+    queryKey: ["sessions", "tgg"],
+    queryFn: async () => {
+      const { data, error } = await authClient.listSessions();
+      if (error) throw new Error(error.message);
+      return data.filter((session) => session.userAgent?.startsWith("tgg/"));
+    },
+  });
+  const signOut = useMutation({
+    mutationFn: async (token: string) => {
+      const { error } = await authClient.revokeSession({ token });
+      if (error) throw new Error(error.message || "That didn't work.");
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sessions", "tgg"] }),
+  });
+
+  if (!sessions.data?.length) return null;
+  return (
+    <section aria-labelledby="cli-heading" {...stylex.props(styles.section)}>
+      <div {...stylex.props(styles.sectionHead)}>
+        <h2 id="cli-heading" {...stylex.props(styles.sectionTitle)}>
+          Command line
+        </h2>
+        <p {...stylex.props(styles.sectionHint)}>Where tgg is signed in as you.</p>
+      </div>
+      <ul {...stylex.props(styles.accounts)}>
+        {sessions.data.map((session) => (
+          <li key={session.id} {...stylex.props(styles.account)}>
+            <span {...stylex.props(styles.accountName)}>
+              {session.userAgent?.replace("/", " ")}
+              <span {...stylex.props(styles.accountStatus)}>
+                Signed in {new Date(session.createdAt).toLocaleDateString("en-US", dateFormat)}
+              </span>
+            </span>
+            <Button
+              type="button"
+              disabled={signOut.isPending}
+              onClick={() => signOut.mutate(session.token)}
+            >
+              Sign out
+            </Button>
+          </li>
+        ))}
+      </ul>
+      {signOut.isError && (
+        <p role="alert" {...stylex.props(styles.error)}>
+          {signOut.error.message}
+        </p>
+      )}
+    </section>
   );
 }
