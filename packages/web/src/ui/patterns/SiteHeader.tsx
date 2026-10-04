@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { createLink, Link } from "@tanstack/react-router";
+import { useFeatureFlag } from "@/lib/feature-flags";
 import { type ComponentProps, type Ref, useState } from "react";
 import { MenuIcon, UploadIcon } from "../icons";
 import {
@@ -133,6 +134,7 @@ type SiteHeaderProps = {
 };
 
 export function SiteHeader({ user, isLoading, onSignIn, onSignOut }: SiteHeaderProps) {
+  const codeMods = useFeatureFlag("codeMods");
   const [menuOpen, setMenuOpen] = useState(false);
   const canModerate = user?.role === "moderator" || user?.role === "admin";
   const close = () => setMenuOpen(false);
@@ -150,6 +152,7 @@ export function SiteHeader({ user, isLoading, onSignIn, onSignOut }: SiteHeaderP
             </NavLink>
             <NavLink to="/guides">Install</NavLink>
             <NavLink to="/download">App</NavLink>
+            {codeMods && <NavLink to="/code-mods">Code mods</NavLink>}
           </nav>
         </div>
 
@@ -209,6 +212,11 @@ export function SiteHeader({ user, isLoading, onSignIn, onSignOut }: SiteHeaderP
                 <SheetLink to="/guides" onClick={close}>
                   Install guide
                 </SheetLink>
+                {codeMods && (
+                  <SheetLink to="/code-mods" onClick={close}>
+                    Code mods
+                  </SheetLink>
+                )}
                 <SheetLink to="/download" onClick={close}>
                   Desktop app
                 </SheetLink>
