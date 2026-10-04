@@ -32,6 +32,12 @@ erDiagram
     collections ||--o{ collectionItems : "contains"
     packs ||--o{ collectionItems : "included in"
 
+    users ||--o{ codeMods : "publishes"
+    games ||--o{ codeMods : "has many"
+    codeMods ||--o{ codeModReleases : "versions"
+    codeModReleases ||--o{ codeModBuilds : "built as"
+    codeModLayouts ||--o{ codeModBuilds : "targeted by"
+
     users {
         text id PK
         text name UK
@@ -241,6 +247,67 @@ erDiagram
         int resolvedAt "nullable"
         int createdAt
     }
+
+    codeMods {
+        text id PK "Artifacts repo mod-<id>"
+        text userId FK
+        text gameId FK
+        text slug UK "manifest id"
+        text name
+        text description
+        text sourceKind "github | push"
+        text sourceUrl "nullable"
+        int downloadCount
+        int createdAt
+        int updatedAt
+        int deletedAt "nullable, soft delete"
+    }
+
+    codeModReleases {
+        text id PK
+        text codeModId FK
+        text version "unique with codeModId"
+        text tag
+        text commitSha
+        text netplay "cosmetic | gameplay"
+        text license
+        text status "processing | pending | approved | rejected | failed"
+        text error "why a failed release failed"
+        text reviewedBy FK "nullable"
+        int reviewedAt "nullable"
+        int createdAt
+        int updatedAt
+        int publishedAt "nullable"
+    }
+
+    codeModLayouts {
+        text id PK "16 hex digits"
+        text api "tgg/1"
+        text port
+        text target "target triple, e.g. x86_64-linux-gnu"
+        text portVersion
+        bool active
+        int createdAt
+    }
+
+    codeModBuilds {
+        text id PK
+        text releaseId FK
+        text layoutId FK "unique with releaseId"
+        text status "queued | building | succeeded | failed"
+        text runId "CI Workflow instance"
+        text image
+        text packageKey "R2 key"
+        text packageSha256
+        int packageSize
+        json manifest "packed manifest"
+        json canonicalHooks "before, after, replaces; canonical names"
+        text logKey "compiler log in R2"
+        text signature
+        text error
+        int createdAt
+        int finishedAt "nullable"
+    }
 ```
 
 ## Relationship Notes
@@ -338,6 +405,38 @@ on `targetId` because the target may be deleted before the report is resolved.
 A user can have at most one pending report per target. Moderators resolve
 (`"resolved"`) or dismiss (`"dismissed"`) reports; `resolvedBy` and
 `resolvedAt` are set at that time.
+
+### Code Mods
+
+A code mod is a hook-based mod for the textures.gg mod runtime (`tgg/1`, in
+texturesgg/tgg-mod-runtime). It is separate from `packs` and `mods`, which hold
+texture packs. Its `slug` is the manifest `id`, which also names the folder the
+mod installs into, so it is unique across the registry. Its source lives in the
+Cloudflare Artifacts repo `mod-<id>`.
+
+A release is one tag on that repo. A compiled mod library loads only into a port
+build with the same game layout id, so a release is built once per active row of
+`codeModLayouts`, against that layout's game SDK and symbol list in the builder
+image. A new layout gets builds of existing releases without a new review, since
+review covers the source at `commitSha`. A retired layout (`active` false) gets no
+new builds, and its packages stay downloadable. Players fetch the builds for the
+layout id their port executable reports.
+
+`canonicalHooks` holds the manifest's hooks under canonical names: `name` for an
+exported function and `file.c:name` for a static. The runtime treats both spellings
+as one function, so conflict checks compare these.
+
+```
+codeModReleases: processing -> pending -> approved | rejected
+                 processing -> failed (no build succeeded)
+codeModBuilds:   queued -> building -> succeeded | failed
+```
+
+`transitionRelease` in `packages/db` is the only writer of a release's `status`
+after the build pipeline inserts it, with the same guarded `UPDATE` as
+`transitionPack`.
+
+`packages/preview-sync` does not copy the code mod tables.
 
 ## SSBM Example
 

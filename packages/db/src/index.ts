@@ -2,6 +2,7 @@ import { drizzle } from "drizzle-orm/d1";
 import * as schema from "./schema";
 
 export * from "./schema";
+export { transitionRelease } from "./code-mods";
 export { deletePackObjects, transitionPack } from "./packs";
 export { schema };
 
