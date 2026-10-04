@@ -194,7 +194,10 @@ A thrown error is invisible to those types.
 
 Use `requireAuth` and `optionalAuth` middleware for protected routes.
 `requireAuth` returns 401 when there is no session and types `user` as
-non-null for the handler, so no assertion is needed.
+non-null for the handler, so no assertion is needed. A session comes from the
+browser's cookie or, for the `tgg` command line, from `Authorization: Bearer`
+with the token `tgg login` got through better-auth's device authorization;
+routes treat both the same.
 
 ```typescript
 import { requireAuth, optionalAuth } from "../lib/auth";

@@ -12,6 +12,7 @@ erDiagram
 
     users ||--o{ accounts : "signs in with"
     users ||--o{ sessions : "holds"
+    users |o--o{ deviceCodes : "confirms"
     users ||--o{ packs : "uploads"
     users ||--o{ collections : "curates"
     users ||--o{ votes : "votes"
@@ -96,6 +97,19 @@ erDiagram
         int expiresAt
         int createdAt
         int updatedAt
+    }
+
+    deviceCodes {
+        text id PK
+        text deviceCode UK
+        text userCode
+        text userId FK
+        int expiresAt
+        text status
+        int lastPolledAt
+        int pollingInterval
+        text clientId
+        text scope
     }
 
     games {
@@ -317,9 +331,13 @@ All foreign keys use `ON DELETE CASCADE` except `reports.resolvedBy`
 constraint action). `comments.parentId` references `comments.id`, so deleting a
 comment deletes its replies.
 
-`users`, `accounts`, `sessions`, and `verifications` are the better-auth
-tables. `verifications` has no foreign key; it holds email-verification and
-password-reset tokens keyed by `identifier`.
+`users`, `accounts`, `sessions`, `verifications`, and `deviceCodes` are the
+better-auth tables. `verifications` has no foreign key; it holds
+email-verification and password-reset tokens keyed by `identifier`.
+`deviceCodes` holds `tgg login` sign-ins in progress: `pending` until the user
+who looked the code up on `/device` approves or denies it, then removed when
+the command line collects its session (or finds the code expired). A command
+line's session is an ordinary `sessions` row with user agent `tgg/<version>`.
 
 No API route, queue job, or page reads or writes `collections`,
 `collectionItems`, or `favorites`. The tables exist in the schema, and

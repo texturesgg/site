@@ -2,7 +2,7 @@ import { createDb, schema } from "@vgskins/db";
 import { ac, roles, type UserRole } from "@vgskins/shared/permissions";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { admin } from "better-auth/plugins";
+import { admin, bearer, deviceAuthorization } from "better-auth/plugins";
 import { and, eq, gt, like } from "drizzle-orm";
 import { createMiddleware } from "hono/factory";
 import type { Env, HonoEnv } from "../types";
@@ -22,6 +22,9 @@ export function siteOrigins(env: Pick<Env, "ENVIRONMENT" | "SITE_BASE_URL">): st
   return env.ENVIRONMENT === "development" ? [...deployed, ...local] : deployed;
 }
 
+/** The client id the `tgg` command line signs in with. */
+export const CLI_CLIENT_ID = "tgg-cli";
+
 // A sign-up attempt for an existing account emails a reset link at most this often.
 const EXISTING_USER_EMAIL_COOLDOWN_MS = 5 * 60 * 1000;
 
@@ -40,6 +43,7 @@ function createAuth(env: Env) {
         account: schema.accounts,
         session: schema.sessions,
         verification: schema.verifications,
+        deviceCode: schema.deviceCodes,
       },
     }),
 
@@ -178,6 +182,16 @@ function createAuth(env: Env) {
         defaultRole: "user",
         adminRoles: ["admin"],
       }),
+      // `tgg login`: the command line shows a code, the user approves it on
+      // the site's /device page, and the command line gets a session token it
+      // sends as `Authorization: Bearer`.
+      deviceAuthorization({
+        expiresIn: "15m",
+        interval: "5s",
+        verificationUri: `${env.SITE_BASE_URL}/device`,
+        validateClient: (clientId) => clientId === CLI_CLIENT_ID,
+      }),
+      bearer(),
     ],
 
     session: {

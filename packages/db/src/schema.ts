@@ -100,6 +100,25 @@ export const verifications = sqliteTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)]
 );
 
+// A pending sign-in from the `tgg` command line (better-auth's device
+// authorization). Approving it on the site turns it into a session.
+export const deviceCodes = sqliteTable(
+  "device_codes",
+  {
+    id: text("id").primaryKey(),
+    deviceCode: text("device_code").notNull().unique(),
+    userCode: text("user_code").notNull(),
+    userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    status: text("status").notNull(),
+    lastPolledAt: integer("last_polled_at", { mode: "timestamp_ms" }),
+    pollingInterval: integer("polling_interval"),
+    clientId: text("client_id"),
+    scope: text("scope"),
+  },
+  (table) => [index("device_code_user_code_idx").on(table.userCode)]
+);
+
 // ============================================================================
 // Game tables
 // ============================================================================

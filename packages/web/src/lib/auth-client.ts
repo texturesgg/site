@@ -1,5 +1,9 @@
 import { ac, roles, type UserRole } from "@vgskins/shared/permissions";
-import { adminClient, inferAdditionalFields } from "better-auth/client/plugins";
+import {
+  adminClient,
+  deviceAuthorizationClient,
+  inferAdditionalFields,
+} from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { API_BASE_URL } from "./config";
 
@@ -11,6 +15,7 @@ export const authClient = createAuthClient({
   basePath: "/api/auth",
   plugins: [
     adminClient({ ac, roles }),
+    deviceAuthorizationClient(),
     inferAdditionalFields({
       user: {
         role: {
