@@ -610,6 +610,11 @@ tells the signed-in viewer which flags are on. A route area behind a flag
 mounts its middleware (`requireCodeMods`), which answers 404 so the area reads
 as missing to anyone the flag is off for.
 
+The web reads the same answer: `useFeatureFlag` in components, and in a
+flagged page's loader `requireFeatureFlag` (not found when off) or
+`featureFlag`. The middleware's 404 is not part of the client type, so a
+loader checks the flag rather than waiting for a flagged route to 404.
+
 ## Shared Package
 
 ### When to Add to @vgskins/shared
