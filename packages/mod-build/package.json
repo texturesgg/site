@@ -1,0 +1,25 @@
+{
+  "name": "@vgskins/mod-build",
+  "version": "0.1.0",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "wrangler deploy --env=\"\" --dry-run --outdir dist --containers-rollout=none",
+    "deploy:production": "wrangler deploy --env production",
+    "deploy:preview": "wrangler deploy --env preview",
+    "cf-typegen": "wrangler types src/worker-configuration.d.ts --config wrangler.toml --include-runtime false --strict-vars false --env-interface BuildEnv",
+    "typecheck": "pnpm cf-typegen --check && tsc --noEmit"
+  },
+  "dependencies": {
+    "@vgskins/db": "workspace:*",
+    "@vgskins/shared": "workspace:*",
+    "drizzle-orm": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "typescript": "catalog:",
+    "wrangler": "catalog:"
+  }
+}
