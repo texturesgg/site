@@ -3,17 +3,17 @@
     "core": {
       "flake": false,
       "locked": {
-        "lastModified": 1791088269,
-        "narHash": "sha256-G1CsLQfPPYVC0fSHh7K0iy1sD/42qMptwr5+hi9QTp0=",
+        "lastModified": 1791095781,
+        "narHash": "sha256-9PRYLuwnQ3WMJebyjFHaK2eB2wB3e1dmfygSCc2TJB0=",
         "owner": "texturesgg",
         "repo": "texturesgg",
-        "rev": "b33a730bb3a2682162290894d9564e4375a6a50c",
+        "rev": "d03cf8e23ac4c5380330b7cb7df706b5bdb9b882",
         "type": "github"
       },
       "original": {
         "owner": "texturesgg",
         "repo": "texturesgg",
-        "rev": "b33a730bb3a2682162290894d9564e4375a6a50c",
+        "rev": "d03cf8e23ac4c5380330b7cb7df706b5bdb9b882",
         "type": "github"
       }
     },

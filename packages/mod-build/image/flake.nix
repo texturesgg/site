@@ -5,9 +5,9 @@
     # The revision tgg-mod-runtime builds ports with, so mods compile with the
     # same GCC as the game they load into.
     nixpkgs.url = "github:NixOS/nixpkgs/c59305bab2065cfecc4944690d9eedbb56f3a9fa";
-    # tgg-mod, which builds and packs each mod.
+    # tgg-cli, whose `tgg mod build` builds and packs each mod.
     core = {
-      url = "github:texturesgg/texturesgg/b33a730bb3a2682162290894d9564e4375a6a50c";
+      url = "github:texturesgg/texturesgg/d03cf8e23ac4c5380330b7cb7df706b5bdb9b882";
       flake = false;
     };
   };
@@ -18,35 +18,36 @@
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
 
-      tgg-mod = pkgs.rustPlatform.buildRustPackage {
-        pname = "tgg-mod";
+      tgg = pkgs.rustPlatform.buildRustPackage {
+        pname = "tgg";
         version = "0.1.0";
-        src = pkgs.runCommand "tgg-mod-src" { } ''
+        src = pkgs.runCommand "tgg-src" { } ''
           mkdir -p $out
-          cp ${./tgg-mod/Cargo.toml} $out/Cargo.toml
-          cp ${./tgg-mod/Cargo.lock} $out/Cargo.lock
+          cp ${./tgg-cli/Cargo.toml} $out/Cargo.toml
+          cp ${./tgg-cli/Cargo.lock} $out/Cargo.lock
           cp -r ${core}/crates/tgg-mod $out/tgg-mod
+          cp -r ${core}/crates/tgg-cli $out/tgg-cli
         '';
-        cargoLock.lockFile = ./tgg-mod/Cargo.lock;
-        cargoBuildFlags = [ "-p" "tgg-mod" ];
+        cargoLock.lockFile = ./tgg-cli/Cargo.lock;
+        cargoBuildFlags = [ "-p" "tgg-cli" ];
         doCheck = false;
       };
 
       toolchain = pkgs.buildEnv {
         name = "tgg-mod-toolchain";
-        # A mod build is one GCC call, which `tgg-mod build` makes. GCC only:
+        # A mod build is one GCC call, which `tgg mod build` makes. GCC only:
         # the game's on-disc structs use scalar_storage_order. coreutils gives
         # the container `sleep` to stay up and `cat` to hand the package back.
         paths = [
           pkgs.gcc
           pkgs.coreutils
-          tgg-mod
+          tgg
         ];
       };
     in
     {
       packages.${system} = {
-        inherit tgg-mod toolchain;
+        inherit tgg toolchain;
 
         # Nothing but the toolchain: no distribution, no shell beyond what GCC's
         # wrapper needs, and no game headers. The builder image adds each active

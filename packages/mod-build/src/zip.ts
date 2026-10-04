@@ -1,5 +1,5 @@
 // A stored (uncompressed) zip: how the Worker hands a mod's source to
-// `tgg-mod build --source-zip -`. Source files are small and the bytes only
+// `tgg mod build --source-zip -`. Source files are small and the bytes only
 // cross into the container, so compression would buy nothing.
 
 const CRC_TABLE = (() => {
