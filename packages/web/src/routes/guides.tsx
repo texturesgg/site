@@ -55,7 +55,7 @@ function Guides() {
     <div {...stylex.props(layout.container, layout.page, styles.page)}>
       <PageHeader
         title="How to install texture mods"
-        description="There are two ways to apply texture mods to Melee. The desktop app does everything for you; DAT Texture Wizard works if you prefer doing it by hand."
+        description="There are two ways to get texture mods into Melee. The app does it all for you, or DAT Texture Wizard works if you'd rather do it by hand."
       />
       <div {...stylex.props(layout.narrow)}>
         <Tabs<Method>
@@ -65,7 +65,7 @@ function Guides() {
             navigate({ search: { method: next === "dtw" ? "dtw" : undefined }, replace: true })
           }
           items={[
-            { value: "desktop", label: "Desktop app (recommended)", panel: <DesktopGuide /> },
+            { value: "desktop", label: "The app (recommended)", panel: <DesktopGuide /> },
             { value: "dtw", label: "DAT Texture Wizard", panel: <DtwGuide /> },
           ]}
         />
@@ -79,48 +79,41 @@ function DesktopGuide() {
     <Article>
       <ArticleSection title="What you'll need">
         <BulletList>
-          <li>A Melee ISO file (.iso or .gcm)</li>
-          <li>The textures.gg desktop app</li>
-          <li>Texture files (.dat) or packs (.zip) from textures.gg</li>
+          <li>Your Melee ISO (NTSC 1.02, the one Slippi uses)</li>
+          <li>The textures.gg app</li>
+          <li>Some skins (.dat) or packs (.zip) from here</li>
         </BulletList>
-        <Tip>If you use Slippi, the app finds your Melee ISO automatically.</Tip>
       </ArticleSection>
 
       <ArticleSection title="Getting the app">
         <p>
-          Get the desktop app from the <TextLink to="/download">download page</TextLink>. It runs on
-          Windows and Linux.
+          Grab it from the <TextLink to="/download">download page</TextLink>. It runs on macOS and
+          Linux, and Windows is coming soon.
         </p>
       </ArticleSection>
 
-      <ArticleSection title="Applying textures">
+      <ArticleSection title="Installing skins">
         <Steps>
           <Step number={1}>
             <p>
-              <Strong>Open the app and load your ISO.</Strong> With Slippi installed it detects your
-              Melee ISO; otherwise choose <Strong>Browse for ISO file</Strong> and select it.
+              <Strong>Open the app and pick your Melee.</Strong> It finds the ISOs in your game
+              folders and marks the one Slippi plays. Pick that one, or choose a different ISO.
             </p>
           </Step>
           <Step number={2}>
             <p>
-              <Strong>Drag your texture files onto the window.</Strong> Single .dat files and .zip
-              packs both work.
+              <Strong>Drop your skins on the window.</Strong> .dat files and .zip packs both work,
+              or use <Strong>Add skins…</Strong>.
             </p>
             <Tip>
-              Files named like <Code>PlFxNr.dat</Code> are matched to their character and costume
-              automatically. For anything else, pick from the dropdowns.
+              Files named like <Code>PlFxNr.dat</Code> get matched to their character and color for
+              you. If it guessed wrong, just change it.
             </Tip>
           </Step>
           <Step number={3}>
             <p>
-              <Strong>Check the pending changes.</Strong> Each file shows the character or stage it
-              replaces; change the character, costume, or stage if something looks wrong.
-            </p>
-          </Step>
-          <Step number={4}>
-            <p>
-              <Strong>Save.</Strong> <Strong>Save</Strong> writes the changes into your ISO; use{" "}
-              <Strong>Save as copy…</Strong> to keep the original untouched.
+              <Strong>Hit Add and install.</Strong> The skin goes straight into your ISO, and it
+              stays in your library if you want it again later.
             </p>
           </Step>
         </Steps>
@@ -128,13 +121,9 @@ function DesktopGuide() {
 
       <ArticleSection title="That's it">
         <p>
-          Your ISO now has the new textures built in. Load it in Slippi or Dolphin, and add more
-          whenever you like.
+          Load up Slippi and play. Changed your mind? <Strong>Undo</Strong> puts back what was
+          there, and <Strong>Restore vanilla</Strong> brings any costume back to the original.
         </p>
-        <Tip>
-          You can queue several textures at once, mixing characters, costumes, and stages in one
-          batch.
-        </Tip>
       </ArticleSection>
     </Article>
   );
