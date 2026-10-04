@@ -6,7 +6,7 @@
 #
 #   build.sh LAYOUTS_OUT
 #
-# The image is GCC, coreutils and tgg-mod (flake.nix), plus one folder per
+# The image is GCC, coreutils and tgg (flake.nix), plus one folder per
 # layout at /opt/tgg/sdks/<layout id>/ holding that port build's game SDK and
 # symbol list. Each layouts.json entry names a port and the tgg-mod-runtime
 # revision to build it from; the runtime's flake pins the port's own revision.
@@ -25,7 +25,7 @@ repository="registry.cloudflare.com/${CLOUDFLARE_ACCOUNT_ID:?}/tgg-mod-builder"
 # Bump when the steps below change what goes into the image.
 format=1
 # Everything that decides the image's contents names it.
-inputs=$( (echo "format $format" && cd "$here" && cat layouts.json flake.nix flake.lock tgg-mod/Cargo.toml tgg-mod/Cargo.lock) |
+inputs=$( (echo "format $format" && cd "$here" && cat layouts.json flake.nix flake.lock tgg-cli/Cargo.toml tgg-cli/Cargo.lock) |
   sha256sum | cut -c1-32)
 tag="$repository:inputs-$inputs"
 
@@ -43,7 +43,7 @@ if digest=$(crane digest "$tag" 2>/dev/null); then
   echo "build.sh: $tag exists" >&2
 else
   echo "build.sh: building $tag" >&2
-  nix build "$here#tgg-mod" --out-link "$stage/tgg-mod" >&2
+  nix build "$here#tgg" --out-link "$stage/tgg" >&2
   nix build "$here#image" --out-link "$stage/image" >&2
   mkdir -p "$stage/root/opt/tgg/sdks" "$stage/archive"
 
@@ -62,7 +62,7 @@ else
 
     sdk="$checkout/.port/build/tgg-game-sdk"
     # melee-pc's executable; another port's script names its own.
-    "$stage/tgg-mod/bin/tgg-mod" layout "$checkout/.port/build/melee" -o "$sdk/tgg-layout.json" >&2
+    "$stage/tgg/bin/tgg" mod layout "$checkout/.port/build/melee" -o "$sdk/tgg-layout.json" >&2
     abi=$(jq -r .game_abi "$sdk/tgg-layout.json")
     cp -r "$sdk" "$stage/root/opt/tgg/sdks/$abi"
     port_rev=$(jq -r '.nodes["melee-pc"].locked.rev' "$checkout/flake.lock")

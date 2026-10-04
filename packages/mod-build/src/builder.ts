@@ -16,7 +16,7 @@ const BUILD_ENV = {
 export type BuildResult = {
   // The builder image this build ran in, pinned by digest.
   image: string;
-  // tgg-mod's stderr: the compiler's output and any refusal.
+  // tgg's stderr: the compiler's output and any refusal.
   log: string;
 } & ({ ok: true; report: string; zip: Uint8Array } | { ok: false; exitCode: number });
 
@@ -38,7 +38,8 @@ export class Builder extends DurableObject<BuildEnv> {
       const built = await (
         await container.exec(
           [
-            "tgg-mod",
+            "tgg",
+            "mod",
             "build",
             "/workspace/mod",
             "--source-zip",

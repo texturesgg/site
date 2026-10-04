@@ -238,7 +238,7 @@ async function build(
       status: "failed",
       image: result.image,
       logKey,
-      error: `tgg-mod build exited ${result.exitCode}`,
+      error: `tgg mod build exited ${result.exitCode}`,
     });
     return false;
   }
