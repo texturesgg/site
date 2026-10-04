@@ -8,8 +8,9 @@ import { layout } from "./layout";
 
 /** The current announcement. A new id shows again to people who closed the last one. */
 const ANNOUNCEMENT = {
-  id: "app-0.1.0",
-  message: "The textures.gg app is out. Put skins into your Melee in a few clicks.",
+  id: "app-0.2.0",
+  message:
+    "textures.gg 0.2.0 installs lasers, shines and other fighter effects, and shows them on your fighter.",
   link: { to: "/download", label: "Get the app" },
 } as const;
 
