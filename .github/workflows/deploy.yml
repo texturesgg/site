@@ -72,6 +72,19 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
+      # The code mod builder image: reused when packages/mod-build/image's
+      # inputs are unchanged, built from pinned sources when they change.
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+        with:
+          extra_nix_config: experimental-features = nix-command flakes
+      - name: Install crane
+        run: nix profile install nixpkgs#crane
+      - name: Prepare the code mod build pipeline
+        run: packages/mod-build/scripts/prepare-deploy.sh production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
       - name: Deploy production workers
         run: pnpm deploy:production
         env:

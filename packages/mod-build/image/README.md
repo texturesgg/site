@@ -7,40 +7,23 @@ tgg-mod-runtime builds ports with), coreutils and `tgg-mod`, built with Nix
 The SDKs hold decomp headers, so the image lives only in the account's private
 registry.
 
-`push.sh` builds and pushes it. It repacks the image as one owner-writable
-layer, because Cloudflare's image preparation fails on Nix's read-only store,
-and prints the image pinned by digest.
+`layouts.json` lists the active layouts, each as a port and the
+tgg-mod-runtime revision to build it from (the runtime's flake pins the port's
+own revision). Each deploy runs `../scripts/prepare-deploy.sh`, which:
 
-## Registering a layout
+1. finds the image for the current inputs in the registry
+   (`tgg-mod-builder:inputs-<hash of layouts.json, the flake, the tgg-mod
+lock and build.sh's format number>`), or builds it with `build.sh`: each
+   port built with the mod loader, its game SDK copied out, its symbol list
+   added with `tgg-mod layout`, all repacked as one owner-writable layer
+   (Cloudflare's image preparation fails on Nix's read-only store) and pushed;
+2. waits until Cloudflare has prepared the image to run (a new image can take
+   ten minutes or more);
+3. makes `code_mod_layouts` match the layouts the image carries: those are
+   active, every other one is retired (no new builds; its packages stay
+   downloadable);
+4. pins the image's digest in `../wrangler.toml` for the deploy.
 
-A layout is one port build's game layout id. To build mods for a new one:
-
-1. Build the port with the mod loader (in tgg-mod-runtime,
-   `ports/melee-pc/port build`) and copy its `tgg-game-sdk/` out of the build
-   tree, since the next port build rewrites it.
-2. Add the layout's symbol list beside the SDK:
-
-   ```sh
-   tgg-mod layout <port build>/melee -o <sdk copy>/tgg-layout.json
-   ```
-
-3. Push the image with every active layout, using credentials from
-   `cf containers registries credentials generate registry.cloudflare.com
---expiration-minutes 30 --permissions push pull` in `DOCKER_CONFIG`:
-
-   ```sh
-   ./push.sh registry.cloudflare.com/<account id>/tgg-mod-builder <sdk copy>...
-   ```
-
-4. Check that Cloudflare can run it (`status` must reach `ready`):
-
-   ```sh
-   cf containers images prepare --image <printed image>
-   ```
-
-5. Put the printed digest in `wrangler.toml` for each environment, and add the
-   layout's row to `code_mod_layouts` (id, `tgg/1`, port, target, port version).
-   The next tag a mod pushes builds for it; existing releases keep their builds.
-
-To retire a layout, set its row's `active` to false. It gets no new builds, and
-its packages stay downloadable.
+So adding, updating or retiring a layout is an edit to `layouts.json`. A
+release built before a layout was added has no build for it until its author
+tags a new version.
