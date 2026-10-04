@@ -8,7 +8,7 @@ import { PageHeader } from "@/ui/patterns/PageHeader";
 import { AnchorButton, TextAnchor, TextLink } from "@/ui/primitives";
 import { color, font, radius, space, text } from "@/ui/tokens.stylex";
 
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 
 const PLATFORMS: { name: string; requirement: string; file?: string }[] = [
   {
