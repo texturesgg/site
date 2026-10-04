@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { signOut } from "@/lib/auth-client";
 import type { RouterContext } from "@/lib/router-context";
 import { currentUserQuery, sessionQuery } from "@/lib/session";
+import { Announcement } from "@/ui/patterns/Announcement";
 import { SiteFooter } from "@/ui/patterns/SiteFooter";
 import { SiteHeader } from "@/ui/patterns/SiteHeader";
 import { color, font, radius, text } from "@/ui/tokens.stylex";
@@ -39,6 +40,7 @@ function RootComponent() {
   return (
     <div {...stylex.props(styles.shell)}>
       <HeadContent />
+      <Announcement />
       <SiteHeader
         user={user ?? null}
         isLoading={isLoading}
