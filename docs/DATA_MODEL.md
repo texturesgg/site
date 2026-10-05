@@ -296,10 +296,10 @@ erDiagram
 
     codeModLayouts {
         text id PK "16 hex digits"
-        text api "tgg/1"
+        text api "tgg-melee/0"
         text port
         text target "target triple, e.g. x86_64-linux-gnu"
-        text portVersion
+        text portVersion "tgg-melee release"
         bool active
         int createdAt
     }
@@ -426,18 +426,18 @@ A user can have at most one pending report per target. Moderators resolve
 
 ### Code Mods
 
-A code mod is a hook-based mod for the textures.gg mod runtime (`tgg/1`, in
-texturesgg/tgg-mod-runtime). It is separate from `packs` and `mods`, which hold
-texture packs. Its `slug` is the manifest `id`, which also names the folder the
-mod installs into, so it is unique across the registry. Its source lives in the
+A code mod is a mod for tgg-melee, the Melee port with the mod runtime built in
+(`tgg-melee/0`). It is separate from `packs` and `mods`, which hold texture
+packs. Its `slug` is the manifest `id`, which also names the folder the mod
+installs into, so it is unique across the registry. Its source lives in the
 Cloudflare Artifacts repo `mod-<id>`.
 
 A release is one tag on that repo. A compiled mod library loads only into a port
 build with the same game layout id, so a release is built once per active row of
-`codeModLayouts`, against that layout's game SDK and symbol list in the builder
-image. A new layout gets builds of existing releases without a new review, since
-review covers the source at `commitSha`. A retired layout (`active` false) gets no
-new builds, and its packages stay downloadable. Players fetch the builds for the
+`codeModLayouts`, against that layout's game SDK in the builder image (one
+tgg-melee release per layout). A new layout gets builds of existing releases
+without a new review, since review covers the source at `commitSha`. A retired
+layout (`active` false) gets no new builds, and its packages stay downloadable. Players fetch the builds for the
 layout id their port executable reports.
 
 `canonicalHooks` holds the manifest's hooks under canonical names: `name` for an

@@ -1,21 +1,29 @@
 # The builder image
 
 The image the build Workflow compiles mods in: GCC (the nixpkgs revision
-tgg-mod-runtime builds ports with), coreutils and `tgg`, assembled with Nix
+tgg-melee releases are built with), coreutils and `tgg`, assembled with Nix
 (`flake.nix`), plus one folder per active game layout at
-`/opt/tgg/sdks/<layout id>/` holding that port build's game SDK and symbol list.
-The SDKs hold decomp headers, so the image lives only in the account's private
-registry.
+`/opt/tgg/sdks/<layout id>/` holding that tgg-melee release's game SDK, whose
+`symbols.txt` `tgg mod build` checks hooks and links against. The SDKs hold
+decomp headers and the game's source, so the image lives only in the
+account's private registry.
 
-`layouts.json` lists the active layouts, each as a port and the
-tgg-mod-runtime revision to build it from (the runtime's flake pins the port's
-own revision). Each deploy runs `../scripts/prepare-deploy.sh`, which:
+`layouts.json` lists the active layouts, each as a tgg-melee release version
+and the SHA-256 of its SDK archive (`files.sdk.sha256` in the release's
+`release.json`):
+
+```json
+[{ "version": "0.1.0", "sdk_sha256": "032d0c…" }]
+```
+
+A patch release keeps its minor's layout id, so the list names one release per
+layout. Each deploy runs `../scripts/prepare-deploy.sh`, which:
 
 1. finds the image for the current inputs in the registry
    (`tgg-mod-builder:inputs-<hash of layouts.json, the flake, its lock and
-build.sh's format number>`), or builds it with `build.sh`: each
-   port built with the mod loader, its game SDK copied out, its symbol list
-   added with `tgg mod layout`, all repacked as one owner-writable layer
+build.sh's format number>`), or builds it with `build.sh`: each release's
+   SDK downloaded and checked by `fetch-sdks.sh`, unpacked under its layout
+   id, all repacked with the toolchain as one owner-writable layer
    (Cloudflare's image preparation fails on Nix's read-only store) and pushed;
 2. waits until Cloudflare has prepared the image to run (a new image has taken
    close to an hour; the wait gives up after 90 minutes);
@@ -27,6 +35,15 @@ build.sh's format number>`), or builds it with `build.sh`: each
 So adding, updating or retiring a layout is an edit to `layouts.json`. A
 release built before a layout was added has no build for it until its author
 tags a new version.
+
+SDK archives come from `https://dl.textures.gg/tgg-melee/<version>/`, so a
+release has to be mirrored there before `layouts.json` names it.
+`TGG_MELEE_DOWNLOADS` points `fetch-sdks.sh` somewhere else, such as a local
+mirror; it runs on its own without the registry:
+
+```bash
+TGG_MELEE_DOWNLOADS=http://127.0.0.1:8000/tgg-melee ./fetch-sdks.sh /tmp/root /tmp/layouts.json
+```
 
 `tgg` is a release's static Linux build, fetched by version and SHA-256, so
 the registry packs with the same binary a mod maker's `tgg mod build` runs. To

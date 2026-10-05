@@ -39,10 +39,9 @@ name = "tgg-mod-build-dev"
 binding = "BUILD"
 class_name = "BuildMod"
 
-# The builder image: GCC and tgg-mod (image/flake.nix) plus the game SDK and
-# symbol list of every active layout, built by image/build.sh into the
-# account's private registry. It holds decomp headers, so it never goes to a
-# public one. Each deploy pins the digest for image/layouts.json
+# The builder image: GCC and tgg (image/flake.nix) plus the game SDK of every
+# active layout, built by image/build.sh into the account's private registry.
+# It holds decomp headers, so it never goes to a public one. Each deploy pins the digest for image/layouts.json
 # (scripts/prepare-deploy.sh); the one here is the last one built.
 [[containers]]
 class_name = "Builder"

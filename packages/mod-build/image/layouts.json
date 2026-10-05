@@ -1,6 +1,6 @@
 [
   {
-    "port": "melee-pc",
-    "runtime": "6f6ed0c30760dfb087df111fd145a9e339285130"
+    "version": "0.1.0",
+    "sdk_sha256": "032d0ccecc4f4d4e6c158a37c8aa8ee242de94766a244307dc68a50e252ce03f"
   }
 ]

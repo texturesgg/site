@@ -463,8 +463,9 @@ export const reports = sqliteTable(
 // Code mod tables
 // ============================================================================
 
-// A code mod: a hook-based mod for the textures.gg mod runtime (tgg/1). Its
-// source lives in the Artifacts repo `mod-<id>`; versions are its releases.
+// A code mod: a mod for tgg-melee, the Melee port with the mod runtime built in
+// (tgg-melee/0). Its source lives in the Artifacts repo `mod-<id>`; versions
+// are its releases.
 export const codeMods = sqliteTable(
   "code_mods",
   {
@@ -530,18 +531,18 @@ export const codeModReleases = sqliteTable(
   ]
 );
 
-// A game layout a port build exposes to mods (tgg/1 `game_abi`). A mod library
-// loads only into a build with the same layout id, so the pipeline builds each
-// release once per active layout, against that layout's game SDK and symbol
-// list in the builder image. A retired layout gets no new builds, but its
+// A game layout a tgg-melee release exposes to mods (its SDK's `game_abi`). A
+// mod library loads only into a build with the same layout id, so the pipeline
+// builds each release once per active layout, against that layout's game SDK
+// in the builder image. A retired layout gets no new builds, but its
 // packages stay downloadable for players who haven't updated their port.
 export const codeModLayouts = sqliteTable("code_mod_layouts", {
-  // 16 hex digits, read from the port executable's `tgg_port` section.
+  // 16 hex digits, as the port executable's `tgg_port` section reports it.
   id: text("id").primaryKey(),
-  api: text("api").notNull(), // e.g. "tgg/1"
-  port: text("port").notNull(), // the port's name, e.g. "melee-pc"
+  api: text("api").notNull(), // e.g. "tgg-melee/0"
+  port: text("port").notNull(), // the port's name, "tgg-melee"
   target: text("target").notNull(), // the target triple, e.g. "x86_64-linux-gnu"
-  portVersion: text("port_version").notNull(), // the port build the SDK came from
+  portVersion: text("port_version").notNull(), // the tgg-melee release the SDK came from
   active: integer("active", { mode: "boolean" }).default(true).notNull(),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
 });

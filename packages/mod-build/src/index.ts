@@ -1,9 +1,9 @@
 // Builds code mods. A tag pushed to a mod's Artifacts repo (`mod-<id>`) starts
 // the BuildMod Workflow through the `cf.artifacts.repo.pushed` trigger. It
 // records the release, then for each active game layout a Builder container
-// compiles and packs the mod against that layout's game SDK and symbols. The
-// Worker hashes each package and stores it and the compiler log in R2, and
-// records the build in D1. The container only ever holds the mod's source and
+// compiles and packs the mod against that layout's game SDK. The Worker
+// hashes each package and stores it and the compiler log in R2, and records
+// the build in D1. The container only ever holds the mod's source and
 // the toolchain; the Worker does every write.
 
 import {

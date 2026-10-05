@@ -7,14 +7,13 @@
 #   build.sh LAYOUTS_OUT
 #
 # The image is GCC, coreutils and tgg (flake.nix), plus one folder per
-# layout at /opt/tgg/sdks/<layout id>/ holding that port build's game SDK and
-# symbol list. Each layouts.json entry names a port and the tgg-mod-runtime
-# revision to build it from; the runtime's flake pins the port's own revision.
-# Everything is built from pinned inputs, and the SDKs (which hold decomp
-# headers) only ever go to the private registry.
+# layout at /opt/tgg/sdks/<layout id>/ holding a tgg-melee release's game SDK
+# (fetch-sdks.sh). Everything comes from pinned inputs, and the SDKs (which
+# hold decomp headers and the game's source) only ever go to the private
+# registry.
 #
-# Needs nix, git, jq, crane, curl and pnpm; CLOUDFLARE_ACCOUNT_ID, and
-# CLOUDFLARE_API_TOKEN or a cf CLI login.
+# Needs nix, jq, crane, curl, sha256sum, tar and pnpm; CLOUDFLARE_ACCOUNT_ID,
+# and CLOUDFLARE_API_TOKEN or a cf CLI login.
 set -euo pipefail
 
 out=${1:?usage: build.sh LAYOUTS_OUT}
@@ -23,7 +22,7 @@ package=$(cd "$here/.." && pwd)
 repository="registry.cloudflare.com/${CLOUDFLARE_ACCOUNT_ID:?}/tgg-mod-builder"
 
 # Bump when the steps below change what goes into the image.
-format=1
+format=2
 # Everything that decides the image's contents names it.
 inputs=$( (echo "format $format" && cd "$here" && cat layouts.json flake.nix flake.lock) |
   sha256sum | cut -c1-32)
@@ -43,34 +42,10 @@ if digest=$(crane digest "$tag" 2>/dev/null); then
   echo "build.sh: $tag exists" >&2
 else
   echo "build.sh: building $tag" >&2
-  nix build "$here#tgg" --out-link "$stage/tgg" >&2
   nix build "$here#image" --out-link "$stage/image" >&2
-  mkdir -p "$stage/root/opt/tgg/sdks" "$stage/archive"
-
-  layouts="[]"
-  count=$(jq length "$here/layouts.json")
-  for ((i = 0; i < count; i++)); do
-    port=$(jq -r ".[$i].port" "$here/layouts.json")
-    runtime=$(jq -r ".[$i].runtime" "$here/layouts.json")
-    checkout="$stage/runtime-$i"
-    git init -q "$checkout"
-    git -C "$checkout" fetch -q --depth 1 \
-      https://github.com/texturesgg/tgg-mod-runtime.git "$runtime"
-    git -C "$checkout" checkout -q FETCH_HEAD
-    # The runtime's dev shell pins the port's revision and the toolchain.
-    (cd "$checkout" && nix develop --command "ports/$port/port" build) >&2
-
-    sdk="$checkout/.port/build/tgg-game-sdk"
-    # melee-pc's executable; another port's script names its own.
-    "$stage/tgg/bin/tgg" mod layout "$checkout/.port/build/melee" -o "$sdk/tgg-layout.json" >&2
-    abi=$(jq -r .game_abi "$sdk/tgg-layout.json")
-    cp -r "$sdk" "$stage/root/opt/tgg/sdks/$abi"
-    port_rev=$(jq -r '.nodes["melee-pc"].locked.rev' "$checkout/flake.lock")
-    layouts=$(jq -c --arg port "$port" --arg version "$port_rev+tgg-mod-runtime@$runtime" \
-      --slurpfile layout "$sdk/tgg-layout.json" \
-      '. + [{id: $layout[0].game_abi, api: $layout[0].api, port: $port,
-             target: $layout[0].target, portVersion: $version}]' <<<"$layouts")
-  done
+  mkdir -p "$stage/root" "$stage/archive"
+  "$here/fetch-sdks.sh" "$stage/root" "$stage/layouts.json" >&2
+  layouts=$(jq -c . "$stage/layouts.json")
 
   # The Nix image is a docker-archive: each layer a tar named in manifest.json.
   "$stage/image" >"$stage/image.tar"

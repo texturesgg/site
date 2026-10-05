@@ -22,8 +22,9 @@ export type BuildResult = {
 
 export class Builder extends DurableObject<BuildEnv> {
   /**
-   * Build `source` (a zip of manifest.json and src/) for `layout`, against
-   * the game SDK and symbol list the builder image carries for it.
+   * Build `source` (a zip of the mod's source) for `layout`, against the
+   * game SDK the builder image carries for it, whose symbols.txt tgg checks
+   * hooks and links against.
    */
   async build(layout: string, source: Uint8Array<ArrayBuffer>): Promise<BuildResult> {
     const container = this.ctx.container;
@@ -46,8 +47,6 @@ export class Builder extends DurableObject<BuildEnv> {
             "-",
             "--sdk",
             sdk,
-            "--layout",
-            `${sdk}/tgg-layout.json`,
             "-o",
             "/workspace/package.zip",
             "--json",

@@ -31,8 +31,8 @@ beforeAll(async () => {
   });
   await db.insert(codeModLayouts).values({
     id: "0123456789abcdef",
-    api: "tgg/1",
-    port: "melee-pc",
+    api: "tgg-melee/0",
+    port: "tgg-melee",
     target: "x86_64-linux-gnu",
     portVersion: "test",
     createdAt: NOW,

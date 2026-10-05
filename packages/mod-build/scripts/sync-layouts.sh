@@ -11,7 +11,7 @@ layouts=$(realpath "${2:?usage: sync-layouts.sh preview|production LAYOUTS}")
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 now=$(($(date +%s) * 1000))
 
-# Ids, ports and targets come from tgg-mod; quote them anyway.
+# Ids, ports and targets come from the SDKs' tgg-game-sdk.json; quote them anyway.
 sql=$(jq -r --arg now "$now" '
   def q: "'"'"'" + (tostring | gsub("'"'"'"; "'"'"''"'"'")) + "'"'"'";
   (map(

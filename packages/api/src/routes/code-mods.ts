@@ -70,10 +70,10 @@ function reviewNotes(netplay: string, hooks: CanonicalHooks[], files: string[]):
   return notes;
 }
 
-// Code mods: hook-based mods for tgg-mod-runtime. Creating one makes its
-// Artifacts repo (mod-<id>), its owner pushes tags to it with a short-lived
-// token from here, and packages/mod-build builds each tag. Moderators review
-// releases in routes/admin.ts. Everything here sits behind the codeMods flag.
+// Code mods: mods for tgg-melee. Creating one makes its Artifacts repo
+// (mod-<id>), its owner pushes tags to it with a short-lived token from here,
+// and packages/mod-build builds each tag. Moderators review releases in
+// routes/admin.ts. Everything here sits behind the codeMods flag.
 const app = new Hono<HonoEnv>()
   .use("*", optionalAuth, requireCodeMods)
 
