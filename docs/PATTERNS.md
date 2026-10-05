@@ -132,9 +132,6 @@ source of truth for the same contract (see *Prefer hono/client Inferred
 Types*). List the error statuses a route returns, including the 400 that
 `validationHook` produces.
 
-`packages/api/src/lib/openapi.test.ts` covers the document, the reference page,
-and the production 404.
-
 ### Worker-to-Worker Calls
 
 Browser clients use the typed Hono HTTP API. For internal Worker calls, follow
