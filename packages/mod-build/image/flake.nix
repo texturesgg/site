@@ -2,7 +2,7 @@
   description = "The toolchain image textures.gg builds code mods in";
 
   inputs = {
-    # The revision tgg-mod-runtime builds ports with, so mods compile with the
+    # tgg-melee release.json's toolchain.nixpkgs, so mods compile with the
     # same GCC as the game they load into.
     nixpkgs.url = "github:NixOS/nixpkgs/c59305bab2065cfecc4944690d9eedbb56f3a9fa";
   };
@@ -46,7 +46,7 @@
         # Nothing but the toolchain: no distribution, no shell beyond what GCC's
         # wrapper needs, and no game headers. The builder image adds each active
         # layout's game SDK on top, at /opt/tgg/sdks/<layout id>
-        # (layout-layer.sh). The Worker drives it with the platform's
+        # (fetch-sdks.sh). The Worker drives it with the platform's
         # container exec, so no Sandbox server or file helper is needed.
         image = pkgs.dockerTools.streamLayeredImage {
           name = "tgg-mod-toolchain";
