@@ -2,6 +2,7 @@
 // at, the manifest, and the files a build needs.
 
 import { NonRetryableError } from "cloudflare:workflows";
+import { parseManifest, type SourceManifest } from "./manifest";
 
 // A mod's source is manifest.json, C under src/, headers it shares under
 // include/, and the files it ships under files/ and assets/; nothing else is
@@ -31,34 +32,13 @@ export async function resolveTag(
   return { id: commit.hash, tree: commit.treeHash };
 }
 
-/** The manifest fields a release records, read at `commit`. */
-export type SourceManifest = {
-  id: string;
-  version: string;
-  netplay: "cosmetic" | "gameplay";
-  license: string | null;
-};
-
+/** The manifest at `commit`; see parseManifest. */
 export async function readManifest(repo: ArtifactsRepo, commit: string): Promise<SourceManifest> {
   const file = await repo.readFile({ ref: commit, path: "manifest.json" });
   if (!file) throw new NonRetryableError("the source has no manifest.json");
-  let json: Record<string, unknown>;
-  try {
-    json = JSON.parse(await file.text());
-  } catch {
-    throw new NonRetryableError("manifest.json is not JSON");
-  }
-  const { id, version, netplay, license } = json;
-  if (typeof id !== "string" || typeof version !== "string") {
-    throw new NonRetryableError("manifest.json needs an id and a version");
-  }
-  return {
-    id,
-    version,
-    // The runtime counts a missing value as gameplay.
-    netplay: netplay === "cosmetic" ? "cosmetic" : "gameplay",
-    license: typeof license === "string" ? license : null,
-  };
+  const parsed = parseManifest(await file.text());
+  if ("error" in parsed) throw new NonRetryableError(parsed.error);
+  return parsed.manifest;
 }
 
 /**

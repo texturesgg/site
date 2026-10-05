@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { api, apiError } from "@/lib/api";
 import { API_BASE_URL } from "@/lib/config";
+import { NETPLAY_LABELS } from "@/lib/format";
 import { EmptyState } from "@/ui/patterns/EmptyState";
 import { layout } from "@/ui/patterns/layout";
 import { ModEyebrow, ModHeader } from "@/ui/patterns/ModHeader";
@@ -78,7 +79,6 @@ const styles = stylex.create({
   version: { fontSize: text.lg, fontWeight: 700 },
   muted: { margin: 0, fontSize: text.sm, color: color.muted },
   error: { margin: 0, fontSize: text.sm, color: color.danger },
-  note: { margin: 0, fontSize: text.sm, color: color.accentText },
   build: {
     display: "flex",
     flexDirection: "column",
@@ -143,7 +143,7 @@ function CodeMod() {
           <div {...stylex.props(styles.row)}>
             <span {...stylex.props(styles.id)}>{mod.slug}</span>
             {latest && <Badge>{latest.version}</Badge>}
-            {latest && <Badge>{latest.netplay === "gameplay" ? "Gameplay" : "Cosmetic"}</Badge>}
+            {latest?.netplay && <Badge>{NETPLAY_LABELS[latest.netplay]}</Badge>}
           </div>
           {mod.description && <p {...stylex.props(styles.description)}>{mod.description}</p>}
         </ModHeader>
@@ -208,7 +208,7 @@ function ReleaseCard({ release, canReview }: { release: Release; canReview: bool
           <Badge tone={release.status === "approved" ? "neutral" : "accent"}>
             {release.status}
           </Badge>
-          <Badge>{release.netplay === "gameplay" ? "Gameplay" : "Cosmetic"}</Badge>
+          {release.netplay && <Badge>{NETPLAY_LABELS[release.netplay]}</Badge>}
           {release.license && <Badge>{release.license}</Badge>}
         </div>
         {canReview && release.status === "pending" && (
@@ -230,11 +230,6 @@ function ReleaseCard({ release, canReview }: { release: Release; canReview: bool
         {release.tag} at <span {...stylex.props(styles.id)}>{release.commit.slice(0, 12)}</span>
       </p>
       {release.error && <p {...stylex.props(styles.error)}>{release.error}</p>}
-      {release.reviewNotes.map((note: string) => (
-        <p key={note} {...stylex.props(styles.note)}>
-          {note}
-        </p>
-      ))}
       {review.error && <p {...stylex.props(styles.error)}>{review.error.message}</p>}
       {release.builds.map((build: Build) => (
         <BuildRow key={build.id} build={build} />

@@ -283,7 +283,6 @@ erDiagram
         text version "unique with codeModId"
         text tag
         text commitSha
-        text netplay "cosmetic | gameplay"
         text license
         text status "processing | pending | approved | rejected | failed"
         text error "why a failed release failed"
@@ -316,6 +315,7 @@ erDiagram
         int packageSize
         json manifest "packed manifest"
         json canonicalHooks "before, after, replaces; canonical names"
+        text netplay "code | files | costumes | data; null before it builds"
         text logKey "compiler log in R2"
         text signature
         text error
@@ -444,9 +444,17 @@ layout id their port executable reports.
 exported function and `file.c:name` for a static. The runtime treats both spellings
 as one function, so conflict checks compare these.
 
+A build's `netplay` is what `tgg mod build` infers the package counts as for
+netplay: `code` (a library) and `files` (a disc file that can affect play)
+count, `costumes` counts unless the game finds its costumes change only looks,
+and `data` (menu and trophy files, assets) is free. Manifests don't declare it;
+a manifest with a `netplay` field fails its release. A release shows its
+builds' class.
+
 ```
 codeModReleases: processing -> pending -> approved | rejected
                  processing -> failed (no build succeeded)
+                 failed from the start (a manifest the game would refuse)
 codeModBuilds:   queued -> building -> succeeded | failed
 ```
 

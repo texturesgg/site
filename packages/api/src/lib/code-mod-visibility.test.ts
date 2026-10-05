@@ -58,7 +58,6 @@ beforeAll(async () => {
       version: "1.0.0",
       tag: "v1.0.0",
       commitSha: "0".repeat(40),
-      netplay: "gameplay",
       status,
       createdAt: NOW,
       updatedAt: NOW,

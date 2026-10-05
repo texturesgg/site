@@ -509,7 +509,6 @@ export const codeModReleases = sqliteTable(
     version: text("version").notNull(),
     tag: text("tag").notNull(),
     commitSha: text("commit_sha").notNull(),
-    netplay: text("netplay", { enum: ["cosmetic", "gameplay"] }).notNull(),
     license: text("license"),
     status: text("status", {
       enum: ["processing", "pending", "approved", "rejected", "failed"],
@@ -578,6 +577,14 @@ export const codeModBuilds = sqliteTable(
       after?: string[];
       replaces?: string[];
     }>(),
+    // What the package counts as for netplay, as `tgg mod build` infers it:
+    // `code` (it has a library) and `files` (it ships a disc file that can
+    // affect play) count; `costumes` (its only such files are fighter
+    // costumes) counts unless the game finds its costumes change only looks;
+    // `data` (menu and trophy files, assets) is free. A mod a counted mod
+    // depends on counts too, which depends on the player's mods, not this
+    // package.
+    netplay: text("netplay", { enum: ["code", "files", "costumes", "data"] }),
     logKey: text("log_key"), // the compiler log in R2
     signature: text("signature"),
     error: text("error"),

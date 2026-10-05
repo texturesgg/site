@@ -8,8 +8,9 @@ import {
   type schema,
   users,
 } from "@vgskins/db";
+import type { CodeModNetplay } from "@vgskins/shared";
 import type { BuildQueryResult, DBQueryConfig, ExtractTablesWithRelations } from "drizzle-orm";
-import { and, eq, exists, inArray, isNull, lte, or } from "drizzle-orm";
+import { and, eq, exists, inArray, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 import { isModerator } from "./auth";
 
 type Database = ReturnType<typeof createDb>;
@@ -150,4 +151,17 @@ export async function loadCodeModBuild(
       row.release.status === "approved" ||
       canViewUnapprovedReleases(row.mod.userId, options.requester)
   );
+}
+
+/**
+ * A release's netplay class, selected beside `codeModReleases`: what its
+ * builds report (each build of a release reports the same), or null before
+ * one succeeds.
+ */
+export function releaseNetplay(db: Database) {
+  return sql<CodeModNetplay | null>`(${db
+    .select({ netplay: codeModBuilds.netplay })
+    .from(codeModBuilds)
+    .where(and(eq(codeModBuilds.releaseId, codeModReleases.id), isNotNull(codeModBuilds.netplay)))
+    .limit(1)})`;
 }

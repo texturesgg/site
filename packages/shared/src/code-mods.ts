@@ -21,3 +21,13 @@ export const createCodeModSchema = z.object({
 });
 
 export type CreateCodeMod = z.infer<typeof createCodeModSchema>;
+
+/**
+ * What a code mod's package counts as for netplay, as `tgg mod build` infers
+ * it from what the package holds: a library (`code`), a disc file that can
+ * affect play (`files`), only fighter costumes, which the game checks for
+ * changes beyond looks (`costumes`), or menu and trophy files and assets
+ * alone (`data`, which is free).
+ */
+export const CODE_MOD_NETPLAY_CLASSES = ["code", "files", "costumes", "data"] as const;
+export type CodeModNetplay = (typeof CODE_MOD_NETPLAY_CLASSES)[number];

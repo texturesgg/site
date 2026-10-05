@@ -5,6 +5,7 @@ import { displayName, PRIMARY_GAME_SLUG } from "@vgskins/shared";
 import { type InferResponseType, parseResponse } from "hono/client";
 import { api, apiError, getThumbnailUrl } from "@/lib/api";
 import { featureFlag } from "@/lib/feature-flags";
+import { NETPLAY_LABELS } from "@/lib/format";
 import { EmptyState } from "@/ui/patterns/EmptyState";
 import { Button } from "@/ui/primitives";
 import { color, font, radius, space, text } from "@/ui/tokens.stylex";
@@ -233,8 +234,7 @@ function CodeModReleaseQueue({ releases }: { releases: PendingRelease[] }) {
               </Link>
               <p {...stylex.props(styles.meta)}>
                 <span {...stylex.props(styles.mono)}>{release.version}</span>
-                {" · "}
-                {release.netplay === "gameplay" ? "Gameplay" : "Cosmetic"}
+                {release.netplay && ` · ${NETPLAY_LABELS[release.netplay]}`}
                 {" · by "}
                 {release.userName ? displayName(release.userName) : "unknown"}
               </p>
