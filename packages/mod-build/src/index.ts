@@ -17,6 +17,7 @@ import {
 import { generateId } from "@vgskins/shared";
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 import { and, eq, inArray, isNull } from "drizzle-orm";
+import { insertRelease, type ReleaseStatus } from "./release";
 import { readManifest, readSource, resolveTag, type Commit } from "./source";
 import { storedZip } from "./zip";
 
@@ -99,16 +100,14 @@ export class BuildMod extends WorkflowEntrypoint<BuildEnv, PushEvent> {
   }
 }
 
-type ReleaseStatus = (typeof codeModReleases.$inferSelect)["status"];
-
 /**
  * The release a tag makes, created on first sight. A tag that doesn't name
  * the manifest's version, or a manifest for another mod, makes none, so it
  * can't claim a version a correct tag on the same commit is about to. A
  * redelivered push for the same commit finds the release it made before; a
  * version already released from another commit is refused, since a release
- * never changes. A manifest the game would refuse makes a failed release, so
- * its author sees why.
+ * never changes. A manifest the game would refuse, or one depending on a mod
+ * the registry doesn't have, makes a failed release, so its author sees why.
  */
 async function recordRelease(
   env: BuildEnv,
@@ -149,21 +148,11 @@ async function recordRelease(
     };
   }
 
-  // A manifest the game would refuse fails its release before any build.
-  const status: ReleaseStatus = manifest.refusal ? "failed" : "processing";
-  const now = new Date();
-  const id = generateId();
-  await db.insert(codeModReleases).values({
-    id,
+  const { id, status } = await insertRelease(db, {
     codeModId,
-    version: manifest.version,
     tag,
     commitSha: commit.id,
-    license: manifest.license,
-    status,
-    error: manifest.refusal,
-    createdAt: now,
-    updatedAt: now,
+    manifest,
   });
   return { id, commit, status };
 }

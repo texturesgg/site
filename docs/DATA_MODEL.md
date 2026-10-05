@@ -38,6 +38,7 @@ erDiagram
     codeMods ||--o{ codeModReleases : "versions"
     codeModReleases ||--o{ codeModBuilds : "built as"
     codeModLayouts ||--o{ codeModBuilds : "targeted by"
+    codeModReleases ||--o{ codeModReleaseDependencies : "depends on"
 
     users {
         text id PK
@@ -303,6 +304,12 @@ erDiagram
         int createdAt
     }
 
+    codeModReleaseDependencies {
+        text releaseId PK,FK
+        text dependency PK "a codeMods slug"
+        text range "version range"
+    }
+
     codeModBuilds {
         text id PK
         text releaseId FK
@@ -444,6 +451,10 @@ layout id their port executable reports.
 exported function and `file.c:name` for a static. The runtime treats both spellings
 as one function, so conflict checks compare these.
 
+A release's `codeModReleaseDependencies` are its manifest's `depends`: each mod
+id with the version range it accepts. A release that depends on a mod the
+registry doesn't have fails when it is recorded.
+
 A build's `netplay` is what `tgg mod build` infers the package counts as for
 netplay: `code` (a library) and `files` (a disc file that can affect play)
 count, `costumes` counts unless the game finds its costumes change only looks,
@@ -454,7 +465,8 @@ builds' class.
 ```
 codeModReleases: processing -> pending -> approved | rejected
                  processing -> failed (no build succeeded)
-                 failed from the start (a manifest the game would refuse)
+                 failed from the start (a manifest the game would refuse, or a
+                 dependency the registry doesn't have)
 codeModBuilds:   queued -> building -> succeeded | failed
 ```
 
