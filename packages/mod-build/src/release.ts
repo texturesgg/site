@@ -1,8 +1,15 @@
-// Recording a release: the row, and the mods it depends on.
+// Recording a release, with the mods it depends on, and finding the releases
+// a new layout needs builds of.
 
-import { codeModReleaseDependencies, codeModReleases, codeMods, type Database } from "@vgskins/db";
+import {
+  codeModBuilds,
+  codeModReleaseDependencies,
+  codeModReleases,
+  codeMods,
+  type Database,
+} from "@vgskins/db";
 import { generateId } from "@vgskins/shared";
-import { and, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import type { SourceManifest } from "./manifest";
 
 export type ReleaseStatus = (typeof codeModReleases.$inferSelect)["status"];
@@ -57,4 +64,43 @@ export async function insertRelease(
     await insert;
   }
   return { id, status };
+}
+
+/**
+ * The releases a newly active `layout` needs builds of: each mod's latest
+ * approved release, unless its package has no library (one build serves every
+ * layout) or it already has a build for the layout. Review covers the
+ * source, so these stay approved.
+ */
+export async function releasesToBuildFor(
+  db: Database,
+  layout: string
+): Promise<{ releaseId: string; codeModId: string; commitSha: string }[]> {
+  const approved = await db
+    .select({
+      releaseId: codeModReleases.id,
+      codeModId: codeModReleases.codeModId,
+      commitSha: codeModReleases.commitSha,
+    })
+    .from(codeModReleases)
+    .innerJoin(codeMods, eq(codeMods.id, codeModReleases.codeModId))
+    .where(and(eq(codeModReleases.status, "approved"), isNull(codeMods.deletedAt)))
+    .orderBy(desc(codeModReleases.createdAt));
+  const latest = approved.filter(
+    (release, i) => approved.findIndex((other) => other.codeModId === release.codeModId) === i
+  );
+  if (latest.length === 0) return [];
+  const built = await db
+    .select({ releaseId: codeModBuilds.releaseId })
+    .from(codeModBuilds)
+    .where(
+      and(
+        inArray(
+          codeModBuilds.releaseId,
+          latest.map((release) => release.releaseId)
+        ),
+        or(eq(codeModBuilds.layoutId, layout), isNull(codeModBuilds.layoutId))
+      )
+    );
+  return latest.filter((release) => !built.some((build) => build.releaseId === release.releaseId));
 }

@@ -32,9 +32,11 @@ build.sh's format number>`), or builds it with `build.sh`: each release's
    downloadable);
 4. pins the image's digest in `../wrangler.toml` for the deploy.
 
-So adding, updating or retiring a layout is an edit to `layouts.json`. A
-release built before a layout was added has no build for it until its author
-tags a new version.
+So adding, updating or retiring a layout is an edit to `layouts.json`. Once
+the deploy is live, `../scripts/build-layouts.sh` starts the build Workflow
+for each active layout, which builds every mod's latest approved release that
+has no build for it (a package without a library already serves every
+layout). Those builds need no new review.
 
 SDK archives come from `https://dl.textures.gg/tgg-melee/<version>/`, so a
 release has to be mirrored there before `layouts.json` names it.
