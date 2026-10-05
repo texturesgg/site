@@ -2,16 +2,17 @@ import { zValidator } from "@hono/zod-validator";
 import { codeModBuilds, codeModReleases, codeMods, createDb, users } from "@vgskins/db";
 import { logger } from "@vgskins/logger";
 import { codeModSlugSchema, createCodeModSchema, generateId } from "@vgskins/shared";
-import { and, count, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, count, desc, eq, getTableColumns, inArray, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
-import { isModerator, optionalAuth, requireAuth } from "../lib/auth";
+import { optionalAuth, requireAuth } from "../lib/auth";
 import { requireCodeMods } from "../lib/feature-flags";
 import { rateLimitByUser } from "../lib/rate-limit";
 import {
   canViewUnapprovedReleases,
   loadCodeMod,
   loadCodeModBuild,
+  releaseNetplay,
   visibleCodeMods,
 } from "../lib/queries";
 import {
@@ -28,8 +29,6 @@ const PUSH_TOKEN_SECONDS = 60 * 60;
 // The catalog format tgg-mod reads (its `catalog::SCHEMA`).
 const CATALOG_SCHEMA = 1;
 
-type CanonicalHooks = NonNullable<(typeof codeModBuilds.$inferSelect)["canonicalHooks"]>;
-
 const SlugParam = z.object({ slug: codeModSlugSchema });
 
 /** The Artifacts repo holding a code mod's source. */
@@ -37,11 +36,6 @@ function repoName(codeModId: string): string {
   return `mod-${codeModId}`;
 }
 
-/**
- * Notes for a reviewer from what the builds hook. `netplay` is the author's
- * word; a mod that calls itself cosmetic but replaces a function, or runs
- * before one, may change the match.
- */
 /** The game files a build's package ships, from its packed manifest. */
 function shippedFiles(manifest: Record<string, unknown> | null): { path: string; size: number }[] {
   const files = manifest?.files;
@@ -51,23 +45,6 @@ function shippedFiles(manifest: Record<string, unknown> | null): { path: string;
       ? [{ path: file.path, size: file.size }]
       : []
   );
-}
-
-function reviewNotes(netplay: string, hooks: CanonicalHooks[], files: string[]): string[] {
-  if (netplay !== "cosmetic") return [];
-  const replaces = new Set(hooks.flatMap((h) => h.replaces ?? []));
-  const before = new Set(hooks.flatMap((h) => h.before ?? []));
-  const notes: string[] = [];
-  if (replaces.size > 0) notes.push(`Marked cosmetic but replaces ${[...replaces].join(", ")}`);
-  if (before.size > 0) notes.push(`Marked cosmetic but runs before ${[...before].join(", ")}`);
-  // A cosmetic mod's files don't count toward netplay's mod set, so one that
-  // changes how the game plays would desync.
-  if (files.length > 0) {
-    notes.push(
-      `Marked cosmetic and ships ${[...new Set(files)].join(", ")}; check none changes gameplay`
-    );
-  }
-  return notes;
 }
 
 // Code mods: mods for tgg-melee. Creating one makes its Artifacts repo
@@ -131,7 +108,7 @@ const app = new Hono<HonoEnv>()
               codeModId: codeModReleases.codeModId,
               version: codeModReleases.version,
               status: codeModReleases.status,
-              netplay: codeModReleases.netplay,
+              netplay: releaseNetplay(db),
             })
             .from(codeModReleases)
             .where(
@@ -216,7 +193,7 @@ const app = new Hono<HonoEnv>()
 
     const seeAll = canViewUnapprovedReleases(mod.userId, user);
     const releases = await db
-      .select()
+      .select({ ...getTableColumns(codeModReleases), netplay: releaseNetplay(db) })
       .from(codeModReleases)
       .where(
         and(
@@ -262,13 +239,6 @@ const app = new Hono<HonoEnv>()
             error: release.error,
             createdAt: release.createdAt,
             publishedAt: release.publishedAt,
-            reviewNotes: isModerator(user)
-              ? reviewNotes(
-                  release.netplay,
-                  releaseBuilds.flatMap((build) => build.canonicalHooks ?? []),
-                  releaseBuilds.flatMap((build) => shippedFiles(build.manifest).map((f) => f.path))
-                )
-              : [],
             builds: releaseBuilds.map((build) => ({
               id: build.id,
               layout: build.layoutId,
@@ -394,6 +364,7 @@ const app = new Hono<HonoEnv>()
           sha256: codeModBuilds.packageSha256,
           size: codeModBuilds.packageSize,
           signature: codeModBuilds.signature,
+          netplay: codeModBuilds.netplay,
         })
         .from(codeModBuilds)
         .innerJoin(codeModReleases, eq(codeModReleases.id, codeModBuilds.releaseId))
@@ -424,6 +395,7 @@ const app = new Hono<HonoEnv>()
               size: row.size,
               ...(row.signature ? { signature: row.signature } : {}),
             },
+            netplay: row.netplay,
           },
         ];
       });

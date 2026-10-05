@@ -1,4 +1,4 @@
-import type { ReportReason } from "@vgskins/shared";
+import type { CodeModNetplay, ReportReason } from "@vgskins/shared";
 
 /** "just now", "5m ago", "3d ago", "2y ago". */
 export function relativeTime(timestamp: string | number): string {
@@ -22,4 +22,12 @@ export const REPORT_REASON_LABELS: Record<ReportReason, string> = {
   spam: "Spam",
   broken: "Broken or corrupt file",
   other: "Something else",
+};
+
+/** What a code mod's package counts as for netplay, as tgg works it out. */
+export const NETPLAY_LABELS: Record<CodeModNetplay, string> = {
+  code: "Counts for netplay",
+  files: "Counts for netplay",
+  costumes: "Counts for netplay unless its costumes only change looks",
+  data: "Free for netplay",
 };

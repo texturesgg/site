@@ -1,5 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { Link } from "@tanstack/react-router";
+import type { CodeModNetplay } from "@vgskins/shared";
+import { NETPLAY_LABELS } from "@/lib/format";
 import { Badge } from "@/ui/primitives";
 import { color, font, radius, space, text } from "@/ui/tokens.stylex";
 
@@ -8,7 +10,7 @@ export type CodeModListItem = {
   game: string;
   name: string;
   owner: string;
-  latest: { version: string; status: string; netplay: string } | null;
+  latest: { version: string; status: string; netplay: CodeModNetplay | null } | null;
 };
 
 const styles = stylex.create({
@@ -53,7 +55,7 @@ export function CodeModList({ mods, label }: { mods: CodeModListItem[]; label: s
             <span {...stylex.props(styles.badges)}>
               <Badge>{mod.latest.version}</Badge>
               {mod.latest.status !== "approved" && <Badge tone="accent">{mod.latest.status}</Badge>}
-              {mod.latest.netplay === "gameplay" && <Badge>Gameplay</Badge>}
+              {mod.latest.netplay && <Badge>{NETPLAY_LABELS[mod.latest.netplay]}</Badge>}
             </span>
           )}
         </li>

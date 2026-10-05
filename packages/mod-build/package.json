@@ -10,7 +10,8 @@
     "deploy:production": "wrangler deploy --env production",
     "deploy:preview": "wrangler deploy --env preview",
     "cf-typegen": "wrangler types src/worker-configuration.d.ts --config wrangler.toml --include-runtime false --strict-vars false --env-interface BuildEnv",
-    "typecheck": "pnpm cf-typegen --check && tsc --noEmit"
+    "typecheck": "pnpm cf-typegen --check && tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@vgskins/db": "workspace:*",
@@ -20,6 +21,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
     "typescript": "catalog:",
+    "vitest": "^4.1.10",
     "wrangler": "catalog:"
   }
 }

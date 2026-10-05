@@ -32,6 +32,8 @@ const TAG_PREFIX = "refs/tags/";
 const REPO_PREFIX = "mod-";
 
 type Hooks = { before?: string[]; after?: string[]; replaces?: string[] };
+// What tgg says a package counts as for netplay.
+const NETPLAY_CLASSES = codeModBuilds.netplay.enumValues;
 
 export class BuildMod extends WorkflowEntrypoint<BuildEnv, PushEvent> {
   async run(event: WorkflowEvent<PushEvent>, step: WorkflowStep) {
@@ -105,7 +107,8 @@ type ReleaseStatus = (typeof codeModReleases.$inferSelect)["status"];
  * can't claim a version a correct tag on the same commit is about to. A
  * redelivered push for the same commit finds the release it made before; a
  * version already released from another commit is refused, since a release
- * never changes.
+ * never changes. A manifest the game would refuse makes a failed release, so
+ * its author sees why.
  */
 async function recordRelease(
   env: BuildEnv,
@@ -146,7 +149,8 @@ async function recordRelease(
     };
   }
 
-  const status: ReleaseStatus = "processing";
+  // A manifest the game would refuse fails its release before any build.
+  const status: ReleaseStatus = manifest.refusal ? "failed" : "processing";
   const now = new Date();
   const id = generateId();
   await db.insert(codeModReleases).values({
@@ -155,9 +159,9 @@ async function recordRelease(
     version: manifest.version,
     tag,
     commitSha: commit.id,
-    netplay: manifest.netplay,
     license: manifest.license,
     status,
+    error: manifest.refusal,
     createdAt: now,
     updatedAt: now,
   });
@@ -247,7 +251,10 @@ async function build(
     sha256: string;
     manifest: Record<string, unknown>;
     canonical_hooks: Hooks | null;
+    netplay: unknown;
   };
+  const netplay = NETPLAY_CLASSES.find((value) => value === report.netplay);
+  if (!netplay) throw new Error(`tgg reported netplay ${String(report.netplay)}`);
   const bytes = new Uint8Array(result.zip);
   // Trust only what the Worker hashes itself, not what the container said.
   const sha256 = await sha256Hex(bytes);
@@ -267,6 +274,7 @@ async function build(
     packageSize: bytes.length,
     manifest: report.manifest,
     canonicalHooks: report.canonical_hooks ?? undefined,
+    netplay,
     logKey,
   });
   return true;

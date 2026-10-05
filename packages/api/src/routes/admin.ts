@@ -27,6 +27,7 @@ import { packApprovedEmbed, sendDiscordWebhook, thumbnailUrl } from "../lib/disc
 import { moderationResultHtml, sendNotification } from "../lib/email";
 import { requireCodeMods } from "../lib/feature-flags";
 import { deleteComment, dismissReportsOnDeletedTargets } from "../lib/moderation";
+import { releaseNetplay } from "../lib/queries";
 import {
   likeContains,
   PaginationQuery,
@@ -353,7 +354,7 @@ const app = new Hono<HonoEnv>()
       .select({
         id: codeModReleases.id,
         version: codeModReleases.version,
-        netplay: codeModReleases.netplay,
+        netplay: releaseNetplay(db),
         createdAt: codeModReleases.createdAt,
         slug: codeMods.slug,
         name: codeMods.name,
