@@ -304,7 +304,7 @@ function BuildRow({ build }: { build: Build }) {
     <div {...stylex.props(styles.build)}>
       <div {...stylex.props(styles.row, styles.spread)}>
         <div {...stylex.props(styles.row)}>
-          <span {...stylex.props(styles.id)}>{build.layout}</span>
+          <span {...stylex.props(styles.id)}>{build.layout ?? "Every layout"}</span>
           <Badge tone={build.status === "succeeded" ? "neutral" : "accent"}>{build.status}</Badge>
           {build.size !== null && (
             <span {...stylex.props(styles.muted)}>{formatSize(build.size)}</span>

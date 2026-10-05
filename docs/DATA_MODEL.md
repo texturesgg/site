@@ -313,7 +313,7 @@ erDiagram
     codeModBuilds {
         text id PK
         text releaseId FK
-        text layoutId FK "unique with releaseId"
+        text layoutId FK "unique with releaseId; null serves every layout"
         text status "queued | building | succeeded | failed"
         text runId "CI Workflow instance"
         text image
@@ -442,7 +442,9 @@ Cloudflare Artifacts repo `mod-<id>`.
 A release is one tag on that repo. A compiled mod library loads only into a port
 build with the same game layout id, so a release is built once per active row of
 `codeModLayouts`, against that layout's game SDK in the builder image (one
-tgg-melee release per layout). A new layout gets builds of existing releases
+tgg-melee release per layout). A release without a library (files and assets
+only) makes the same package for every layout, so it is built once, with a null
+`layoutId`, and serves them all. A new layout gets builds of existing releases
 without a new review, since review covers the source at `commitSha`. A retired
 layout (`active` false) gets no new builds, and its packages stay downloadable. Players fetch the builds for the
 layout id their port executable reports.

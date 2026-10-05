@@ -547,7 +547,8 @@ export const codeModLayouts = sqliteTable("code_mod_layouts", {
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
 });
 
-// A release built for one layout: the package players of that layout install.
+// A release built for one layout, or for every layout when the package has no
+// library: the package players of that layout install.
 export const codeModBuilds = sqliteTable(
   "code_mod_builds",
   {
@@ -555,9 +556,9 @@ export const codeModBuilds = sqliteTable(
     releaseId: text("release_id")
       .notNull()
       .references(() => codeModReleases.id, { onDelete: "cascade" }),
-    layoutId: text("layout_id")
-      .notNull()
-      .references(() => codeModLayouts.id, { onDelete: "cascade" }),
+    // Null for a package without a library (files and assets only), which
+    // is built once and serves every layout.
+    layoutId: text("layout_id").references(() => codeModLayouts.id, { onDelete: "cascade" }),
     status: text("status", { enum: ["queued", "building", "succeeded", "failed"] })
       .default("queued")
       .notNull(),
