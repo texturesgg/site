@@ -3,6 +3,7 @@ import {
   type AnySQLiteColumn,
   index,
   integer,
+  primaryKey,
   sqliteTable,
   text,
   uniqueIndex,
@@ -597,6 +598,24 @@ export const codeModBuilds = sqliteTable(
   ]
 );
 
+// A mod a release needs, from its manifest's `depends`: the mod's id (its
+// `codeMods.slug`) and the version range it accepts. A release is only
+// recorded when every mod it names is in the registry.
+export const codeModReleaseDependencies = sqliteTable(
+  "code_mod_release_dependencies",
+  {
+    releaseId: text("release_id")
+      .notNull()
+      .references(() => codeModReleases.id, { onDelete: "cascade" }),
+    dependency: text("dependency").notNull(),
+    range: text("range").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.releaseId, table.dependency] }),
+    index("code_mod_release_dependency_idx").on(table.dependency),
+  ]
+);
+
 // ============================================================================
 // Relations
 // ============================================================================
@@ -720,7 +739,18 @@ export const codeModReleasesRelations = relations(codeModReleases, ({ one, many 
   codeMod: one(codeMods, { fields: [codeModReleases.codeModId], references: [codeMods.id] }),
   reviewer: one(users, { fields: [codeModReleases.reviewedBy], references: [users.id] }),
   builds: many(codeModBuilds),
+  dependencies: many(codeModReleaseDependencies),
 }));
+
+export const codeModReleaseDependenciesRelations = relations(
+  codeModReleaseDependencies,
+  ({ one }) => ({
+    release: one(codeModReleases, {
+      fields: [codeModReleaseDependencies.releaseId],
+      references: [codeModReleases.id],
+    }),
+  })
+);
 
 export const codeModLayoutsRelations = relations(codeModLayouts, ({ many }) => ({
   builds: many(codeModBuilds),

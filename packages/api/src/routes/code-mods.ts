@@ -1,5 +1,12 @@
 import { zValidator } from "@hono/zod-validator";
-import { codeModBuilds, codeModReleases, codeMods, createDb, users } from "@vgskins/db";
+import {
+  codeModBuilds,
+  codeModReleaseDependencies,
+  codeModReleases,
+  codeMods,
+  createDb,
+  users,
+} from "@vgskins/db";
 import { logger } from "@vgskins/logger";
 import { codeModSlugSchema, createCodeModSchema, generateId } from "@vgskins/shared";
 import { and, count, desc, eq, getTableColumns, inArray, isNull } from "drizzle-orm";
@@ -202,17 +209,16 @@ const app = new Hono<HonoEnv>()
         )
       )
       .orderBy(desc(codeModReleases.createdAt));
-    const [builds, [owner]] = await Promise.all([
-      releases.length
+    const releaseIds = releases.map((release) => release.id);
+    const [builds, dependencies, [owner]] = await Promise.all([
+      releaseIds.length
+        ? db.select().from(codeModBuilds).where(inArray(codeModBuilds.releaseId, releaseIds))
+        : Promise.resolve([]),
+      releaseIds.length
         ? db
             .select()
-            .from(codeModBuilds)
-            .where(
-              inArray(
-                codeModBuilds.releaseId,
-                releases.map((release) => release.id)
-              )
-            )
+            .from(codeModReleaseDependencies)
+            .where(inArray(codeModReleaseDependencies.releaseId, releaseIds))
         : Promise.resolve([]),
       db.select({ name: users.name }).from(users).where(eq(users.id, mod.userId)),
     ]);
@@ -239,6 +245,9 @@ const app = new Hono<HonoEnv>()
             error: release.error,
             createdAt: release.createdAt,
             publishedAt: release.publishedAt,
+            depends: dependencies
+              .filter((dependency) => dependency.releaseId === release.id)
+              .map(({ dependency, range }) => ({ id: dependency, range })),
             builds: releaseBuilds.map((build) => ({
               id: build.id,
               layout: build.layoutId,
@@ -346,7 +355,8 @@ const app = new Hono<HonoEnv>()
   )
 
   // Get the catalog for one game layout: each mod's latest approved release
-  // with a build for it, in the format tgg-mod reads
+  // with a build for it, in the format tgg-mod reads: the packed manifest as
+  // tgg reported it, with the package and what it counts as for netplay
   .get(
     "/catalog/:layout",
     zValidator(

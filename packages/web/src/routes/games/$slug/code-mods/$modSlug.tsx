@@ -162,7 +162,7 @@ function CodeMod() {
           />
         ) : (
           mod.releases.map((release) => (
-            <ReleaseCard key={release.id} release={release} canReview={canReview} />
+            <ReleaseCard key={release.id} release={release} game={mod.game} canReview={canReview} />
           ))
         )}
       </section>
@@ -186,7 +186,15 @@ function Publish() {
   );
 }
 
-function ReleaseCard({ release, canReview }: { release: Release; canReview: boolean }) {
+function ReleaseCard({
+  release,
+  game,
+  canReview,
+}: {
+  release: Release;
+  game: string;
+  canReview: boolean;
+}) {
   const router = useRouter();
   const review = useMutation({
     mutationFn: async (decision: "approve" | "reject") => {
@@ -229,6 +237,24 @@ function ReleaseCard({ release, canReview }: { release: Release; canReview: bool
       <p {...stylex.props(styles.muted)}>
         {release.tag} at <span {...stylex.props(styles.id)}>{release.commit.slice(0, 12)}</span>
       </p>
+      {release.depends.length > 0 && (
+        <p {...stylex.props(styles.muted)}>
+          Needs{" "}
+          {release.depends.map((dependency, i) => (
+            <span key={dependency.id}>
+              {i > 0 && ", "}
+              <Link
+                to="/games/$slug/code-mods/$modSlug"
+                params={{ slug: game, modSlug: dependency.id }}
+                {...stylex.props(styles.id, styles.creator)}
+              >
+                {dependency.id}
+              </Link>{" "}
+              {dependency.range}
+            </span>
+          ))}
+        </p>
+      )}
       {release.error && <p {...stylex.props(styles.error)}>{release.error}</p>}
       {review.error && <p {...stylex.props(styles.error)}>{review.error.message}</p>}
       {release.builds.map((build: Build) => (
