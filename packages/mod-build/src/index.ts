@@ -1,7 +1,8 @@
 // Builds code mods. A tag pushed to a mod's Artifacts repo (`mod-<id>`) starts
 // the BuildMod Workflow through the `cf.artifacts.repo.pushed` trigger. It
 // records the release, then for each active game layout a Builder container
-// compiles and packs the mod against that layout's game SDK. The Worker
+// compiles and packs the mod against that layout's game SDK (once, for a mod
+// without a library, whose package serves every layout). The Worker
 // hashes each package and stores it and the compiler log in R2, and records
 // the build in D1. The container only ever holds the mod's source and
 // the toolchain; the Worker does every write.
@@ -18,7 +19,7 @@ import { generateId } from "@vgskins/shared";
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { insertRelease, type ReleaseStatus } from "./release";
-import { readManifest, readSource, resolveTag, type Commit } from "./source";
+import { hasLibrary, readManifest, readSource, resolveTag, type Commit } from "./source";
 import { storedZip } from "./zip";
 
 export { Builder } from "./builder";
@@ -61,29 +62,22 @@ export class BuildMod extends WorkflowEntrypoint<BuildEnv, PushEvent> {
         .where(eq(codeModLayouts.active, true));
       return rows.map((row) => row.id);
     });
+    const library = await step.do("has library", async () => {
+      using repo = await this.env.ARTIFACTS.get(repoName);
+      return hasLibrary(repo, release.commit.tree);
+    });
+    // A package without a library is the same for every layout, so it builds
+    // once, against any layout's SDK, and serves them all.
+    const targets: Target[] = library
+      ? layouts.map((layout) => ({ layout, sdk: layout }))
+      : layouts.slice(0, 1).map((sdk) => ({ layout: null, sdk }));
 
-    let built = 0;
-    for (const layout of layouts) {
-      const buildId = await step.do(`start ${layout}`, () =>
-        startBuild(this.env, release.id, layout, event.instanceId)
-      );
-      try {
-        const ok = await step.do(
-          `build ${layout}`,
-          {
-            retries: { limit: 2, delay: "10 seconds", backoff: "exponential" },
-            timeout: "5 minutes",
-          },
-          () => build(this.env, repoName, release.commit, layout, buildId)
-        );
-        if (ok) built++;
-      } catch (error) {
-        // The build couldn't run at all; a compile error is recorded by build.
-        await step.do(`fail ${layout}`, () =>
-          finishBuild(this.env, buildId, { status: "failed", error: String(error).slice(0, 4000) })
-        );
-      }
-    }
+    const built = await buildTargets(
+      this.env,
+      step,
+      { releaseId: release.id, repoName, commit: release.commit, runId: event.instanceId },
+      targets
+    );
 
     const status = await step.do("finish release", async () => {
       const status = built > 0 ? "pending" : "failed";
@@ -98,6 +92,43 @@ export class BuildMod extends WorkflowEntrypoint<BuildEnv, PushEvent> {
     });
     return { release: release.id, status, built, layouts: layouts.length };
   }
+}
+
+// What one build makes: the layout its package serves (null for every
+// layout) and the layout whose SDK it builds against.
+type Target = { layout: string | null; sdk: string };
+
+/** Build `release` for each of `targets`, one step each; returns how many built. */
+async function buildTargets(
+  env: BuildEnv,
+  step: WorkflowStep,
+  release: { releaseId: string; repoName: string; commit: Commit; runId: string },
+  targets: Target[]
+): Promise<number> {
+  let built = 0;
+  for (const target of targets) {
+    const name = `${release.releaseId} ${target.layout ?? "every layout"}`;
+    const buildId = await step.do(`start ${name}`, () =>
+      startBuild(env, release.releaseId, target.layout, release.runId)
+    );
+    try {
+      const ok = await step.do(
+        `build ${name}`,
+        {
+          retries: { limit: 2, delay: "10 seconds", backoff: "exponential" },
+          timeout: "5 minutes",
+        },
+        () => build(env, release.repoName, release.commit, target, buildId)
+      );
+      if (ok) built++;
+    } catch (error) {
+      // The build couldn't run at all; a compile error is recorded by build.
+      await step.do(`fail ${name}`, () =>
+        finishBuild(env, buildId, { status: "failed", error: String(error).slice(0, 4000) })
+      );
+    }
+  }
+  return built;
 }
 
 /**
@@ -161,14 +192,19 @@ async function recordRelease(
 async function startBuild(
   env: BuildEnv,
   releaseId: string,
-  layout: string,
+  layout: string | null,
   runId: string
 ): Promise<string> {
   const db = createDb(env.DB);
   const [existing] = await db
     .select({ id: codeModBuilds.id })
     .from(codeModBuilds)
-    .where(and(eq(codeModBuilds.releaseId, releaseId), eq(codeModBuilds.layoutId, layout)));
+    .where(
+      and(
+        eq(codeModBuilds.releaseId, releaseId),
+        layout === null ? isNull(codeModBuilds.layoutId) : eq(codeModBuilds.layoutId, layout)
+      )
+    );
   if (existing) {
     await db
       .update(codeModBuilds)
@@ -207,7 +243,7 @@ async function sha256Hex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
 }
 
 /**
- * Build the mod at `commit` for `layout`, store the package and log, and
+ * Build the mod at `commit` for `target`, store the package and log, and
  * record the build. Returns whether it built: a mod that doesn't compile, or
  * hooks something the layout can't take, is a failed build, not an error.
  */
@@ -215,12 +251,12 @@ async function build(
   env: BuildEnv,
   repoName: string,
   commit: Commit,
-  layout: string,
+  target: Target,
   buildId: string
 ): Promise<boolean> {
   using repo = await env.ARTIFACTS.get(repoName);
   const source = storedZip(await readSource(repo, commit.tree));
-  const result = await env.BUILDER.getByName(buildId).build(layout, source);
+  const result = await env.BUILDER.getByName(buildId).build(target.sdk, source);
 
   const logKey = `code-mods/logs/${buildId}.log`;
   await env.PACKAGES.put(logKey, result.log, {
@@ -253,7 +289,7 @@ async function build(
   const packageKey = `code-mods/packages/${sha256}.zip`;
   await env.PACKAGES.put(packageKey, bytes, {
     httpMetadata: { contentType: "application/zip" },
-    customMetadata: { build: buildId, layout },
+    customMetadata: { build: buildId, layout: target.layout ?? "every" },
   });
   await finishBuild(env, buildId, {
     status: "succeeded",

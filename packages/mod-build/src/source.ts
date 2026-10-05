@@ -79,3 +79,25 @@ export async function readSource(
   await walk(tree, "");
   return files;
 }
+
+/**
+ * Whether the source has C under src/, which `tgg mod build` compiles into a
+ * library. A mod without one is files and assets alone, so its package is the
+ * same for every layout.
+ */
+export async function hasLibrary(repo: ArtifactsRepo, tree: string): Promise<boolean> {
+  const look = async (hash: string): Promise<boolean> => {
+    const entries = await repo.readTree(hash);
+    if (!entries) throw new Error(`tree ${hash} not found`);
+    for (const entry of entries) {
+      if (entry.name.startsWith(".")) continue;
+      if (entry.type === "blob" && entry.name.endsWith(".c")) return true;
+      if (entry.type === "tree" && (await look(entry.hash))) return true;
+    }
+    return false;
+  };
+  const src = (await repo.readTree(tree))?.find(
+    (entry) => entry.name === "src" && entry.type === "tree"
+  );
+  return src ? look(src.hash) : false;
+}

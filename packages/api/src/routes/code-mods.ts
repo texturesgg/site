@@ -9,7 +9,7 @@ import {
 } from "@vgskins/db";
 import { logger } from "@vgskins/logger";
 import { codeModSlugSchema, createCodeModSchema, generateId } from "@vgskins/shared";
-import { and, count, desc, eq, getTableColumns, inArray, isNull } from "drizzle-orm";
+import { and, count, desc, eq, getTableColumns, inArray, isNull, or } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { optionalAuth, requireAuth } from "../lib/auth";
@@ -381,7 +381,7 @@ const app = new Hono<HonoEnv>()
         .innerJoin(codeMods, eq(codeMods.id, codeModReleases.codeModId))
         .where(
           and(
-            eq(codeModBuilds.layoutId, layout),
+            or(eq(codeModBuilds.layoutId, layout), isNull(codeModBuilds.layoutId)),
             eq(codeModBuilds.status, "succeeded"),
             eq(codeModReleases.status, "approved"),
             isNull(codeMods.deletedAt)
