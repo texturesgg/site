@@ -4,6 +4,7 @@ import { logger } from "@vgskins/logger";
 import { TARGET_CATEGORIES } from "@vgskins/shared";
 import { and, asc, count, eq, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
+import { describeRoute } from "hono-openapi";
 import { z } from "zod";
 import { writeAnalyticsEvent } from "../lib/analytics";
 import { optionalAuth } from "../lib/auth";
@@ -13,55 +14,97 @@ import type { HonoEnv } from "../types";
 
 const app = new Hono<HonoEnv>()
   // Get all games
-  .get("/", async (c) => {
-    const db = createDb(c.env.DB);
+  .get(
+    "/",
+    describeRoute({
+      tags: ["Games"],
+      summary: "List games",
+      description: "Every game, newest first, with its count of approved packs.",
+      responses: {
+        200: { description: "Games with pack counts" },
+      },
+    }),
+    async (c) => {
+      const db = createDb(c.env.DB);
 
-    logger.info("Listing games");
+      logger.info("Listing games");
 
-    const allGames = await db.query.games.findMany({
-      orderBy: (games, { desc }) => [desc(games.createdAt)],
-    });
+      const allGames = await db.query.games.findMany({
+        orderBy: (games, { desc }) => [desc(games.createdAt)],
+      });
 
-    const packCounts = await db
-      .select({
-        gameId: packs.gameId,
-        count: sql<number>`count(*)`,
-      })
-      .from(packs)
-      .where(and(eq(packs.status, "approved"), isNull(packs.deletedAt)))
-      .groupBy(packs.gameId);
+      const packCounts = await db
+        .select({
+          gameId: packs.gameId,
+          count: sql<number>`count(*)`,
+        })
+        .from(packs)
+        .where(and(eq(packs.status, "approved"), isNull(packs.deletedAt)))
+        .groupBy(packs.gameId);
 
-    const countMap = new Map(packCounts.map((r) => [r.gameId, r.count]));
+      const countMap = new Map(packCounts.map((r) => [r.gameId, r.count]));
 
-    return c.json(
-      allGames.map((game) => ({
-        ...game,
-        packCount: countMap.get(game.id) ?? 0,
-      })),
-      200
-    );
-  })
-  // Get single game by slug
-  .get("/:slug", async (c) => {
-    const db = createDb(c.env.DB);
-    const slug = c.req.param("slug");
-
-    logger.info({ slug }, "Getting game");
-
-    const game = await db.query.games.findFirst({
-      where: eq(games.slug, slug),
-    });
-
-    if (!game) {
-      logger.warn({ slug }, "Game not found");
-      return c.json({ error: "Game not found" }, 404);
+      return c.json(
+        allGames.map((game) => ({
+          ...game,
+          packCount: countMap.get(game.id) ?? 0,
+        })),
+        200
+      );
     }
+  )
+  // Get single game by slug
+  .get(
+    "/:slug",
+    describeRoute({
+      tags: ["Games"],
+      summary: "Get a game",
+      parameters: [{ name: "slug", in: "path", required: true, schema: { type: "string" } }],
+      responses: {
+        200: { description: "The game" },
+        404: { description: "Game not found" },
+      },
+    }),
+    async (c) => {
+      const db = createDb(c.env.DB);
+      const slug = c.req.param("slug");
 
-    return c.json(game, 200);
-  })
+      logger.info({ slug }, "Getting game");
+
+      const game = await db.query.games.findFirst({
+        where: eq(games.slug, slug),
+      });
+
+      if (!game) {
+        logger.warn({ slug }, "Game not found");
+        return c.json({ error: "Game not found" }, 404);
+      }
+
+      return c.json(game, 200);
+    }
+  )
   // Get targets for a game, with slots included
   .get(
     "/:slug/targets",
+    describeRoute({
+      tags: ["Games"],
+      summary: "List a game's targets",
+      description: "Targets with their slots and public pack counts, filtered by category.",
+      parameters: [
+        { name: "slug", in: "path", required: true, schema: { type: "string" } },
+        {
+          name: "category",
+          in: "query",
+          required: false,
+          schema: { type: "string", enum: [...TARGET_CATEGORIES] },
+        },
+      ],
+      responses: {
+        200: { description: "Targets with slots and pack counts" },
+        400: { description: "Invalid request" },
+        404: { description: "Game not found" },
+      },
+    }),
     zValidator(
       "query",
       z.object({
@@ -118,80 +161,96 @@ const app = new Hono<HonoEnv>()
     }
   )
   // Get pack by game slug and pack slug
-  .get("/:slug/packs/:packSlug", optionalAuth, async (c) => {
-    const db = createDb(c.env.DB);
-    const user = c.get("user");
-    const slug = c.req.param("slug");
-    const packSlug = c.req.param("packSlug");
+  .get(
+    "/:slug/packs/:packSlug",
+    describeRoute({
+      tags: ["Games"],
+      summary: "Get a pack by game and pack slug",
+      parameters: [
+        { name: "slug", in: "path", required: true, schema: { type: "string" } },
+        { name: "packSlug", in: "path", required: true, schema: { type: "string" } },
+      ],
+      responses: {
+        200: { description: "The pack" },
+        404: { description: "Pack not found" },
+      },
+    }),
+    optionalAuth,
+    async (c) => {
+      const db = createDb(c.env.DB);
+      const user = c.get("user");
+      const slug = c.req.param("slug");
+      const packSlug = c.req.param("packSlug");
 
-    logger.info({ gameSlug: slug, packSlug }, "Getting pack by slug");
+      logger.info({ gameSlug: slug, packSlug }, "Getting pack by slug");
 
-    const result = await loadPack(
-      db,
-      { gameSlug: slug, slug: packSlug },
-      {
-        requester: user,
-        with: {
-          game: true,
-          target: true,
-          user: {
-            columns: {
-              id: true,
-              name: true,
-              image: true,
-              bio: true,
-              pronouns: true,
+      const result = await loadPack(
+        db,
+        { gameSlug: slug, slug: packSlug },
+        {
+          requester: user,
+          with: {
+            game: true,
+            target: true,
+            user: {
+              columns: {
+                id: true,
+                name: true,
+                image: true,
+                bio: true,
+                pronouns: true,
+              },
+            },
+            mods: {
+              with: { slot: true },
+            },
+            images: true,
+            packTags: {
+              with: { tag: true },
             },
           },
-          mods: {
-            with: { slot: true },
-          },
-          images: true,
-          packTags: {
-            with: { tag: true },
-          },
-        },
+        }
+      );
+      if (!result) {
+        return c.json({ error: "Pack not found" }, 404);
       }
-    );
-    if (!result) {
-      return c.json({ error: "Pack not found" }, 404);
+
+      writeAnalyticsEvent(c.env.ANALYTICS, {
+        version: 1,
+        type: "pack_view",
+        packId: result.id,
+      });
+
+      const [[{ voteCount }], userVote] = await Promise.all([
+        db.select({ voteCount: count() }).from(votes).where(eq(votes.packId, result.id)),
+        user
+          ? db.query.votes.findFirst({
+              where: and(eq(votes.packId, result.id), eq(votes.userId, user.id)),
+              columns: { userId: true },
+            })
+          : undefined,
+      ]);
+      const voted = Boolean(userVote);
+
+      const tagList = result.packTags?.map((pt) => pt.tag).filter(Boolean) ?? [];
+
+      const { packTags: _packTags, ...pack } = result;
+
+      return c.json(
+        {
+          ...pack,
+          voteCount,
+          voted,
+          tags: tagList,
+          mods: result.mods.map((m) => ({
+            ...m,
+            slotName: m.slot?.name ?? "Unknown",
+            slotSortOrder: m.slot?.sortOrder ?? 0,
+          })),
+        },
+        200
+      );
     }
-
-    writeAnalyticsEvent(c.env.ANALYTICS, {
-      version: 1,
-      type: "pack_view",
-      packId: result.id,
-    });
-
-    const [[{ voteCount }], userVote] = await Promise.all([
-      db.select({ voteCount: count() }).from(votes).where(eq(votes.packId, result.id)),
-      user
-        ? db.query.votes.findFirst({
-            where: and(eq(votes.packId, result.id), eq(votes.userId, user.id)),
-            columns: { userId: true },
-          })
-        : undefined,
-    ]);
-    const voted = Boolean(userVote);
-
-    const tagList = result.packTags?.map((pt) => pt.tag).filter(Boolean) ?? [];
-
-    const { packTags: _packTags, ...pack } = result;
-
-    return c.json(
-      {
-        ...pack,
-        voteCount,
-        voted,
-        tags: tagList,
-        mods: result.mods.map((m) => ({
-          ...m,
-          slotName: m.slot?.name ?? "Unknown",
-          slotSortOrder: m.slot?.sortOrder ?? 0,
-        })),
-      },
-      200
-    );
-  });
+  );
 
 export default app;
