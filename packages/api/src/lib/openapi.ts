@@ -19,7 +19,8 @@ import type { HonoEnv } from "../types";
 
 /**
  * Scalar's CDN bundle reads the document from `data-url`, so the page needs no
- * build step and no dependency of its own.
+ * build step and no dependency of its own. The page shares the API's origin, so
+ * the bundle is pinned to one version and checked by its integrity hash.
  */
 const DOCS_PAGE = `<!doctype html>
 <html lang="en">
@@ -30,7 +31,11 @@ const DOCS_PAGE = `<!doctype html>
   </head>
   <body>
     <script id="api-reference" data-url="/api/openapi.json"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.72.4/dist/browser/standalone.js"
+      integrity="sha384-omTRdD9MbjA1vm12DqRUVvqJlr3VzSixvAdF1Jruu9AJOiJKyTKraIB6DyX+m10M"
+      crossorigin="anonymous"
+    ></script>
   </body>
 </html>
 `;
