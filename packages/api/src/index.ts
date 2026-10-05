@@ -10,6 +10,7 @@ import {
   getPublicSitemapData,
   getUserOpenGraphData,
 } from "./lib/public-catalog";
+import { openApiRoutes } from "./lib/openapi";
 import { generalApiRateLimit, rateLimitByIp } from "./lib/rate-limit";
 import adminRoutes from "./routes/admin";
 import codeModsRoutes from "./routes/code-mods";
@@ -55,6 +56,10 @@ const app = new Hono<HonoEnv>()
   .route("/api/admin", adminRoutes)
   .route("/api/code-mods", codeModsRoutes)
   .route("/api/editor", editorRoutes);
+
+// The OpenAPI document and its reference page. Both answer 404 in production;
+// mounted off the chain so neither joins the hono/client AppType.
+app.route("/api", openApiRoutes(app));
 
 // Health check
 app.get("/", (c) =>

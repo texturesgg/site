@@ -91,9 +91,49 @@ app.post("/", requireAuth, async (c) => {
 export default app;
 ```
 
-Two routes in `packages/api/src/index.ts` are deliberately left off the chain,
-and so off the client type: the `/` health check and `/api/auth/*`, which
-better-auth handles and the browser reaches through better-auth's own client.
+Three things in `packages/api/src/index.ts` are deliberately left off the
+chain, and so off the client type: the `/` health check and `/api/auth/*`,
+which better-auth handles and the browser reaches through better-auth's own
+client, and `/api/openapi.json` with `/api/docs`.
+
+### OpenAPI Document (development and preview only)
+
+`GET /api/openapi.json` returns the document and `GET /api/docs` renders it;
+both answer 404 in production, so the deployed API keeps no documentation
+surface. Neither is part of the client type: `AppType` stays the contract, and
+the document is how a developer reads that same surface locally.
+
+A route appears in the document when its handler chain carries
+`describeRoute({ ... })` from `hono-openapi`. A route without it is simply
+absent, so annotate a route when its shape settles, not to satisfy the tool:
+
+```typescript
+const app = new Hono<HonoEnv>().get(
+  "/",
+  describeRoute({
+    tags: ["Tags"],
+    summary: "Search tags",
+    parameters: [{ name: "search", in: "query", required: false, schema: { type: "string" } }],
+    responses: {
+      200: { description: "Matching tags" },
+      400: { description: "Invalid request" },
+    },
+  }),
+  zValidator("query", z.object({ search: z.string().optional() }), validationHook),
+  async (c) => {
+    // unchanged
+  }
+);
+```
+
+Describe responses by description only. Response bodies stay inferred from the
+handlers through `AppType`; hand-written response schemas would be a second
+source of truth for the same contract (see *Prefer hono/client Inferred
+Types*). List the error statuses a route returns, including the 400 that
+`validationHook` produces.
+
+`packages/api/src/lib/openapi.test.ts` covers the document, the reference page,
+and the production 404.
 
 ### Worker-to-Worker Calls
 
