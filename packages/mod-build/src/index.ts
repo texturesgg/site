@@ -6,6 +6,9 @@
 // hashes each package and stores it and the compiler log in R2, and records
 // the build in D1. The container only ever holds the mod's source and
 // the toolchain; the Worker does every write.
+//
+// After a deploy, scripts/build-layouts.sh starts it once per active layout,
+// to build each mod's latest approved release for a layout that has none.
 
 import {
   codeModBuilds,
@@ -17,8 +20,9 @@ import {
 } from "@vgskins/db";
 import { generateId } from "@vgskins/shared";
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
+import { NonRetryableError } from "cloudflare:workflows";
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import { insertRelease, type ReleaseStatus } from "./release";
+import { insertRelease, releasesToBuildFor, type ReleaseStatus } from "./release";
 import { hasLibrary, readManifest, readSource, resolveTag, type Commit } from "./source";
 import { storedZip } from "./zip";
 
@@ -30,6 +34,10 @@ type PushEvent = {
   payload: { ref: string; before: string; after: string };
 };
 
+// Sent by scripts/build-layouts.sh after a deploy: build what an active
+// layout is missing.
+type LayoutEvent = { type: "layout"; layout: string };
+
 const TAG_PREFIX = "refs/tags/";
 const REPO_PREFIX = "mod-";
 
@@ -37,8 +45,11 @@ type Hooks = { before?: string[]; after?: string[]; replaces?: string[] };
 // What tgg says a package counts as for netplay.
 const NETPLAY_CLASSES = codeModBuilds.netplay.enumValues;
 
-export class BuildMod extends WorkflowEntrypoint<BuildEnv, PushEvent> {
-  async run(event: WorkflowEvent<PushEvent>, step: WorkflowStep) {
+export class BuildMod extends WorkflowEntrypoint<BuildEnv, PushEvent | LayoutEvent> {
+  async run(event: WorkflowEvent<PushEvent | LayoutEvent>, step: WorkflowStep) {
+    if (event.payload.type === "layout") {
+      return buildLayout(this.env, step, event.payload.layout, event.instanceId);
+    }
     const { source, payload } = event.payload;
     if (!payload.ref.startsWith(TAG_PREFIX) || /^0+$/.test(payload.after)) {
       return { skipped: `not a tag: ${payload.ref}` };
@@ -129,6 +140,38 @@ async function buildTargets(
     }
   }
   return built;
+}
+
+/**
+ * Build each mod's latest approved release for `layout`, when it is active
+ * and the release has no build for it (releasesToBuildFor).
+ */
+async function buildLayout(env: BuildEnv, step: WorkflowStep, layout: string, runId: string) {
+  const releases = await step.do("releases to build", async () => {
+    const db = createDb(env.DB);
+    const [active] = await db
+      .select({ id: codeModLayouts.id })
+      .from(codeModLayouts)
+      .where(and(eq(codeModLayouts.id, layout), eq(codeModLayouts.active, true)));
+    return active ? releasesToBuildFor(db, layout) : [];
+  });
+  let built = 0;
+  for (const release of releases) {
+    const repoName = `${REPO_PREFIX}${release.codeModId}`;
+    const commit = await step.do(`commit ${release.releaseId}`, async (): Promise<Commit> => {
+      using repo = await env.ARTIFACTS.get(repoName);
+      const found = await repo.readCommit(release.commitSha);
+      if (!found) throw new NonRetryableError(`commit ${release.commitSha} not found`);
+      return { id: found.hash, tree: found.treeHash };
+    });
+    built += await buildTargets(
+      env,
+      step,
+      { releaseId: release.releaseId, repoName, commit, runId },
+      [{ layout, sdk: layout }]
+    );
+  }
+  return { layout, releases: releases.length, built };
 }
 
 /**
