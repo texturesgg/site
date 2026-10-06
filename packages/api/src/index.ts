@@ -8,6 +8,7 @@ import { authHandler, siteOrigins } from "./lib/auth";
 import {
   getPackOpenGraphData,
   getPublicSitemapData,
+  getTggMeleeReleases,
   getUserOpenGraphData,
 } from "./lib/public-catalog";
 import { openApiRoutes } from "./lib/openapi";
@@ -134,6 +135,10 @@ export class PublicCatalogEntrypoint extends WorkerEntrypoint<Env> {
 
   getSitemap() {
     return getPublicSitemapData(this.env);
+  }
+
+  getTggMeleeReleases() {
+    return getTggMeleeReleases(this.env);
   }
 }
 

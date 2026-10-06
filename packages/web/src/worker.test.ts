@@ -216,6 +216,7 @@ describe("fetch handler", () => {
       },
       getPackOpenGraph: async () => null,
       getUserOpenGraph: async () => null,
+      getTggMeleeReleases: async () => [],
     },
   };
 

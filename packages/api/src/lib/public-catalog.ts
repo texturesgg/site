@@ -1,4 +1,4 @@
-import { createDb, games, packs, users } from "@vgskins/db";
+import { codeModLayouts, createDb, games, packs, users } from "@vgskins/db";
 import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import type { Env } from "../types";
@@ -100,4 +100,16 @@ export async function getPublicSitemapData(env: Env): Promise<PublicSitemapData>
   ]);
 
   return { games: allGames, packs: allPacks, users: allUsers };
+}
+
+/**
+ * Every tgg-melee release the registry has a layout for, active or retired:
+ * the versions whose docs textures.gg links to.
+ */
+export async function getTggMeleeReleases(env: Env): Promise<string[]> {
+  const rows = await createDb(env.DB)
+    .select({ version: codeModLayouts.portVersion })
+    .from(codeModLayouts)
+    .where(eq(codeModLayouts.port, "tgg-melee"));
+  return rows.map((row) => row.version);
 }
