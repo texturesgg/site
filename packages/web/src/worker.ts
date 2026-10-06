@@ -9,6 +9,7 @@
 
 import type { PackOpenGraphData, PublicSitemapData, UserOpenGraphData } from "@vgskins/api";
 import { logger } from "@vgskins/logger";
+import { isModDocsPath, modDocsLocation } from "./mod-docs";
 
 // Headers that are safe for every response. A full Content-Security-Policy
 // (scripts, fonts, Turnstile, avatars, API and asset origins) should be rolled
@@ -27,6 +28,7 @@ export type WorkerEnv = Pick<Env, "ENVIRONMENT" | "API_BASE_URL" | "ASSETS_BASE_
   ASSETS: Pick<Fetcher, "fetch">;
   API: {
     getSitemap(): Promise<PublicSitemapData>;
+    getTggMeleeReleases(): Promise<string[]>;
     getPackOpenGraph(gameSlug: string, packSlug: string): Promise<PackOpenGraphData | null>;
     getUserOpenGraph(identifier: string): Promise<UserOpenGraphData | null>;
   };
@@ -354,6 +356,37 @@ export default {
           env
         );
       }
+    }
+
+    // Mod docs, as tgg-melee links them: a redirect to the release's docs,
+    // temporary because textures.gg will serve these pages itself.
+    if (isModDocsPath(url.pathname)) {
+      let releases: string[];
+      try {
+        releases = await env.API.getTggMeleeReleases();
+      } catch (err) {
+        logger.error({ err }, "Failed to load tgg-melee releases for the mod docs");
+        return withResponseHeaders(
+          new Response("Docs temporarily unavailable", {
+            status: 503,
+            headers: { "content-type": "text/plain; charset=UTF-8", "cache-control": "no-store" },
+          }),
+          env
+        );
+      }
+      const location = modDocsLocation(url.pathname, releases);
+      return withResponseHeaders(
+        location
+          ? new Response(null, {
+              status: 302,
+              headers: { location, "cache-control": "public, max-age=300" },
+            })
+          : new Response("Not found", {
+              status: 404,
+              headers: { "content-type": "text/plain; charset=UTF-8", "cache-control": "no-store" },
+            }),
+        env
+      );
     }
 
     // A hashed asset this deployment does not have is a 404. Static Assets'

@@ -17,7 +17,7 @@ sql=$(jq -r --arg now "$now" '
   (map(
     "INSERT INTO code_mod_layouts (id, api, port, target, port_version, active, created_at) VALUES ("
     + ([.id, .api, .port, .target, .portVersion] | map(q) | join(", "))
-    + ", 1, " + $now + ") ON CONFLICT(id) DO UPDATE SET active = 1;"
+    + ", 1, " + $now + ") ON CONFLICT(id) DO UPDATE SET active = 1, port_version = excluded.port_version;"
   ) | join("\n")),
   "UPDATE code_mod_layouts SET active = 0 WHERE id NOT IN ("
     + (map(.id | q) | if length == 0 then ["'"'"''"'"'"] else . end | join(", ")) + ");"
