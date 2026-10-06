@@ -17,7 +17,8 @@ and the SHA-256 of its SDK archive (`files.sdk.sha256` in the release's
 ```
 
 A patch release keeps its minor's layout id, so the list names one release per
-layout. Each deploy runs `../scripts/prepare-deploy.sh`, which:
+layout. Each deploy runs `../scripts/prepare-deploy.sh` once the site's other
+Workers are out, so a slow or failed image only holds back this pipeline. It:
 
 1. finds the image for the current inputs in the registry
    (`tgg-mod-builder:inputs-<hash of layouts.json, the flake, its lock and
@@ -30,7 +31,8 @@ build.sh's format number>`), or builds it with `build.sh`: each release's
 3. makes `code_mod_layouts` match the layouts the image carries: those are
    active, every other one is retired (no new builds; its packages stay
    downloadable);
-4. pins the image's digest in `../wrangler.toml` for the deploy.
+4. pins the image's digest in `../wrangler.toml` for this Worker's deploy
+   (`pnpm deploy:production:mod-build`, or `:preview`).
 
 So adding, updating or retiring a layout is an edit to `layouts.json`. Once
 the deploy is live, `../scripts/build-layouts.sh` starts the build Workflow
