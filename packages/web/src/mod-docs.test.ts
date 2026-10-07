@@ -12,3 +12,13 @@ it("sends a docs page to the newest release of its minor, or of all for latest",
   expect(modDocsLocation("/docs/mods/0.3/hooks", releases)).toBeNull();
   expect(modDocsLocation("/docs/mods/0.1/..%2Fsecrets", releases)).toBeNull();
 });
+
+it("uses a minor's newest prerelease only until it has a release", () => {
+  const docs = "https://github.com/texturesgg/tgg-melee/blob";
+  const before = ["0.1.0-rc.2", "0.1.0-rc.10", "0.1.0-rc.9"];
+  expect(modDocsLocation("/docs/mods/0.1/README", before)).toBe(
+    `${docs}/v0.1.0-rc.10/docs/README.md`
+  );
+  const after = [...before, "0.1.0", "0.1.1-rc.1"];
+  expect(modDocsLocation("/docs/mods/latest", after)).toBe(`${docs}/v0.1.0/docs/README.md`);
+});
