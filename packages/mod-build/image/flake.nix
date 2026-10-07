@@ -17,10 +17,10 @@
       # runs as on a mod maker's machine, so registry packages match theirs.
       tgg = pkgs.stdenvNoCC.mkDerivation rec {
         pname = "tgg";
-        version = "0.2.0";
+        version = "0.3.0";
         src = pkgs.fetchurl {
           url = "https://github.com/texturesgg/texturesgg/releases/download/cli-v${version}/tgg-${version}-x86_64-unknown-linux-musl.tar.gz";
-          hash = "sha256-yNd98Q0K0SqGHFJ6Lr+rd4/YHkVP60QyHzY0ADw6cwc=";
+          hash = "sha256-3djDuzKixOWQ2CDhMLr/r/OioXRqTFz3nP6yJ1LQSkw=";
         };
         installPhase = ''
           install -Dm755 tgg $out/bin/tgg
@@ -29,11 +29,17 @@
 
       toolchain = pkgs.buildEnv {
         name = "tgg-mod-toolchain";
-        # A mod build is one GCC call, which `tgg mod build` makes. GCC only:
-        # the game's on-disc structs use scalar_storage_order. coreutils gives
-        # the container `sleep` to stay up and `cat` to hand the package back.
+        # `tgg mod build` runs the SDK's own CMake files (TggMod.cmake) with
+        # CMake and Ninja; they read the objects with binutils' nm, and Ninja
+        # runs each step through /bin/sh (bash). GCC only: the game's on-disc
+        # structs use scalar_storage_order. coreutils gives the container
+        # `sleep` to stay up and `cat` to hand the package back.
         paths = [
           pkgs.gcc
+          pkgs.binutils
+          pkgs.cmake
+          pkgs.ninja
+          pkgs.bash
           pkgs.coreutils
           tgg
         ];
