@@ -6,7 +6,7 @@
 #
 #   build.sh LAYOUTS_OUT
 #
-# The image is GCC, coreutils and tgg (flake.nix), plus one folder per
+# The image is the toolchain and tgg (flake.nix), plus one folder per
 # layout at /opt/tgg/sdks/<layout id>/ holding a tgg-melee release's game SDK
 # (fetch-sdks.sh). Everything comes from pinned inputs, and the SDKs (which
 # hold decomp headers and the game's source) only ever go to the private

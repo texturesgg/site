@@ -1,11 +1,12 @@
 # The builder image
 
 The image the build Workflow compiles mods in: GCC (the nixpkgs revision
-tgg-melee releases are built with), coreutils and `tgg`, assembled with Nix
-(`flake.nix`), plus one folder per active game layout at
-`/opt/tgg/sdks/<layout id>/` holding that tgg-melee release's game SDK, whose
-`symbols.txt` `tgg mod build` checks hooks and links against. The SDKs hold
-decomp headers and the game's source, so the image lives only in the
+tgg-melee releases are built with), binutils, CMake, Ninja, bash, coreutils and
+`tgg`, assembled with Nix (`flake.nix`), plus one folder per active game layout at
+`/opt/tgg/sdks/<layout id>/` holding that tgg-melee release's game SDK. `tgg mod
+build` builds each mod with the SDK's own CMake files and checks its hooks against
+the SDK's `symbols.txt`. The SDKs hold decomp headers and the game's source, so
+the image lives only in the
 account's private registry.
 
 `layouts.json` lists the active layouts, each as a tgg-melee release version
