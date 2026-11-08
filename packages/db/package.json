@@ -19,11 +19,11 @@
     "legacy-backfill": "node scripts/legacy-backfill.mjs"
   },
   "dependencies": {
+    "@vgskins/shared": "workspace:*",
     "drizzle-orm": "catalog:"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
-    "@vgskins/shared": "workspace:*",
     "drizzle-kit": "catalog:",
     "typescript": "catalog:",
     "wrangler": "catalog:"

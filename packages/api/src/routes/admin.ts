@@ -43,7 +43,26 @@ import {
   sanitizeSearch,
   validationHook,
 } from "../lib/validation";
-import type { HonoEnv } from "../types";
+import type { Env, HonoEnv } from "../types";
+
+/**
+ * Start the mod build Workflow (packages/mod-build) with `params`: `approved`
+ * builds an approved release for the layouts review held back, `check`
+ * checks a failed release again. Returns whether it started; a release whose
+ * builds didn't start can be rebuilt from here.
+ */
+async function startModBuild(
+  env: Env,
+  params: { type: "approved" | "check"; release: string }
+): Promise<boolean> {
+  try {
+    await env.MOD_BUILD.create({ params });
+    return true;
+  } catch (error) {
+    logger.error({ ...params, error }, "Failed to start a code mod build");
+    return false;
+  }
+}
 
 /** Delete a pack's stored objects, logging instead of failing the request. */
 async function removePackObjects(bucket: R2Bucket, packId: string): Promise<number> {
@@ -404,8 +423,10 @@ const app = new Hono<HonoEnv>()
           : c.json({ error: "Release not found" }, 404);
       }
 
-      logger.info({ releaseId }, "Code mod release approved");
-      return c.json({ success: true, status: "approved" }, 200);
+      // Review held back every target but the check's; build them now.
+      const buildStarted = await startModBuild(c.env, { type: "approved", release: releaseId });
+      logger.info({ releaseId, buildStarted }, "Code mod release approved");
+      return c.json({ success: true, status: "approved", buildStarted }, 200);
     }
   )
   // Reject a code mod release
@@ -438,6 +459,78 @@ const app = new Hono<HonoEnv>()
 
       logger.info({ releaseId }, "Code mod release rejected");
       return c.json({ success: true, status: "rejected" }, 200);
+    }
+  )
+  // Rebuild a code mod release: a failed one is checked again (without the
+  // author's daily cap), an approved one builds the layouts it has no
+  // succeeded build for
+  .post(
+    "/code-mods/releases/:id/rebuild",
+    requireAuth,
+    requireAdmin,
+    requireCodeMods,
+    async (c) => {
+      const user = c.get("user");
+      const db = createDb(c.env.DB);
+      const releaseId = c.req.param("id");
+      const [release] = await db
+        .select({ status: codeModReleases.status })
+        .from(codeModReleases)
+        .innerJoin(codeMods, eq(codeMods.id, codeModReleases.codeModId))
+        .where(and(eq(codeModReleases.id, releaseId), isNull(codeMods.deletedAt)));
+      if (!release) return c.json({ error: "Release not found" }, 404);
+
+      logger.info({ userId: user.id, releaseId, status: release.status }, "Rebuilding release");
+      if (release.status === "approved") {
+        if (!(await startModBuild(c.env, { type: "approved", release: releaseId }))) {
+          return c.json({ error: "The build could not start; try again" }, 503);
+        }
+        return c.json({ success: true, status: "approved" }, 200);
+      }
+      // Of two rebuilds at once, one moves the release and starts the run.
+      const moved = await transitionRelease(db, releaseId, {
+        from: ["failed"],
+        to: "processing",
+        set: { error: null },
+      });
+      if (!moved) return c.json({ error: "Only a failed or approved release rebuilds" }, 409);
+      if (!(await startModBuild(c.env, { type: "check", release: releaseId }))) {
+        await transitionRelease(db, releaseId, {
+          from: ["processing"],
+          to: "failed",
+          set: { error: "the rebuild could not start" },
+        });
+        return c.json({ error: "The build could not start; try again" }, 503);
+      }
+      return c.json({ success: true, status: "processing" }, 200);
+    }
+  )
+  // Set who the registry says publishes a code mod: a name in place of the
+  // author's (null for theirs), and whether admins vouch for it (official
+  // mods list first)
+  .put(
+    "/code-mods/:id/publisher",
+    requireAuth,
+    requireAdmin,
+    requireCodeMods,
+    zValidator(
+      "json",
+      z.object({ name: z.string().trim().min(1).max(80).nullable(), official: z.boolean() }),
+      validationHook
+    ),
+    async (c) => {
+      const actor = c.get("user");
+      const db = createDb(c.env.DB);
+      const codeModId = c.req.param("id");
+      const { name, official } = c.req.valid("json");
+      const updated = await db
+        .update(codeMods)
+        .set({ publisherName: name, official, updatedAt: new Date() })
+        .where(and(eq(codeMods.id, codeModId), isNull(codeMods.deletedAt)))
+        .returning({ id: codeMods.id });
+      if (updated.length === 0) return c.json({ error: "Code mod not found" }, 404);
+      logger.info({ actorId: actor.id, codeModId, name, official }, "Set code mod publisher");
+      return c.json({ success: true, publisher: { name, official } }, 200);
     }
   )
   // Create or replace a mod set (/api/registry/sets). Its version goes up when
@@ -570,6 +663,7 @@ const app = new Hono<HonoEnv>()
           emailVerified: users.emailVerified,
           image: users.image,
           role: users.role,
+          trusted: users.trusted,
           banned: users.banned,
           banReason: users.banReason,
           createdAt: users.createdAt,
@@ -609,6 +703,28 @@ const app = new Hono<HonoEnv>()
       }));
 
       return c.json(paginationResponse(enriched, total, pagination), 200);
+    }
+  )
+  // Trust a code mod author or stop: a trusted author's pushes skip the daily
+  // cap on builds before review (admin only)
+  .put(
+    "/users/:id/trusted",
+    requireAuth,
+    requireAdmin,
+    zValidator("json", z.object({ trusted: z.boolean() }), validationHook),
+    async (c) => {
+      const actor = c.get("user");
+      const db = createDb(c.env.DB);
+      const userId = c.req.param("id");
+      const { trusted } = c.req.valid("json");
+      const updated = await db
+        .update(users)
+        .set({ trusted, updatedAt: new Date() })
+        .where(eq(users.id, userId))
+        .returning({ id: users.id });
+      if (updated.length === 0) return c.json({ error: "User not found" }, 404);
+      logger.info({ actorId: actor.id, userId, trusted }, "Set code mod author trust");
+      return c.json({ success: true, trusted }, 200);
     }
   )
   // Manually verify a user's email (admin only)

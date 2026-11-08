@@ -1,27 +1,44 @@
 // Builds code mods. A tag pushed to a mod's Artifacts repo (`mod-<id>`) starts
 // the BuildMod Workflow through the `cf.artifacts.repo.pushed` trigger. It
-// records the release, then for each active game layout the builder image
-// builds (Linux, and Windows with MinGW) a Builder container
-// compiles and packs the mod against that layout's game SDK (once, for a mod
-// without a library, whose package serves every layout). The Worker
-// hashes each package and stores it and the compiler log in R2, and records
-// the build in D1. The container only ever holds the mod's source and
-// the toolchain; the Worker does every write. macOS layouts build outside
-// Cloudflare, once a release is approved (scripts/external-build.sh and the
-// API's routes/external-builds.ts).
+// records the release and its listing, then checks it before review: a
+// Builder container compiles and packs the mod against the game SDK of the
+// newest tgg-melee release's Linux layout (checkLayouts; once, for a mod
+// without a library, whose package serves every layout). An author gets
+// CHECK_RUN_LIMIT of these a day unless trusted or an admin (claimCheckRun);
+// past that the release fails without starting a container. The release goes
+// to review if the check built. The Worker hashes each package and stores it
+// and the compiler log in R2, and records the build in D1. The container only
+// ever holds the mod's source and the toolchain; the Worker does every write.
+//
+// Approving a release (the API's routes/admin.ts) starts it with
+// `{type: "approved"}` to build the release for every other active layout
+// the image builds (Windows, and an older port's Linux). macOS layouts build
+// outside Cloudflare, once a release is approved (scripts/external-build.sh
+// and the API's routes/external-builds.ts). An admin's rebuild of a failed
+// release starts it with `{type: "check"}`, the same check without the cap.
 //
 // After a deploy, scripts/build-layouts.sh starts it once per active layout,
-// to build each mod's latest approved release for a layout that has none.
+// to build the approved releases worth building that have no build for it.
 
-import { codeModBuilds, codeModReleases, codeMods, createDb, transitionRelease } from "@vgskins/db";
+import {
+  claimCheckRun,
+  codeModBuilds,
+  codeModReleases,
+  codeMods,
+  createDb,
+  transitionRelease,
+} from "@vgskins/db";
 import { generateId } from "@vgskins/shared";
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 import { NonRetryableError } from "cloudflare:workflows";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { readListing, storeListing } from "./listing";
 import {
+  checkLayouts,
   insertRelease,
+  layoutsAfterApproval,
   layoutsToBuild,
+  manifestRefusal,
   releasesToBuildFor,
   releasesToList,
   type ReleaseStatus,
@@ -45,6 +62,19 @@ type LayoutEvent = { type: "layout"; layout: string };
 // release recorded before them (releasesToList).
 type ListingsEvent = { type: "listings" };
 
+// Sent by the API when a moderator approves `release`: build it for the
+// layouts its check didn't (layoutsAfterApproval).
+type ApprovedEvent = { type: "approved"; release: string };
+
+// Sent by the API when an admin rebuilds `release`, a failed one it has moved
+// back to processing: check it again, without the cap.
+type CheckEvent = { type: "check"; release: string };
+
+export type BuildEvent = PushEvent | LayoutEvent | ListingsEvent | ApprovedEvent | CheckEvent;
+
+// Why a release over its author's check-run cap fails.
+export const CHECK_LIMIT_ERROR = "build limit reached; try again later";
+
 const TAG_PREFIX = "refs/tags/";
 const REPO_PREFIX = "mod-";
 
@@ -52,15 +82,18 @@ type Hooks = { before?: string[]; after?: string[]; replaces?: string[] };
 // What tgg says a package counts as for netplay.
 const NETPLAY_CLASSES = codeModBuilds.netplay.enumValues;
 
-export class BuildMod extends WorkflowEntrypoint<
-  BuildEnv,
-  PushEvent | LayoutEvent | ListingsEvent
-> {
-  async run(event: WorkflowEvent<PushEvent | LayoutEvent | ListingsEvent>, step: WorkflowStep) {
+export class BuildMod extends WorkflowEntrypoint<BuildEnv, BuildEvent> {
+  async run(event: WorkflowEvent<BuildEvent>, step: WorkflowStep) {
     if (event.payload.type === "layout") {
       return buildLayout(this.env, step, event.payload.layout, event.instanceId);
     }
     if (event.payload.type === "listings") return listReleases(this.env, step);
+    if (event.payload.type === "approved") {
+      return buildApproved(this.env, step, event.payload.release, event.instanceId);
+    }
+    if (event.payload.type === "check") {
+      return recheck(this.env, step, event.payload.release, event.instanceId);
+    }
     const { source, payload } = event.payload;
     if (!payload.ref.startsWith(TAG_PREFIX) || /^0+$/.test(payload.after)) {
       return { skipped: `not a tag: ${payload.ref}` };
@@ -77,55 +110,130 @@ export class BuildMod extends WorkflowEntrypoint<
     if ("skipped" in release) return release;
     if (release.status !== "processing") return { release: release.id, status: release.status };
 
-    // The store listing, read before review so review covers it. A listing
-    // that can't be read (an icon that isn't a PNG) fails the release.
-    const listed = await step.do("record listing", () =>
-      recordListing(this.env, repoName, release.id, release.commit)
-    );
-    if (listed.error !== null) {
-      await step.do("fail listing", () =>
-        transitionRelease(createDb(this.env.DB), release.id, {
-          from: ["processing"],
-          to: "failed",
-          set: { error: listed.error },
-        }).then(() => null)
-      );
-      return { release: release.id, status: "failed" };
-    }
-
-    // The step's name changed with its result's shape, so a run that started
-    // before a deploy doesn't read back the old one.
-    const layouts = await step.do("layouts to build", () => layoutsToBuild(createDb(this.env.DB)));
-    const library = await step.do("has library", async () => {
-      using repo = await this.env.ARTIFACTS.get(repoName);
-      return await hasLibrary(repo, release.commit.tree);
+    return checkRelease(this.env, step, {
+      releaseId: release.id,
+      repoName,
+      commit: release.commit,
+      runId: event.instanceId,
+      exempt: false,
     });
-    // A package without a library is the same for every layout, so it builds
-    // once, against any layout's SDK, and serves them all.
-    const targets: Target[] = library
-      ? layouts.map(({ id, target }) => ({ layout: id, sdk: id, target }))
-      : layouts.slice(0, 1).map(({ id, target }) => ({ layout: null, sdk: id, target }));
-
-    const built = await buildTargets(
-      this.env,
-      step,
-      { releaseId: release.id, repoName, commit: release.commit, runId: event.instanceId },
-      targets
-    );
-
-    const status = await step.do("finish release", async () => {
-      const status = built > 0 ? "pending" : "failed";
-      const error =
-        built > 0 ? null : layouts.length === 0 ? "no active layouts" : "no build succeeded";
-      await transitionRelease(createDb(this.env.DB), release.id, {
-        from: ["processing"],
-        to: status,
-        set: { error },
-      });
-      return status;
-    });
-    return { release: release.id, status, built, layouts: layouts.length };
   }
+}
+
+/**
+ * Check a processing release before review: record its listing (and
+ * re-check its manifest), count a check run against its author unless
+ * `exempt`, then build it for checkLayouts. It goes to pending if a build
+ * succeeded, failed otherwise.
+ */
+async function checkRelease(
+  env: BuildEnv,
+  step: WorkflowStep,
+  release: { releaseId: string; repoName: string; commit: Commit; runId: string; exempt: boolean }
+) {
+  const { releaseId, repoName, commit } = release;
+  const fail = (name: string, error: string) =>
+    step.do(name, () =>
+      transitionRelease(createDb(env.DB), releaseId, {
+        from: ["processing"],
+        to: "failed",
+        set: { error },
+      }).then(() => null)
+    );
+
+  // The store listing, read before review so review covers it. A listing
+  // that can't be read (an icon that isn't a PNG) fails the release.
+  const listed = await step.do("record listing", () =>
+    recordListing(env, repoName, releaseId, commit)
+  );
+  if (listed.error !== null) {
+    await fail("fail listing", listed.error);
+    return { release: releaseId, status: "failed" };
+  }
+
+  const allowed = await step.do("claim check run", () =>
+    claimCheckRun(createDb(env.DB), {
+      id: releaseId,
+      runId: release.runId,
+      exempt: release.exempt,
+    })
+  );
+  if (!allowed) {
+    await fail("fail check limit", CHECK_LIMIT_ERROR);
+    return { release: releaseId, status: "failed" };
+  }
+
+  // The step's name changed with its result's shape, so a run that started
+  // before a deploy doesn't read back the old one.
+  const layouts = await step.do("layouts to check", () => checkLayouts(createDb(env.DB)));
+  const library = await step.do("has library", async () => {
+    using repo = await env.ARTIFACTS.get(repoName);
+    return await hasLibrary(repo, commit.tree);
+  });
+  // A package without a library is the same for every layout, so it builds
+  // once, against any layout's SDK, and serves them all.
+  const targets: Target[] = library
+    ? layouts.map(({ id, target }) => ({ layout: id, sdk: id, target }))
+    : layouts.slice(0, 1).map(({ id, target }) => ({ layout: null, sdk: id, target }));
+
+  const built = await buildTargets(env, step, release, targets);
+
+  const status = await step.do("finish release", async () => {
+    const status = built > 0 ? "pending" : "failed";
+    const error =
+      built > 0 ? null : layouts.length === 0 ? "no active layouts" : "no build succeeded";
+    await transitionRelease(createDb(env.DB), releaseId, {
+      from: ["processing"],
+      to: status,
+      set: { error },
+    });
+    return status;
+  });
+  return { release: releaseId, status, built, layouts: layouts.length };
+}
+
+/** The commit `commitSha` of `repoName`, for a release recorded earlier. */
+async function releaseCommit(env: BuildEnv, repoName: string, commitSha: string): Promise<Commit> {
+  using repo = await env.ARTIFACTS.get(repoName);
+  const found = await repo.readCommit(commitSha);
+  if (!found) throw new NonRetryableError(`commit ${commitSha} not found`);
+  return { id: found.hash, tree: found.treeHash };
+}
+
+/** An approved release's builds for the layouts its check didn't cover. */
+async function buildApproved(env: BuildEnv, step: WorkflowStep, releaseId: string, runId: string) {
+  const work = await step.do("layouts after approval", () =>
+    layoutsAfterApproval(createDb(env.DB), releaseId)
+  );
+  if (work.layouts.length === 0) return { release: releaseId, layouts: 0, built: 0 };
+  const repoName = `${REPO_PREFIX}${work.codeModId}`;
+  const commit = await step.do(`commit ${releaseId}`, () =>
+    releaseCommit(env, repoName, work.commitSha)
+  );
+  const built = await buildTargets(
+    env,
+    step,
+    { releaseId, repoName, commit, runId },
+    work.layouts.map(({ id, target }) => ({ layout: id, sdk: id, target }))
+  );
+  return { release: releaseId, layouts: work.layouts.length, built };
+}
+
+/** Check again a failed release an admin moved back to processing. */
+async function recheck(env: BuildEnv, step: WorkflowStep, releaseId: string, runId: string) {
+  const found = await step.do("release to check", async () => {
+    const [row] = await createDb(env.DB)
+      .select({ codeModId: codeModReleases.codeModId, commitSha: codeModReleases.commitSha })
+      .from(codeModReleases)
+      .where(and(eq(codeModReleases.id, releaseId), eq(codeModReleases.status, "processing")));
+    return row ?? null;
+  });
+  if (!found) return { skipped: `release ${releaseId} isn't processing` };
+  const repoName = `${REPO_PREFIX}${found.codeModId}`;
+  const commit = await step.do(`commit ${releaseId}`, () =>
+    releaseCommit(env, repoName, found.commitSha)
+  );
+  return checkRelease(env, step, { releaseId, repoName, commit, runId, exempt: true });
 }
 
 // What one build makes: the layout its package serves (null for every
@@ -180,12 +288,9 @@ async function buildLayout(env: BuildEnv, step: WorkflowStep, layout: string, ru
   let built = 0;
   for (const release of releases) {
     const repoName = `${REPO_PREFIX}${release.codeModId}`;
-    const commit = await step.do(`commit ${release.releaseId}`, async (): Promise<Commit> => {
-      using repo = await env.ARTIFACTS.get(repoName);
-      const found = await repo.readCommit(release.commitSha);
-      if (!found) throw new NonRetryableError(`commit ${release.commitSha} not found`);
-      return { id: found.hash, tree: found.treeHash };
-    });
+    const commit = await step.do(`commit ${release.releaseId}`, () =>
+      releaseCommit(env, repoName, release.commitSha)
+    );
     built += await buildTargets(
       env,
       step,
@@ -210,6 +315,10 @@ async function recordListing(
   } catch (error) {
     return { error: String(error instanceof Error ? error.message : error) };
   }
+  // A retried release was recorded before; the registry may have gained
+  // the mod it depends on since, or not.
+  const refusal = await manifestRefusal(createDb(env.DB), manifest);
+  if (refusal !== null) return { error: refusal };
   const read = await readListing(repo, commit, manifest);
   if ("error" in read) return read;
   await storeListing(createDb(env.DB), env.PACKAGES, releaseId, read.listing);
@@ -281,11 +390,22 @@ async function recordRelease(
       and(eq(codeModReleases.codeModId, codeModId), eq(codeModReleases.version, manifest.version))
     );
   if (existing) {
-    if (existing.commitSha === commit.id)
-      return { id: existing.id, commit, status: existing.status };
-    return {
-      skipped: `version ${manifest.version} is already released from ${existing.commitSha}`,
-    };
+    if (existing.commitSha !== commit.id) {
+      return {
+        skipped: `version ${manifest.version} is already released from ${existing.commitSha}`,
+      };
+    }
+    // Pushing a failed release's tag again (deleted and pushed back) checks
+    // it again; the check run counts toward the author's cap as any push.
+    if (existing.status === "failed") {
+      const retried = await transitionRelease(db, existing.id, {
+        from: ["failed"],
+        to: "processing",
+        set: { error: null },
+      });
+      if (retried) return { id: existing.id, commit, status: "processing" };
+    }
+    return { id: existing.id, commit, status: existing.status };
   }
 
   const { id, status } = await insertRelease(db, {

@@ -4,6 +4,8 @@ import {
   codeModLayouts,
   codeModReleases,
   codeMods,
+  codeModSetMods,
+  codeModSets,
   createDb,
   games,
 } from "@vgskins/db";
@@ -187,14 +189,9 @@ describe("the builder token", () => {
 });
 
 describe("pending builds", () => {
-  it("lists approved releases with a library and no macOS build, newest first", async () => {
-    const older = await addRelease(
-      "tgg.lister",
-      "1.0.0",
-      "approved",
-      [LINUX],
-      new Date(NOW.getTime() - 1000)
-    );
+  it("lists each mod's newest approved release with a library and no macOS build", async () => {
+    // Recorded after 1.1.0, but older by version: never built.
+    await addRelease("tgg.lister", "1.0.0", "approved", [LINUX], new Date(NOW.getTime() + 1000));
     const newer = await addRelease("tgg.lister", "1.1.0", "approved");
     await addRelease("tgg.lister", "1.2.0", "pending");
     await addRelease("tgg.lister-files", "1.0.0", "approved", [null]);
@@ -204,10 +201,28 @@ describe("pending builds", () => {
       [MACOS, "0.1.0-rc.8"],
     ]);
     const listed = layouts[0].releases.filter((release) => release.mod.startsWith("tgg.lister"));
-    expect(listed).toEqual([
-      { id: newer, mod: "tgg.lister", version: "1.1.0" },
-      { id: older, mod: "tgg.lister", version: "1.0.0" },
-    ]);
+    expect(listed).toEqual([{ id: newer, mod: "tgg.lister", version: "1.1.0" }]);
+  });
+
+  it("also lists the newest release inside a set's range the newest is outside", async () => {
+    const pinned = await addRelease("tgg.pinned", "0.1.0", "approved");
+    await addRelease("tgg.pinned", "0.1.1-beta", "approved");
+    await addRelease("tgg.pinned", "0.0.9", "approved");
+    const newest = await addRelease("tgg.pinned", "0.2.0", "approved");
+    await db.insert(codeModSets).values({
+      name: "classic",
+      title: "Classic",
+      version: 1,
+      createdAt: NOW,
+      updatedAt: NOW,
+    });
+    await db
+      .insert(codeModSetMods)
+      .values({ setName: "classic", mod: "tgg.pinned", range: "0.1.0", position: 0 });
+    const listed = (await pending()).layouts[0].releases.filter(
+      (release) => release.mod === "tgg.pinned"
+    );
+    expect(listed.map((release) => release.id)).toEqual([newest, pinned]);
   });
 
   it("lists no layout for another target", async () => {

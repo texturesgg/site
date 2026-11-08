@@ -371,6 +371,7 @@ describe("mods", () => {
       name: "tgg.ucf",
       description: null,
       author: "owner",
+      publisher: { name: "owner", official: false },
       icon: { url: `http://localhost/api/registry/images/${icon}.png`, width: 64, height: 64 },
       tags: ["competitive", "netplay"],
       installs: expect.any(Number),
@@ -387,6 +388,42 @@ describe("mods", () => {
       targets: ["linux", "macos"],
       netplay: "data",
     });
+  });
+
+  it("lists official mods first, under the publisher name an admin set", async () => {
+    const installsFirst = (await (await get("/api/registry/mods?sort=installs")).json()) as {
+      items: { id: string }[];
+    };
+    const last = installsFirst.items[installsFirst.items.length - 1].id;
+    await db
+      .update(codeMods)
+      .set({ official: true, publisherName: "textures.gg" })
+      .where(eq(codeMods.slug, last));
+    const page = (await (await get("/api/registry/mods")).json()) as {
+      items: { id: string; author: string; publisher: unknown }[];
+    };
+    expect(page.items[0]).toMatchObject({
+      id: last,
+      author: "owner",
+      publisher: { name: "textures.gg", official: true },
+    });
+    expect(
+      (
+        (await (await get("/api/registry/mods?sort=installs")).json()) as {
+          items: { id: string }[];
+        }
+      ).items.map((mod) => mod.id)
+    ).toEqual(installsFirst.items.map((mod) => mod.id));
+    expect((await get(`/api/registry/mods/${last}`).then((r) => r.json())) as object).toMatchObject(
+      {
+        publisher: { name: "textures.gg", official: true },
+      }
+    );
+    expect((await get("/api/registry/mods?sort=newest")).status).toBe(400);
+    await db
+      .update(codeMods)
+      .set({ official: false, publisherName: null })
+      .where(eq(codeMods.slug, last));
   });
 
   it("pages the list", async () => {

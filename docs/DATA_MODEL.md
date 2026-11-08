@@ -39,6 +39,8 @@ erDiagram
     codeModReleases ||--o{ codeModBuilds : "built as"
     codeModLayouts ||--o{ codeModBuilds : "targeted by"
     codeModReleases ||--o{ codeModReleaseDependencies : "depends on"
+    users ||--o{ codeModCheckRuns : "spends"
+    codeModReleases ||--o{ codeModCheckRuns : "checked by"
 
     users {
         text id PK
@@ -47,6 +49,7 @@ erDiagram
         bool emailVerified
         text image
         text role "user | moderator | admin"
+        bool trusted "code mod pushes skip the check-run cap"
         bool banned
         text banReason
         int banExpires "timestamp_ms, nullable"
@@ -272,6 +275,8 @@ erDiagram
         text description
         text sourceKind "github | push"
         text sourceUrl "nullable"
+        text publisherName "nullable; admin-set, the author's name otherwise"
+        bool official "admin-set; listed first"
         int downloadCount
         int createdAt
         int updatedAt
@@ -302,6 +307,13 @@ erDiagram
         text portVersion "tgg-melee release"
         text builder "image | external | none"
         bool active
+        int createdAt
+    }
+
+    codeModCheckRuns {
+        text id PK "the build Workflow instance"
+        text userId FK "the mod's author"
+        text releaseId FK
         int createdAt
     }
 
@@ -445,16 +457,50 @@ build with the same game layout id, so a release is built once per active row of
 `codeModLayouts`, against that layout's game SDK. Each tgg-melee release brings
 three layouts, one per target, and a layout's `builder` says who builds it.
 Linux and Windows (cross-compiled with MinGW GCC) build in the builder image
-(`image`) as soon as a tag is pushed. macOS (`external`) needs Apple's linker
-and SDK, so a Mac builds it once the release is approved: it lists the approved
-releases without a macOS build, fetches each one's source and uploads the
-package through `/api/external-builds`, with the API's builder token, and the
-API checks the package against the release and layout before recording it
-(`packages/mod-build/image/README.md`, macOS). A failed external build stays
-failed, with its log, until the builder is asked to retry it. A release without a library (files and assets
-only) makes the same package for every layout, so it is built once, with a null
-`layoutId`, and serves them all. A new layout gets builds of existing releases
-without a new review, since review covers the source at `commitSha`. A retired
+(`image`); macOS (`external`) needs Apple's linker and SDK, so a Mac builds it.
+
+Builds run in two rounds, so unreviewed source costs one container:
+
+1. **Check, on push.** A pushed tag records the release and its listing, then
+   builds only the Linux layout of the newest tgg-melee release the image
+   builds (`checkLayouts` in `packages/mod-build/src/release.ts`). That build
+   tells the mod maker their mod compiles and gives the reviewer a package.
+   The release goes to `pending` if it built, `failed` otherwise.
+2. **The rest, on approval.** Approving a release
+   (`POST /api/admin/code-mods/releases/:id/approve`) starts the build
+   Workflow with `{"type": "approved"}`, which builds it for every other active
+   `image` layout without a succeeded build (Windows, and the Linux layout of
+   an older port still active). The Mac's next run lists it among the approved
+   releases without a macOS build, fetches its source and uploads the package
+   through `/api/external-builds`, with the API's builder token, and the API
+   checks the package against the release and layout before recording it
+   (`packages/mod-build/image/README.md`, macOS).
+
+A release stays installable on every target that built; a target whose build
+failed shows on the mod's page with its log. An admin's
+`POST /api/admin/code-mods/releases/:id/rebuild` builds an approved release's
+missing or failed image layouts again, or checks a failed release again (back
+to `processing`, Workflow event `{"type": "check"}`). Pushing a failed
+release's tag again from the same commit (delete it and push it back) checks
+it again too. A failed external build stays failed, with its log, until the
+builder is asked to retry it.
+
+Each check run is a `codeModCheckRuns` row against the mod's author. An author
+gets `CHECK_RUN_LIMIT` (10) in any rolling 24 hours, whatever became of the
+releases (failed and rejected ones count); past that a push records the
+release as `failed` with the error "build limit reached; try again later"
+without starting a container. Authors with `users.trusted` (set with
+`PUT /api/admin/users/:id/trusted`) and admins skip the cap, as does an admin's
+rebuild; their runs are still recorded.
+
+A release without a library (files and assets only) makes the same package for
+every layout, so its check builds it once, with a null `layoutId`, and it
+serves them all. A new layout gets builds without a new review, since review
+covers the source at `commitSha`. A new layout, an approval and the Mac only
+build the approved releases worth building
+(`approvedReleasesWorthBuilding` in `packages/db`): each mod's newest version
+(by semver), plus, for each set range the newest is outside, the newest
+version inside it. Older versions keep the builds they have. A retired
 layout (`active` false) gets no new builds, and its packages stay downloadable. Players fetch the builds for the
 layout id their port executable reports, through the registry's per-layout
 catalog (`GET /api/registry/catalog?layout=`): every approved release with a
@@ -489,7 +535,10 @@ the listing was read; releases recorded before listings get theirs from the
 build Workflow's `{"type": "listings"}` event, sent by hand with
 `wrangler workflows trigger`. The registry's store routes
 (`GET /api/registry/mods`, `/mods/:id`) show each listed mod (not deleted,
-with an approved release) by its newest approved release, and serve images at
+with an approved release) by its newest approved release, with its publisher:
+`codeMods.publisherName` when an admin set one (first-party mods say
+textures.gg), the author's name otherwise, and `official`, which admins set
+(`PUT /api/admin/code-mods/:id/publisher`) and the list sorts first, and serve images at
 `/api/registry/images/<sha256>.png` while an approved release names them.
 `codeMods.downloadCount` counts downloads of its packages from
 `/api/registry/packages/`, and is the store's install count.
@@ -505,7 +554,9 @@ lower version would hide updates.
 
 ```
 codeModReleases: processing -> pending -> approved | rejected
-                 processing -> failed (no build succeeded)
+                 processing -> failed (the check didn't build, or the
+                 author is past the day's check runs)
+                 failed -> processing (pushed again, or an admin's rebuild)
                  failed from the start (a manifest the game would refuse, or a
                  dependency the registry doesn't have)
 codeModBuilds:   queued -> building -> succeeded | failed

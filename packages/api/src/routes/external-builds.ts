@@ -1,11 +1,18 @@
 import { zValidator } from "@hono/zod-validator";
-import { codeModBuilds, codeModLayouts, codeModReleases, codeMods, createDb } from "@vgskins/db";
+import {
+  approvedReleasesWorthBuilding,
+  codeModBuilds,
+  codeModLayouts,
+  codeModReleases,
+  codeMods,
+  createDb,
+} from "@vgskins/db";
 import { logger } from "@vgskins/logger";
 import { readSource } from "@vgskins/mod-build/source";
 import { storedZip } from "@vgskins/mod-build/zip";
-import { generateId } from "@vgskins/shared";
+import { byVersionDescending, generateId } from "@vgskins/shared";
 import { unzipSync } from "fflate";
-import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { Hono, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { describeRoute } from "hono-openapi";
@@ -253,7 +260,7 @@ const app = new Hono<HonoEnv>()
       tags: ["External builds"],
       summary: "List releases an external builder should build",
       description:
-        "For each active layout of `target` with builder `external`: its id and tgg-melee version, and up to `limit` approved releases, newest first, with neither a build for it nor one for every layout (a package without a library). A failed build is offered again only with `failed=retry`. Needs the builder token.",
+        "For each active layout of `target` with builder `external`: its id and tgg-melee version, and up to `limit` approved releases worth building, by mod and newest version first, with neither a build for it nor one for every layout (a package without a library). Worth building is each mod's newest approved version, plus the newest version inside a set's range for the mod when the newest is outside it; older versions get no new builds. A failed build is offered again only with `failed=retry`. Needs the builder token.",
       responses: {
         200: { description: "Layouts and the releases they need" },
         400: { description: "Invalid request" },
@@ -285,16 +292,9 @@ const app = new Hono<HonoEnv>()
         )
         .orderBy(codeModLayouts.id);
       const approved = layouts.length
-        ? await db
-            .select({
-              id: codeModReleases.id,
-              mod: codeMods.slug,
-              version: codeModReleases.version,
-            })
-            .from(codeModReleases)
-            .innerJoin(codeMods, eq(codeMods.id, codeModReleases.codeModId))
-            .where(and(eq(codeModReleases.status, "approved"), isNull(codeMods.deletedAt)))
-            .orderBy(desc(codeModReleases.createdAt))
+        ? (await approvedReleasesWorthBuilding(db))
+            .map(({ releaseId, mod, version }) => ({ id: releaseId, mod, version }))
+            .sort((a, b) => a.mod.localeCompare(b.mod) || byVersionDescending(a.version, b.version))
         : [];
       const builds = approved.length
         ? await db

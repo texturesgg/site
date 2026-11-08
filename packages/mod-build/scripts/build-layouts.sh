@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Start the build Workflow in ENV once per active layout the builder image
 # builds, after a deploy has put the image carrying those layouts live. Each
-# run builds every mod's latest approved release that has no build for its
+# run builds the approved releases worth building (each mod's newest, and a
+# set's pin) that have no build for its
 # layout yet, so a run for a layout with nothing missing does nothing.
 #
 #   scripts/build-layouts.sh preview|production
