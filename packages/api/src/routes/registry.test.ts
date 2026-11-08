@@ -1,7 +1,9 @@
-import { createExecutionContext, env } from "cloudflare:test";
+import { createExecutionContext, env, waitOnExecutionContext } from "cloudflare:test";
 import {
   codeModBuilds,
   codeModLayouts,
+  codeModReleaseDependencies,
+  codeModReleaseImages,
   codeModReleases,
   codeMods,
   createDb,
@@ -34,8 +36,12 @@ async function sha256Hex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function get(path: string, init: RequestInit = {}) {
-  return app.request(path, init, env, createExecutionContext());
+/** A request, once the work it leaves behind (counting a download) is done. */
+async function get(path: string, init: RequestInit = {}) {
+  const ctx = createExecutionContext();
+  const response = await app.request(path, init, env, ctx);
+  await waitOnExecutionContext(ctx);
+  return response;
 }
 
 function putSet(name: string, body: unknown, cookie = admin) {
@@ -284,5 +290,157 @@ describe("sets", () => {
   it("leaves sets to admins", async () => {
     const response = await putSet("mine", { title: "Mine", mods: [] }, player);
     expect(response.status).toBe(403);
+  });
+});
+
+// The store: listed mods, one mod's details, and their images.
+describe("mods", () => {
+  const ICON = new TextEncoder().encode("an icon's bytes");
+  const SHOT = new TextEncoder().encode("a screenshot's bytes");
+  let icon: string;
+  let shot: string;
+
+  beforeAll(async () => {
+    [icon, shot] = await Promise.all([sha256Hex(ICON), sha256Hex(SHOT)]);
+    await db
+      .update(codeModReleases)
+      .set({
+        status: "approved",
+        readme: "# UCF\n\nUniversal controller fix.",
+        changelog: "- Dashback fix.",
+        tags: ["competitive", "netplay"],
+        homepage: "https://example.com/ucf",
+        license: "MIT",
+        publishedAt: NOW,
+      })
+      .where(eq(codeModReleases.id, "tgg.ucf@1.2.0"));
+    await db.insert(codeModReleaseImages).values([
+      {
+        releaseId: "tgg.ucf@1.2.0",
+        kind: "icon",
+        position: 0,
+        sha256: icon,
+        width: 64,
+        height: 64,
+      },
+      {
+        releaseId: "tgg.ucf@1.2.0",
+        kind: "screenshot",
+        position: 0,
+        sha256: shot,
+        width: 640,
+        height: 480,
+      },
+    ]);
+    await env.CODE_MODS.put(`code-mods/images/${icon}.png`, ICON);
+    await env.CODE_MODS.put(`code-mods/images/${shot}.png`, SHOT);
+    await db
+      .insert(codeModReleaseDependencies)
+      .values({ releaseId: "tgg.ucf@1.2.0", dependency: "tgg.menu-art", range: "*" });
+    await addMod("tgg.listed-pending", [{ version: "0.1.0", status: "pending", layout: LINUX }]);
+    await db.insert(codeModReleaseImages).values({
+      releaseId: "tgg.listed-pending@0.1.0",
+      kind: "icon",
+      position: 0,
+      sha256: "f".repeat(64),
+      width: 1,
+      height: 1,
+    });
+    await putSet("competitive", {
+      title: "Competitive",
+      mods: [
+        { id: "tgg.ucf", range: "^1.0" },
+        { id: "tgg.menu-art", range: "*" },
+      ],
+    });
+  });
+
+  it("lists mods with approved releases, each by its newest one", async () => {
+    const response = await get("/api/registry/mods");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("public, max-age=60");
+    const page = (await response.json()) as {
+      port: string;
+      items: { id: string }[];
+      total: number;
+    };
+    expect(page).toMatchObject({ port: "0.1.0-rc.8", page: 1, pageSize: 50, total: 2 });
+    const ucf = page.items.find((mod) => mod.id === "tgg.ucf");
+    expect(ucf).toEqual({
+      id: "tgg.ucf",
+      name: "tgg.ucf",
+      description: null,
+      author: "owner",
+      icon: { url: `http://localhost/api/registry/images/${icon}.png`, width: 64, height: 64 },
+      tags: ["competitive", "netplay"],
+      installs: expect.any(Number),
+      version: "1.2.0",
+      updatedAt: NOW.toISOString(),
+      sets: ["competitive"],
+      targets: ["linux"],
+      netplay: "code",
+    });
+    // A package without a library is built for every system.
+    expect(page.items.find((mod) => mod.id === "tgg.menu-art")).toMatchObject({
+      icon: null,
+      tags: [],
+      targets: ["linux", "macos"],
+      netplay: "data",
+    });
+  });
+
+  it("pages the list", async () => {
+    const page = await (await get("/api/registry/mods?page=2&pageSize=1")).json();
+    expect(page).toMatchObject({ page: 2, pageSize: 1, total: 2, totalPages: 2 });
+    expect((page as { items: unknown[] }).items).toHaveLength(1);
+  });
+
+  it("details a mod with its README, screenshots, links, releases and dependencies", async () => {
+    const response = await get("/api/registry/mods/tgg.ucf");
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      id: "tgg.ucf",
+      version: "1.2.0",
+      port: "0.1.0-rc.8",
+      readme: "# UCF\n\nUniversal controller fix.",
+      screenshots: [
+        { url: `http://localhost/api/registry/images/${shot}.png`, width: 640, height: 480 },
+      ],
+      homepage: "https://example.com/ucf",
+      source: null,
+      license: "MIT",
+      releases: [
+        { version: "1.2.0", date: NOW.toISOString(), changelog: "- Dashback fix." },
+        { version: "1.1.0", changelog: null },
+        { version: "1.0.0", changelog: null },
+      ],
+      depends: [{ id: "tgg.menu-art", range: "*" }],
+    });
+  });
+
+  it("has no details for a mod without approved releases, or a deleted one", async () => {
+    for (const id of ["tgg.listed-pending", "tgg.gone", "tgg.nothing"]) {
+      expect((await get(`/api/registry/mods/${id}`)).status, id).toBe(404);
+    }
+  });
+
+  it("serves a listed release's images, and no other", async () => {
+    const response = await get(`/api/registry/images/${icon}.png`);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toBe("image/png");
+    expect(response.headers.get("Cache-Control")).toContain("immutable");
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(ICON);
+    expect((await get(`/api/registry/images/${"f".repeat(64)}.png`)).status).toBe(404);
+    expect((await get("/api/registry/images/icon.png")).status).toBe(400);
+  });
+
+  it("counts a package download as an install", async () => {
+    const installs = async () =>
+      ((await (await get("/api/registry/mods/tgg.menu-art")).json()) as { installs: number })
+        .installs;
+    const before = await installs();
+    const sha256 = await sha256Hex(new TextEncoder().encode("tgg.menu-art@0.1.0"));
+    expect((await get(`/api/registry/packages/${sha256}.zip`)).status).toBe(200);
+    expect(await installs()).toBe(before + 1);
   });
 });
