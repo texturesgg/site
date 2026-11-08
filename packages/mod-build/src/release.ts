@@ -109,7 +109,7 @@ export async function releasesToBuildFor(
 /**
  * The layouts the builder image builds mods for: the active ones it carries
  * an SDK for (Linux and Windows), each with its SDK's target triple. A macOS
- * layout (builder `none`) is known to the catalog but built by nobody yet.
+ * layout (builder `external`) builds on a Mac after review instead.
  */
 export async function layoutsToBuild(db: Database): Promise<{ id: string; target: string }[]> {
   return db

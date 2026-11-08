@@ -34,7 +34,7 @@ export function shouldApplyGeneralApiRateLimit(method: string, pathname: string)
   if (normalizedMethod === "OPTIONS" || !pathname.startsWith("/api/")) {
     return false;
   }
-  if (isWithin("/api/auth") || isWithin("/api/files")) {
+  if (isWithin("/api/auth") || isWithin("/api/files") || isWithin("/api/external-builds")) {
     return false;
   }
   if (FILE_DELIVERY_PATH.test(pathname) || CODE_MOD_PACKAGE_PATH.test(pathname)) {

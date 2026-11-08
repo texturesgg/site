@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Make code_mod_layouts match LAYOUTS (the JSON image/build.sh writes): every
-# layout it lists is active, with who builds it (the image, or nobody yet for
-# macOS), and every other one is retired (no new builds; its packages stay
-# downloadable).
+# layout it lists is active, with who builds it (the image, or for a layout
+# the image doesn't carry, such as macOS, an external builder:
+# scripts/external-build.sh), and every other one is retired (no new builds;
+# its packages stay downloadable).
 #
 #   scripts/sync-layouts.sh preview|production LAYOUTS
 set -euo pipefail
@@ -17,7 +18,8 @@ sql=$(jq -r --arg now "$now" '
   def q: "'"'"'" + (tostring | gsub("'"'"'"; "'"'"''"'"'")) + "'"'"'";
   (map(
     "INSERT INTO code_mod_layouts (id, api, port, target, port_version, builder, active, created_at) VALUES ("
-    + ([.id, .api, .port, .target, .portVersion, .builder] | map(q) | join(", "))
+    + ([.id, .api, .port, .target, .portVersion,
+        (if .builder == "image" then "image" else "external" end)] | map(q) | join(", "))
     + ", 1, " + $now + ") ON CONFLICT(id) DO UPDATE SET active = 1, port_version = excluded.port_version, builder = excluded.builder;"
   ) | join("\n")),
   "UPDATE code_mod_layouts SET active = 0 WHERE id NOT IN ("

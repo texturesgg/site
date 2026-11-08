@@ -16,6 +16,7 @@ import { generalApiRateLimit, rateLimitByIp } from "./lib/rate-limit";
 import adminRoutes from "./routes/admin";
 import codeModsRoutes from "./routes/code-mods";
 import editorRoutes from "./routes/editor";
+import externalBuildsRoutes from "./routes/external-builds";
 import filesRoutes from "./routes/files";
 import flagsRoutes from "./routes/flags";
 import gamesRoutes from "./routes/games";
@@ -58,6 +59,7 @@ const app = new Hono<HonoEnv>()
   .route("/api/admin", adminRoutes)
   .route("/api/code-mods", codeModsRoutes)
   .route("/api/registry", registryRoutes)
+  .route("/api/external-builds", externalBuildsRoutes)
   .route("/api/editor", editorRoutes);
 
 // The OpenAPI document and its reference page. Both answer 404 in production;

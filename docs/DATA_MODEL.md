@@ -300,6 +300,7 @@ erDiagram
         text port
         text target "target triple, e.g. x86_64-linux-gnu"
         text portVersion "tgg-melee release"
+        text builder "image | external | none"
         bool active
         int createdAt
     }
@@ -315,8 +316,8 @@ erDiagram
         text releaseId FK
         text layoutId FK "unique with releaseId; null serves every layout"
         text status "queued | building | succeeded | failed"
-        text runId "CI Workflow instance"
-        text image
+        text runId "build Workflow instance, or external run URL"
+        text image "builder image digest, or what an external builder used"
         text packageKey "R2 key"
         text packageSha256
         int packageSize
@@ -441,12 +442,16 @@ Cloudflare Artifacts repo `mod-<id>`.
 
 A release is one tag on that repo. A compiled mod library loads only into a port
 build with the same game layout id, so a release is built once per active row of
-`codeModLayouts` the builder image builds (`builder` `image`), against that
-layout's game SDK in the image. Each tgg-melee release brings three layouts, one
-per target: Linux and Windows (cross-compiled with MinGW GCC) build in the
-image; macOS (`builder` `none`) needs Apple's linker and SDK, so nothing builds
-it yet, and it is known only so the catalog serves it the packages without a
-library. A release without a library (files and assets
+`codeModLayouts`, against that layout's game SDK. Each tgg-melee release brings
+three layouts, one per target, and a layout's `builder` says who builds it.
+Linux and Windows (cross-compiled with MinGW GCC) build in the builder image
+(`image`) as soon as a tag is pushed. macOS (`external`) needs Apple's linker
+and SDK, so a Mac builds it once the release is approved: it lists the approved
+releases without a macOS build, fetches each one's source and uploads the
+package through `/api/external-builds`, with the API's builder token, and the
+API checks the package against the release and layout before recording it
+(`packages/mod-build/image/README.md`, macOS). A failed external build stays
+failed, with its log, until the builder is asked to retry it. A release without a library (files and assets
 only) makes the same package for every layout, so it is built once, with a null
 `layoutId`, and serves them all. A new layout gets builds of existing releases
 without a new review, since review covers the source at `commitSha`. A retired
@@ -454,7 +459,9 @@ layout (`active` false) gets no new builds, and its packages stay downloadable. 
 layout id their port executable reports, through the registry's per-layout
 catalog (`GET /api/registry/catalog?layout=`): every approved release with a
 succeeded build for that layout, with packages served by SHA-256 at
-`/api/registry/packages/<sha256>.zip`.
+`/api/registry/packages/<sha256>.zip`. The catalog's `ids` names every mod with an
+approved release, built for the layout or not, so a client can tell a mod that
+doesn't exist from one not built for its game yet.
 
 `canonicalHooks` holds the manifest's hooks under canonical names: `name` for an
 exported function and `file.c:name` for a static. The runtime treats both spellings

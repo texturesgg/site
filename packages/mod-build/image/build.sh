@@ -3,7 +3,7 @@
 # private registry if this exact set of inputs was built before, built and
 # pushed if not. Prints the image pinned by digest, and writes the layouts of
 # layouts.json to LAYOUTS_OUT as JSON (with who builds each: the image, or
-# nobody yet for macOS).
+# an external builder for macOS).
 #
 #   build.sh LAYOUTS_OUT
 #

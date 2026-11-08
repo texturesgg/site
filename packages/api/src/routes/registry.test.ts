@@ -100,6 +100,7 @@ async function addMod(
 type Catalog = {
   schema: number;
   snapshot: string;
+  ids: string[];
   mods: {
     id: string;
     version: string;
@@ -129,7 +130,7 @@ beforeAll(async () => {
   });
   for (const [id, target, builder] of [
     [LINUX, "x86_64-linux-gnu", "image"],
-    [MACOS, "aarch64-apple-darwin", "none"],
+    [MACOS, "aarch64-apple-darwin", "external"],
   ] as const) {
     await db.insert(codeModLayouts).values({
       id,
@@ -164,6 +165,16 @@ describe("catalog", () => {
   it("gives a known layout without builds the packages without a library", async () => {
     const { mods } = await catalog(MACOS);
     expect(mods.map((mod) => mod.id)).toEqual(["tgg.menu-art"]);
+  });
+
+  it("names every mod with an approved release, built for the layout or not", async () => {
+    await addMod("tgg.draft", [{ version: "0.1.0", status: "pending", layout: LINUX }]);
+    await addMod("tgg.gone", [{ version: "0.1.0", status: "approved", layout: LINUX }]);
+    await db.update(codeMods).set({ deletedAt: NOW }).where(eq(codeMods.id, "tgg.gone"));
+    const macos = await catalog(MACOS);
+    expect(macos.mods.map((mod) => mod.id)).toEqual(["tgg.menu-art"]);
+    expect(macos.ids).toEqual(["tgg.menu-art", "tgg.ucf"]);
+    expect((await catalog(LINUX)).ids).toEqual(["tgg.menu-art", "tgg.ucf"]);
   });
 
   it("has no mods for an unknown layout", async () => {

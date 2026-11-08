@@ -1,12 +1,14 @@
 // Builds code mods. A tag pushed to a mod's Artifacts repo (`mod-<id>`) starts
 // the BuildMod Workflow through the `cf.artifacts.repo.pushed` trigger. It
 // records the release, then for each active game layout the builder image
-// builds (Linux, and Windows with MinGW; not macOS yet) a Builder container
+// builds (Linux, and Windows with MinGW) a Builder container
 // compiles and packs the mod against that layout's game SDK (once, for a mod
 // without a library, whose package serves every layout). The Worker
 // hashes each package and stores it and the compiler log in R2, and records
 // the build in D1. The container only ever holds the mod's source and
-// the toolchain; the Worker does every write.
+// the toolchain; the Worker does every write. macOS layouts build outside
+// Cloudflare, once a release is approved (scripts/external-build.sh and the
+// API's routes/external-builds.ts).
 //
 // After a deploy, scripts/build-layouts.sh starts it once per active layout,
 // to build each mod's latest approved release for a layout that has none.
