@@ -55,9 +55,9 @@
     $path = [string][Environment]::GetEnvironmentVariable('Path', 'User')
     if (-not (($path -split ';') -contains $dir)) {
       [Environment]::SetEnvironmentVariable('Path', "$($path.TrimEnd(';'));$dir".TrimStart(';'), 'User')
-      Write-Host "Added $dir to your PATH. Open a new terminal, then run tgg login."
+      Write-Host "Added $dir to your PATH. Open a new terminal, then run tgg port install."
     } else {
-      Write-Host 'Run tgg login to sign in.'
+      Write-Host 'Next: tgg port install, then tgg port run.'
     }
   } finally {
     Remove-Item -Recurse -Force $tmp
