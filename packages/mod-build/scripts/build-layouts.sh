@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Start the build Workflow in ENV once per active layout, after a deploy has
-# put the builder image carrying those layouts live. Each run builds every
-# mod's latest approved release that has no build for its layout yet, so a run
-# for a layout with nothing missing does nothing.
+# Start the build Workflow in ENV once per active layout the builder image
+# builds, after a deploy has put the image carrying those layouts live. Each
+# run builds every mod's latest approved release that has no build for its
+# layout yet, so a run for a layout with nothing missing does nothing.
 #
 #   scripts/build-layouts.sh preview|production
 set -euo pipefail
@@ -17,7 +17,7 @@ workflow=tgg-mod-build
 env_args=()
 [ "$env" = preview ] && env_args=(--env preview)
 layouts=$(cd "$here/../db" && pnpm exec wrangler d1 execute DB "${env_args[@]}" --remote --json \
-  --command "SELECT id FROM code_mod_layouts WHERE active = 1" | jq -r '.[0].results[].id')
+  --command "SELECT id FROM code_mod_layouts WHERE active = 1 AND builder = 'image'" | jq -r '.[0].results[].id')
 
 cd "$here"
 for layout in $layouts; do
