@@ -10,7 +10,8 @@ import {
 } from "@vgskins/db";
 import { eq } from "drizzle-orm";
 import { beforeAll, expect, it } from "vitest";
-import { insertRelease, releasesToBuildFor } from "./release";
+import { buildCommand } from "./builder";
+import { insertRelease, layoutsToBuild, releasesToBuildFor } from "./release";
 
 const db = createDb(env.DB);
 const NOW = new Date();
@@ -107,4 +108,33 @@ it("builds each mod's latest approved release for a new layout once", async () =
     { releaseId: "core-2", codeModId: "me.core", commitSha: "core-2" },
   ]);
   expect(await releasesToBuildFor(db, "old")).toEqual([]);
+});
+
+it("builds Linux and Windows layouts in the image, and leaves macOS out", async () => {
+  await db.insert(codeModLayouts).values(
+    [
+      ["linux", "x86_64-linux-gnu", "image"],
+      ["windows", "x86_64-windows-gnu", "image"],
+      ["macos", "aarch64-apple-darwin", "none"],
+    ].map(([id, target, builder]) => ({
+      id,
+      api: "tgg-melee/0",
+      port: "tgg-melee",
+      target,
+      portVersion: "0.1.0-rc.8",
+      builder: builder as "image" | "none",
+      createdAt: NOW,
+    }))
+  );
+  await db.update(codeModLayouts).set({ active: false }).where(eq(codeModLayouts.id, "old"));
+  expect(await layoutsToBuild(db)).toEqual([
+    { id: "linux", target: "x86_64-linux-gnu" },
+    { id: "new", target: "x86_64-linux-gnu" },
+    { id: "windows", target: "x86_64-windows-gnu" },
+  ]);
+  // A Windows build cross-compiles with MinGW, through the image's toolchain file.
+  const windows = buildCommand("windows", "x86_64-windows-gnu");
+  expect(windows.args).toEqual(expect.arrayContaining(["--cc", "x86_64-w64-mingw32-gcc"]));
+  expect(windows.env.CMAKE_TOOLCHAIN_FILE).toBe("/opt/tgg/toolchains/x86_64-windows-gnu.cmake");
+  expect(buildCommand("linux", "x86_64-linux-gnu").args).not.toContain("--cc");
 });

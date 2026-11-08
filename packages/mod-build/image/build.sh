@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # The builder image for the layouts in layouts.json: found in the account's
 # private registry if this exact set of inputs was built before, built and
-# pushed if not. Prints the image pinned by digest, and writes the layouts it
-# carries to LAYOUTS_OUT as JSON.
+# pushed if not. Prints the image pinned by digest, and writes the layouts of
+# layouts.json to LAYOUTS_OUT as JSON (with who builds each: the image, or
+# nobody yet for macOS).
 #
 #   build.sh LAYOUTS_OUT
 #
-# The image is the toolchain and tgg (flake.nix), plus one folder per
-# layout at /opt/tgg/sdks/<layout id>/ holding a tgg-melee release's game SDK
+# The image is the toolchain (MinGW too, for Windows layouts) and tgg
+# (flake.nix), plus one folder per layout it builds at
+# /opt/tgg/sdks/<layout id>/ holding a tgg-melee release's game SDK
 # (fetch-sdks.sh). Everything comes from pinned inputs, and the SDKs (which
 # hold decomp headers and the game's source) only ever go to the private
 # registry.
@@ -22,9 +24,9 @@ package=$(cd "$here/.." && pwd)
 repository="registry.cloudflare.com/${CLOUDFLARE_ACCOUNT_ID:?}/tgg-mod-builder"
 
 # Bump when the steps below change what goes into the image.
-format=2
+format=3
 # Everything that decides the image's contents names it.
-inputs=$( (echo "format $format" && cd "$here" && cat layouts.json flake.nix flake.lock) |
+inputs=$( (echo "format $format" && cd "$here" && cat layouts.json flake.nix flake.lock toolchains/*.cmake) |
   sha256sum | cut -c1-32)
 tag="$repository:inputs-$inputs"
 

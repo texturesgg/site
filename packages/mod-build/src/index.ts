@@ -1,6 +1,7 @@
 // Builds code mods. A tag pushed to a mod's Artifacts repo (`mod-<id>`) starts
 // the BuildMod Workflow through the `cf.artifacts.repo.pushed` trigger. It
-// records the release, then for each active game layout a Builder container
+// records the release, then for each active game layout the builder image
+// builds (Linux, and Windows with MinGW; not macOS yet) a Builder container
 // compiles and packs the mod against that layout's game SDK (once, for a mod
 // without a library, whose package serves every layout). The Worker
 // hashes each package and stores it and the compiler log in R2, and records
@@ -10,19 +11,12 @@
 // After a deploy, scripts/build-layouts.sh starts it once per active layout,
 // to build each mod's latest approved release for a layout that has none.
 
-import {
-  codeModBuilds,
-  codeModLayouts,
-  codeModReleases,
-  codeMods,
-  createDb,
-  transitionRelease,
-} from "@vgskins/db";
+import { codeModBuilds, codeModReleases, codeMods, createDb, transitionRelease } from "@vgskins/db";
 import { generateId } from "@vgskins/shared";
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 import { NonRetryableError } from "cloudflare:workflows";
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import { insertRelease, releasesToBuildFor, type ReleaseStatus } from "./release";
+import { insertRelease, layoutsToBuild, releasesToBuildFor, type ReleaseStatus } from "./release";
 import { hasLibrary, readManifest, readSource, resolveTag, type Commit } from "./source";
 import { storedZip } from "./zip";
 
@@ -66,13 +60,9 @@ export class BuildMod extends WorkflowEntrypoint<BuildEnv, PushEvent | LayoutEve
     if ("skipped" in release) return release;
     if (release.status !== "processing") return { release: release.id, status: release.status };
 
-    const layouts = await step.do("active layouts", async () => {
-      const rows = await createDb(this.env.DB)
-        .select({ id: codeModLayouts.id })
-        .from(codeModLayouts)
-        .where(eq(codeModLayouts.active, true));
-      return rows.map((row) => row.id);
-    });
+    // The step's name changed with its result's shape, so a run that started
+    // before a deploy doesn't read back the old one.
+    const layouts = await step.do("layouts to build", () => layoutsToBuild(createDb(this.env.DB)));
     const library = await step.do("has library", async () => {
       using repo = await this.env.ARTIFACTS.get(repoName);
       return hasLibrary(repo, release.commit.tree);
@@ -80,8 +70,8 @@ export class BuildMod extends WorkflowEntrypoint<BuildEnv, PushEvent | LayoutEve
     // A package without a library is the same for every layout, so it builds
     // once, against any layout's SDK, and serves them all.
     const targets: Target[] = library
-      ? layouts.map((layout) => ({ layout, sdk: layout }))
-      : layouts.slice(0, 1).map((sdk) => ({ layout: null, sdk }));
+      ? layouts.map(({ id, target }) => ({ layout: id, sdk: id, target }))
+      : layouts.slice(0, 1).map(({ id, target }) => ({ layout: null, sdk: id, target }));
 
     const built = await buildTargets(
       this.env,
@@ -106,8 +96,8 @@ export class BuildMod extends WorkflowEntrypoint<BuildEnv, PushEvent | LayoutEve
 }
 
 // What one build makes: the layout its package serves (null for every
-// layout) and the layout whose SDK it builds against.
-type Target = { layout: string | null; sdk: string };
+// layout), and the layout whose SDK it builds against with that SDK's target.
+type Target = { layout: string | null; sdk: string; target: string };
 
 /** Build `release` for each of `targets`, one step each; returns how many built. */
 async function buildTargets(
@@ -143,18 +133,17 @@ async function buildTargets(
 }
 
 /**
- * Build each mod's latest approved release for `layout`, when it is active
- * and the release has no build for it (releasesToBuildFor).
+ * Build each mod's latest approved release for `layout`, when the builder
+ * image builds it and the release has no build for it (releasesToBuildFor).
  */
 async function buildLayout(env: BuildEnv, step: WorkflowStep, layout: string, runId: string) {
-  const releases = await step.do("releases to build", async () => {
+  const work = await step.do("layout to build", async () => {
     const db = createDb(env.DB);
-    const [active] = await db
-      .select({ id: codeModLayouts.id })
-      .from(codeModLayouts)
-      .where(and(eq(codeModLayouts.id, layout), eq(codeModLayouts.active, true)));
-    return active ? releasesToBuildFor(db, layout) : [];
+    const found = (await layoutsToBuild(db)).find((row) => row.id === layout);
+    return found ? { target: found.target, releases: await releasesToBuildFor(db, layout) } : null;
   });
+  if (!work) return { layout, releases: 0, built: 0 };
+  const { target, releases } = work;
   let built = 0;
   for (const release of releases) {
     const repoName = `${REPO_PREFIX}${release.codeModId}`;
@@ -168,7 +157,7 @@ async function buildLayout(env: BuildEnv, step: WorkflowStep, layout: string, ru
       env,
       step,
       { releaseId: release.releaseId, repoName, commit, runId },
-      [{ layout, sdk: layout }]
+      [{ layout, sdk: layout, target }]
     );
   }
   return { layout, releases: releases.length, built };
@@ -299,7 +288,7 @@ async function build(
 ): Promise<boolean> {
   using repo = await env.ARTIFACTS.get(repoName);
   const source = storedZip(await readSource(repo, commit.tree));
-  const result = await env.BUILDER.getByName(buildId).build(target.sdk, source);
+  const result = await env.BUILDER.getByName(buildId).build(target.sdk, target.target, source);
 
   const logKey = `code-mods/logs/${buildId}.log`;
   await env.PACKAGES.put(logKey, result.log, {
