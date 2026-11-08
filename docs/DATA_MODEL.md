@@ -478,6 +478,22 @@ and `data` (menu and trophy files, assets) is free. Manifests don't declare it;
 a manifest with a `netplay` field fails its release. A release shows its
 builds' class.
 
+A release's store listing is read from its source when it is recorded, before
+review, so review covers it: `readme` (the root README, cut at 128 KiB),
+`changelog` (the section of CHANGELOG.md whose heading names the version),
+and the manifest's `tags` and `homepage`. Its manifest's `icon` and
+`screenshots` (PNGs under `assets/`) are `codeModReleaseImages`, each stored in
+R2 by SHA-256 at `code-mods/images/<sha256>.png` with its size. An icon or
+screenshot that is missing or isn't a PNG fails the release. `listedAt` is when
+the listing was read; releases recorded before listings get theirs from the
+build Workflow's `{"type": "listings"}` event, sent by hand with
+`wrangler workflows trigger`. The registry's store routes
+(`GET /api/registry/mods`, `/mods/:id`) show each listed mod (not deleted,
+with an approved release) by its newest approved release, and serve images at
+`/api/registry/images/<sha256>.png` while an approved release names them.
+`codeMods.downloadCount` counts downloads of its packages from
+`/api/registry/packages/`, and is the store's install count.
+
 A set (`codeModSets`) is a named, curated list of code mods a player installs
 with one button, such as Competitive or Replays, served at
 `GET /api/registry/sets`. `codeModSetMods` lists its mods by id (`codeMods.slug`),

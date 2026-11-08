@@ -521,6 +521,16 @@ export const codeModReleases = sqliteTable(
     error: text("error"),
     reviewedBy: text("reviewed_by").references(() => users.id, { onDelete: "set null" }),
     reviewedAt: integer("reviewed_at", { mode: "timestamp_ms" }),
+    // The store listing, read from the source at `commitSha` when the release
+    // is recorded, so review covers it: the README (markdown), this version's
+    // CHANGELOG.md section, and the manifest's `tags` and `homepage`. Its
+    // images are codeModReleaseImages. `listedAt` is when it was read; null
+    // for a release recorded before listings were.
+    readme: text("readme"),
+    changelog: text("changelog"),
+    tags: text("tags", { mode: "json" }).$type<string[]>(),
+    homepage: text("homepage"),
+    listedAt: integer("listed_at", { mode: "timestamp_ms" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
     publishedAt: integer("published_at", { mode: "timestamp_ms" }),
@@ -625,6 +635,29 @@ export const codeModReleaseDependencies = sqliteTable(
   (table) => [
     primaryKey({ columns: [table.releaseId, table.dependency] }),
     index("code_mod_release_dependency_idx").on(table.dependency),
+  ]
+);
+
+// An image a release's listing shows, from its manifest's `icon` and
+// `screenshots` (PNGs under assets/): stored in R2 by SHA-256
+// (`code-mods/images/<sha256>.png`) and served at
+// /api/registry/images/<sha256>.png while an approved release names it.
+export const codeModReleaseImages = sqliteTable(
+  "code_mod_release_images",
+  {
+    releaseId: text("release_id")
+      .notNull()
+      .references(() => codeModReleases.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: ["icon", "screenshot"] }).notNull(),
+    // The screenshot's place in the manifest's list; 0 for the icon.
+    position: integer("position").notNull(),
+    sha256: text("sha256").notNull(),
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.releaseId, table.kind, table.position] }),
+    index("code_mod_release_image_sha256_idx").on(table.sha256),
   ]
 );
 
@@ -782,6 +815,14 @@ export const codeModReleasesRelations = relations(codeModReleases, ({ one, many 
   reviewer: one(users, { fields: [codeModReleases.reviewedBy], references: [users.id] }),
   builds: many(codeModBuilds),
   dependencies: many(codeModReleaseDependencies),
+  images: many(codeModReleaseImages),
+}));
+
+export const codeModReleaseImagesRelations = relations(codeModReleaseImages, ({ one }) => ({
+  release: one(codeModReleases, {
+    fields: [codeModReleaseImages.releaseId],
+    references: [codeModReleases.id],
+  }),
 }));
 
 export const codeModReleaseDependenciesRelations = relations(

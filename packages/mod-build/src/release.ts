@@ -118,3 +118,33 @@ export async function layoutsToBuild(db: Database): Promise<{ id: string; target
     .where(and(eq(codeModLayouts.active, true), eq(codeModLayouts.builder, "image")))
     .orderBy(codeModLayouts.id);
 }
+
+// The most releases one `listings` run reads, so a run stays a bounded number
+// of steps; run it again for the rest.
+const LIST_LIMIT = 200;
+
+/**
+ * Releases recorded before store listings were, whose listing hasn't been
+ * read: approved and pending ones of mods that aren't deleted, newest first.
+ */
+export async function releasesToList(
+  db: Database
+): Promise<{ releaseId: string; codeModId: string; commitSha: string }[]> {
+  return db
+    .select({
+      releaseId: codeModReleases.id,
+      codeModId: codeModReleases.codeModId,
+      commitSha: codeModReleases.commitSha,
+    })
+    .from(codeModReleases)
+    .innerJoin(codeMods, eq(codeMods.id, codeModReleases.codeModId))
+    .where(
+      and(
+        inArray(codeModReleases.status, ["approved", "pending"]),
+        isNull(codeModReleases.listedAt),
+        isNull(codeMods.deletedAt)
+      )
+    )
+    .orderBy(desc(codeModReleases.createdAt))
+    .limit(LIST_LIMIT);
+}
