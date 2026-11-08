@@ -39,7 +39,7 @@ permissions:
 jobs:
   build:
     name: Build pending macOS mods
-    runs-on: macos-15
+    runs-on: blacksmith-6vcpu-macos-15
     environment: mod-builds
     timeout-minutes: 60
     env:

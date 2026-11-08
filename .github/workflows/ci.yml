@@ -17,7 +17,7 @@ jobs:
   check:
     name: Lint & Typecheck
     # WarpBuild runner: warp-ubuntu-latest-x64-4x
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-8vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -67,7 +67,7 @@ jobs:
   tests:
     name: Tests & Migrations
     # WarpBuild runner: warp-ubuntu-latest-x64-4x
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-8vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -117,7 +117,7 @@ jobs:
   rust:
     name: Rust
     # WarpBuild runner: warp-ubuntu-latest-x64-4x
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-8vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
