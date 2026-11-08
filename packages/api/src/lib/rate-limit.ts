@@ -2,7 +2,7 @@ import type { Context, MiddlewareHandler } from "hono";
 import type { HonoEnv } from "../types";
 
 const FILE_DELIVERY_PATH = /^\/api\/packs\/by-id\/[^/]+\/(?:download|mods\/[^/]+\/download)$/;
-const CODE_MOD_PACKAGE_PATH = /^\/api\/code-mods\/packages\/[^/]+$/;
+const CODE_MOD_PACKAGE_PATH = /^\/api\/(?:code-mods|registry)\/packages\/[^/]+$/;
 const MOD_RETRY_PATH = /^\/api\/packs\/by-id\/[^/]+\/mods\/[^/]+\/retry$/;
 const COMMENT_PATH = /^\/api\/packs\/by-id\/[^/]+\/comments$/;
 const EDITOR_REPORT_PATH = "/api/editor/reports";

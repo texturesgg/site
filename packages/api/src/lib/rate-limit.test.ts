@@ -13,6 +13,7 @@ describe("general API rate-limit policy", () => {
     ["GET", "/api/packs/by-id/pack-1/mods/mod-1/download"],
     ["POST", "/api/packs"],
     ["GET", "/api/code-mods/packages/0123.zip"],
+    ["GET", "/api/registry/packages/0123.zip"],
     ["POST", "/api/code-mods"],
     ["POST", "/api/editor/reports"],
     ["POST", "/api/reports"],
@@ -28,6 +29,7 @@ describe("general API rate-limit policy", () => {
     ["GET", "/api/packs/by-id/pack-1/comments"],
     ["POST", "/api/packs/by-id/pack-1/vote"],
     ["GET", "/api/code-mods/catalog/0123456789abcdef"],
+    ["GET", "/api/registry/catalog"],
     ["POST", "/api/code-mods/tgg.example/push-token"],
   ])("limits %s %s", (method, pathname) => {
     expect(shouldApplyGeneralApiRateLimit(method, pathname)).toBe(true);
