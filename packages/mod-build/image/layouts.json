@@ -1,10 +1,10 @@
 [
   {
-    "version": "0.1.0-rc.8",
+    "version": "0.1.0-rc.9",
     "sdks": {
-      "x86_64-linux-gnu": "5a2d69127523639f1a1b675c05b449bba41168bddf8b41ff8e49ee14f47439d0",
-      "x86_64-windows-gnu": "55e1f96e771bbd7d6a54dfe9b1a579c2a6a0b814718534855b8eac990748fa71",
-      "aarch64-apple-darwin": "848d148e9c4c0183980e5a79f76c0252d723eba3798a636ca2c2284263d46e3b"
+      "x86_64-linux-gnu": "f18ebd6c46904cbc3d97e1325299d89a1558a2dd263cf3b596d8d83c60dcd31c",
+      "x86_64-windows-gnu": "e32832a872348000e338f58c7c16164c2b242fd43867255e658a3f73e137c410",
+      "aarch64-apple-darwin": "808acc35d5ebbcfd71b8da871d0a0c502e9e8f3d6b6337260a856c183ac1534d"
     }
   }
 ]
