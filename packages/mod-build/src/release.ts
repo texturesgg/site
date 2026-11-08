@@ -3,6 +3,7 @@
 
 import {
   codeModBuilds,
+  codeModLayouts,
   codeModReleaseDependencies,
   codeModReleases,
   codeMods,
@@ -103,4 +104,17 @@ export async function releasesToBuildFor(
       )
     );
   return latest.filter((release) => !built.some((build) => build.releaseId === release.releaseId));
+}
+
+/**
+ * The layouts the builder image builds mods for: the active ones it carries
+ * an SDK for (Linux and Windows), each with its SDK's target triple. A macOS
+ * layout (builder `none`) is known to the catalog but built by nobody yet.
+ */
+export async function layoutsToBuild(db: Database): Promise<{ id: string; target: string }[]> {
+  return db
+    .select({ id: codeModLayouts.id, target: codeModLayouts.target })
+    .from(codeModLayouts)
+    .where(and(eq(codeModLayouts.active, true), eq(codeModLayouts.builder, "image")))
+    .orderBy(codeModLayouts.id);
 }
