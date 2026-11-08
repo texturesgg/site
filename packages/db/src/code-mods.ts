@@ -41,9 +41,9 @@ export type ReleaseToBuild = {
 
 /**
  * The approved releases of mods that aren't deleted worth a build for a new
- * target (releasesWorthBuilding): each mod's newest version, and the newest
- * one inside each set's range for the mod when the newest is outside it. A
- * new layout, an approval and the external builder build only these, so an
+ * target (releasesWorthBuilding): each mod's newest version, the newest one
+ * inside each set's range for the mod when the newest is outside it, and the
+ * versions the Slippi mapping names exactly. A new layout, an approval and the external builder build only these, so an
  * older version nobody is pointed at never costs a build.
  */
 export async function approvedReleasesWorthBuilding(db: Database): Promise<ReleaseToBuild[]> {
@@ -55,13 +55,14 @@ export async function approvedReleasesWorthBuilding(db: Database): Promise<Relea
         commitSha: codeModReleases.commitSha,
         mod: codeMods.slug,
         version: codeModReleases.version,
+        slippi: codeModReleases.slippi,
       })
       .from(codeModReleases)
       .innerJoin(codeMods, eq(codeMods.id, codeModReleases.codeModId))
       .where(and(eq(codeModReleases.status, "approved"), isNull(codeMods.deletedAt))),
     db.select({ mod: codeModSetMods.mod, range: codeModSetMods.range }).from(codeModSetMods),
   ]);
-  return releasesWorthBuilding(approved, ranges);
+  return releasesWorthBuilding(approved, ranges).map(({ slippi: _, ...release }) => release);
 }
 
 // Pre-approval check runs an author gets in CHECK_RUN_WINDOW_MS, unless

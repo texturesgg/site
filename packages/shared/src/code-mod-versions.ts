@@ -53,14 +53,15 @@ export function rangeMatches(range: string, version: string): boolean {
 
 /**
  * The releases among `releases` (a mod's approved ones, by its slug) worth a
- * build for a new target: each mod's newest version, and for each range a
- * set takes the mod in (`ranges`) that the newest is outside, the newest
- * version inside it. Older versions nothing points players at get none.
+ * build for a new target: each mod's newest version; for each range a set
+ * takes the mod in (`ranges`) that the newest is outside, the newest version
+ * inside it; and each version the Slippi mapping names exactly, the newest
+ * release declaring a Slippi code no newer release declares (tgg.ucf 0.8.0
+ * for UCF 0.8 replays). Older versions nothing points players at get none.
  */
-export function releasesWorthBuilding<R extends { mod: string; version: string }>(
-  releases: R[],
-  ranges: { mod: string; range: string }[]
-): R[] {
+export function releasesWorthBuilding<
+  R extends { mod: string; version: string; slippi?: { code: string }[] | null },
+>(releases: R[], ranges: { mod: string; range: string }[]): R[] {
   const byMod = new Map<string, R[]>();
   for (const release of releases) {
     const list = byMod.get(release.mod) ?? [];
@@ -74,6 +75,14 @@ export function releasesWorthBuilding<R extends { mod: string; version: string }
     for (const { range } of ranges.filter((entry) => entry.mod === mod)) {
       const inside = sorted.find((release) => rangeMatches(range, release.version));
       if (inside) wanted.add(inside);
+    }
+    const codes = new Set<string>();
+    for (const release of sorted) {
+      for (const { code } of release.slippi ?? []) {
+        if (codes.has(code)) continue;
+        codes.add(code);
+        wanted.add(release);
+      }
     }
   }
   return releases.filter((release) => wanted.has(release));

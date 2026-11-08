@@ -56,3 +56,19 @@ test("each mod's newest release is worth building, and a set's pin outside it", 
     ])
   ).toEqual(["me.a 1.0.0", "me.b 0.3.0"]);
 });
+
+test("a version the Slippi mapping names exactly is worth building", () => {
+  const legacy = [{ code: "0x800908F4" }];
+  const releases = [
+    { mod: "tgg.ucf", version: "0.8.0", slippi: legacy },
+    { mod: "tgg.ucf", version: "0.8.1", slippi: legacy },
+    { mod: "tgg.ucf", version: "0.84.0", slippi: [{ code: "0x8006B460" }] },
+    { mod: "tgg.ucf", version: "0.84.1", slippi: [{ code: "0x8006B460" }] },
+  ];
+  // 0.8.1 is the newest release declaring UCF 0.8's code; 0.84.0 adds nothing
+  // its newer release doesn't declare.
+  expect(releasesWorthBuilding(releases, []).map(({ version }) => version)).toEqual([
+    "0.8.1",
+    "0.84.1",
+  ]);
+});

@@ -260,7 +260,7 @@ const app = new Hono<HonoEnv>()
       tags: ["External builds"],
       summary: "List releases an external builder should build",
       description:
-        "For each active layout of `target` with builder `external`: its id and tgg-melee version, and up to `limit` approved releases worth building, by mod and newest version first, with neither a build for it nor one for every layout (a package without a library). Worth building is each mod's newest approved version, plus the newest version inside a set's range for the mod when the newest is outside it; older versions get no new builds. A failed build is offered again only with `failed=retry`. Needs the builder token.",
+        "For each active layout of `target` with builder `external`: its id and tgg-melee version, and up to `limit` approved releases worth building, by mod and newest version first, with neither a build for it nor one for every layout (a package without a library). Worth building is each mod's newest approved version, plus the newest version inside a set's range for the mod when the newest is outside it, plus each version the Slippi mapping names exactly; older versions get no new builds. A failed build is offered again only with `failed=retry`. Needs the builder token.",
       responses: {
         200: { description: "Layouts and the releases they need" },
         400: { description: "Invalid request" },
