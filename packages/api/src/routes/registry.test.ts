@@ -111,6 +111,7 @@ type Catalog = {
     id: string;
     version: string;
     netplay: string;
+    publisher: { name: string; official: boolean };
     package: { url: string; sha256: string; size: number };
   }[];
 };
@@ -166,6 +167,26 @@ describe("catalog", () => {
       "tgg.ucf 1.1.0 code",
       "tgg.ucf 1.0.0 code",
     ]);
+  });
+
+  it("says who publishes each mod, and a new publisher is a new snapshot", async () => {
+    const before = await catalog(LINUX);
+    const ucf = () => before.mods.find((mod) => mod.id === "tgg.ucf");
+    expect(ucf()?.publisher).toEqual({ name: "owner", official: false });
+    await db
+      .update(codeMods)
+      .set({ publisherName: "textures.gg", official: true })
+      .where(eq(codeMods.id, "tgg.ucf"));
+    const after = await catalog(LINUX);
+    expect(after.mods.find((mod) => mod.id === "tgg.ucf")?.publisher).toEqual({
+      name: "textures.gg",
+      official: true,
+    });
+    expect(after.snapshot).not.toBe(before.snapshot);
+    await db
+      .update(codeMods)
+      .set({ publisherName: null, official: false })
+      .where(eq(codeMods.id, "tgg.ucf"));
   });
 
   it("gives a known layout without builds the packages without a library", async () => {
