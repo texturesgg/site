@@ -67,7 +67,7 @@ export class BuildMod extends WorkflowEntrypoint<BuildEnv, PushEvent | LayoutEve
     const layouts = await step.do("layouts to build", () => layoutsToBuild(createDb(this.env.DB)));
     const library = await step.do("has library", async () => {
       using repo = await this.env.ARTIFACTS.get(repoName);
-      return hasLibrary(repo, release.commit.tree);
+      return await hasLibrary(repo, release.commit.tree);
     });
     // A package without a library is the same for every layout, so it builds
     // once, against any layout's SDK, and serves them all.
