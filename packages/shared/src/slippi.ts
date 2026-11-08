@@ -1,8 +1,8 @@
 // The Slippi mapping (core docs/mod-profiles.md): which mods reproduce the
 // gecko codes a Slippi replay ran. A mod declares the codes it reproduces in
 // its manifest's `slippi` field; the registry builds the mapping from each
-// mod's newest approved release, adds what the game does itself and the codes
-// that don't change gameplay (slippi-mapping.json), and serves it at
+// mod's approved releases, adds the gameplay codes nothing reproduces yet and
+// the codes that don't change gameplay (slippi-mapping.json), and serves it at
 // GET /api/registry/slippi.
 
 import data from "./slippi-mapping.json";
@@ -12,12 +12,13 @@ export const SLIPPI_FACTS = ["frozen-stadium", "ucf-off"] as const;
 const MAX_DECLS = 64;
 const MAX_NAME = 100;
 const MAX_VERSIONS = 64;
+const MAX_UNLESS = 16;
 
-/** A code a mod reproduces, as its manifest's `slippi` field declares it. */
-export type SlippiCodeDecl = { code: string; name: string; versions: string };
-
-/** Built-in module states a code implies, by module id (`tgg.ucf`). */
-export type SlippiGame = Record<string, boolean>;
+/**
+ * A code a mod reproduces, as its manifest's `slippi` field declares it. It
+ * doesn't hold where the console also ran one of `unless`.
+ */
+export type SlippiCodeDecl = { code: string; name: string; versions: string; unless?: string[] };
 
 /**
  * One `codes` entry of the mapping. It holds for a replay on one of `stages`
@@ -32,7 +33,6 @@ export type SlippiCode = {
   unless?: string[];
   id?: string;
   range?: string;
-  game?: SlippiGame;
 };
 
 /**
@@ -67,8 +67,9 @@ export function isSlippiVersions(text: unknown): text is string {
 }
 
 /**
- * The `slippi` field of a manifest: a list of `{code, name, versions}`,
- * `name` defaulting to empty and `versions` to `*`, as tgg-mod reads it.
+ * The `slippi` field of a manifest: a list of `{code, name, versions,
+ * unless}`, `name` defaulting to empty, `versions` to `*` and `unless` to
+ * none, as tgg-mod reads it.
  * The error says what's wrong with it.
  */
 export function readSlippiDecls(value: unknown): { decls: SlippiCodeDecl[] } | { error: string } {
@@ -100,19 +101,25 @@ export function readSlippiDecls(value: unknown): { decls: SlippiCodeDecl[] } | {
         error: `manifest.json's slippi versions for ${code} has to be a version requirement like *, <3.19 or >=3.9, <3.17`,
       };
     }
-    decls.push({ code, name, versions });
+    const { unless = [] } = entry as Record<string, unknown>;
+    if (
+      !Array.isArray(unless) ||
+      unless.length > MAX_UNLESS ||
+      !unless.every((other) => isSlippiCode(other))
+    ) {
+      return {
+        error: `manifest.json's slippi unless for ${code} has to be a list of at most ${MAX_UNLESS} codes like 0x8006B460`,
+      };
+    }
+    decls.push({ code, name, versions, ...(unless.length > 0 ? { unless } : {}) });
   }
   return { decls };
 }
 
 /** What the registry keeps itself, beside what mods declare (slippi-mapping.json). */
 export type SlippiData = {
-  // Codes the game reproduces itself, by its built-in modules.
+  // Gameplay codes nothing reproduces yet that matter on some stages only.
   game: (SlippiCode & { why: string })[];
-  // What every code a mod declares also says, by mod id: the built-in
-  // module states it implies and the codes that keep it from holding
-  // (tgg.ucf-legacy replaces the built-in UCF, but not where UCF 0.84 ran).
-  mods: Record<string, { game?: SlippiGame; unless?: string[] }>;
   // Gameplay codes nothing reproduces yet that rarely change a replay.
   minor: (SlippiIgnore & { why: string })[];
   // Codes that don't change gameplay, each with why.
@@ -129,10 +136,13 @@ export type SlippiMod = {
 };
 
 /**
- * The mapping's `codes`, `minor` and `ignore`: first what the game does itself, then
- * each code the newest approved release of a mod declares, by code (official
- * mods first where two claim one), with the range of that mod's releases
- * that declare it (from the oldest of the newest run that does); then the
+ * The mapping's `codes`, `minor` and `ignore`: first the registry's stage-only
+ * codes, then each code an approved release of a mod declares, by code
+ * (official mods first where two claim one), as the newest release that
+ * declares it does. A code the mod's newest release declares gets `>=` the
+ * oldest of the newest run of releases that do; a code only older releases
+ * declare gets the newest of those exactly, so a mod's versions can follow
+ * the rule variants Slippi ran (tgg.ucf 0.8.0 for UCF 0.8). Then the
  * registry's minor and ignored codes.
  */
 export function buildSlippiMapping(
@@ -141,26 +151,28 @@ export function buildSlippiMapping(
   registry: SlippiData = SLIPPI_DATA
 ): { codes: SlippiCode[]; minor: SlippiIgnore[]; ignore: SlippiIgnore[] } {
   const declared: (SlippiCode & { official: boolean })[] = [];
+  const declares = (release: SlippiMod["releases"][number], code: string) =>
+    release.slippi?.some((other) => other.code === code) ?? false;
   for (const mod of mods) {
     const releases = [...mod.releases].sort((a, b) => byVersionDescending(a.version, b.version));
-    const newest = releases[0];
-    if (!newest?.slippi) continue;
-    const extra = registry.mods[mod.id] ?? {};
-    for (const decl of newest.slippi) {
-      let oldest = newest;
-      for (const release of releases.slice(1)) {
-        if (!release.slippi?.some((other) => other.code === decl.code)) break;
-        oldest = release;
+    const seen = new Set<string>();
+    releases.forEach((release, index) => {
+      for (const decl of release.slippi ?? []) {
+        if (seen.has(decl.code)) continue;
+        seen.add(decl.code);
+        let oldest = release;
+        for (const older of releases.slice(index + 1)) {
+          if (!declares(older, decl.code)) break;
+          oldest = older;
+        }
+        declared.push({
+          ...decl,
+          id: mod.id,
+          range: index === 0 ? `>=${oldest.version}` : release.version,
+          official: mod.official,
+        });
       }
-      declared.push({
-        ...decl,
-        id: mod.id,
-        range: `>=${oldest.version}`,
-        ...(extra.unless ? { unless: extra.unless } : {}),
-        ...(extra.game ? { game: extra.game } : {}),
-        official: mod.official,
-      });
-    }
+    });
   }
   declared.sort(
     (a, b) =>

@@ -12,9 +12,6 @@ describe("the registry's Slippi data", () => {
     }
     const keys = entries.map((entry) => `${entry.code} ${entry.versions}`);
     expect(new Set(keys).size).toBe(keys.length);
-    for (const { unless = [] } of Object.values(SLIPPI_DATA.mods)) {
-      for (const code of unless) expect(isSlippiCode(code), code).toBe(true);
-    }
   });
 });
 

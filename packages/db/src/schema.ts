@@ -540,9 +540,9 @@ export const codeModReleases = sqliteTable(
     tags: text("tags", { mode: "json" }).$type<string[]>(),
     homepage: text("homepage"),
     // The Slippi gecko codes the manifest says the release reproduces
-    // (`slippi`: [{code, name, versions}]), read with the listing; the
-    // registry's Slippi mapping is built from each mod's newest approved
-    // release's. Null for a release whose listing wasn't read.
+    // (`slippi`: [{code, name, versions, unless}]), read with the listing; the
+    // registry's Slippi mapping is built from each mod's approved releases'.
+    // Null for a release whose listing wasn't read.
     slippi: text("slippi", { mode: "json" }).$type<SlippiCodeDecl[]>(),
     listedAt: integer("listed_at", { mode: "timestamp_ms" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),

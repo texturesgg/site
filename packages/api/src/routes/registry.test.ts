@@ -504,8 +504,10 @@ describe("slippi", () => {
     expect(response.headers.get("Cache-Control")).toBe("public, max-age=60");
     return response.json();
   }
-  const declare = (release: string, slippi: { code: string; name: string; versions: string }[]) =>
-    db.update(codeModReleases).set({ slippi }).where(eq(codeModReleases.id, release));
+  const declare = (
+    release: string,
+    slippi: { code: string; name: string; versions: string; unless?: string[] }[]
+  ) => db.update(codeModReleases).set({ slippi }).where(eq(codeModReleases.id, release));
   const SPAWNS = { code: "0x8016E510", name: "Neutral Spawns", versions: "*" };
 
   it("maps each code a mod's newest approved release declares, with the releases that do", async () => {
@@ -539,14 +541,12 @@ describe("slippi", () => {
       { ...SPAWNS, id: "me.spawns", range: ">=1.0.0" },
       { code: "frozen-stadium", name: "", versions: "<3.18", id: "tgg.spawns", range: ">=0.1.10" },
     ]);
-    // What the game does itself comes first.
-    expect(codes[0]).toEqual({
-      code: "ucf-off",
-      name: "UCF off",
-      versions: "*",
-      game: { "tgg.ucf": false },
-    });
+    // The registry's stage-only codes come first.
+    expect(codes[0]).toEqual(
+      expect.objectContaining({ code: "0x800165AC", versions: ">=3.19", stages: [3] })
+    );
     expect(codes.indexOf(declared[0])).toBeGreaterThan(0);
+    expect(ignore).toContainEqual(expect.objectContaining({ code: "ucf-off" }));
     expect(ignore).toContainEqual(expect.objectContaining({ code: "0x801A4DE4", versions: "*" }));
     expect(minor).toContainEqual(expect.objectContaining({ code: "0x801239A8", versions: "*" }));
     expect([...codes, ...minor, ...ignore].every((entry) => !("why" in entry))).toBe(true);
@@ -556,21 +556,25 @@ describe("slippi", () => {
     );
   });
 
-  it("gives a mod's codes what the registry says of the mod", async () => {
-    await addMod("tgg.ucf-legacy", [{ version: "0.1.1", status: "approved", layout: LINUX }]);
-    await declare("tgg.ucf-legacy@0.1.1", [
-      { code: "0x800908F4", name: "UCF 0.8", versions: ">=3.9" },
+  it("maps a code only an older release declares to that release", async () => {
+    await addMod("tgg.variants", [
+      { version: "0.8.0", status: "approved", layout: LINUX },
+      { version: "0.84.0", status: "approved", layout: LINUX },
     ]);
+    const legacy = { code: "0x800908F4", name: "UCF 0.8", versions: ">=3.9" };
+    await declare("tgg.variants@0.8.0", [{ ...legacy, unless: ["0x8006B460"] }]);
+    await declare("tgg.variants@0.84.0", [{ code: "0x8006B460", name: "UCF 0.84", versions: "*" }]);
     const { codes } = await mapping();
-    expect(codes).toContainEqual({
-      code: "0x800908F4",
-      name: "UCF 0.8",
-      versions: ">=3.9",
-      unless: ["0x8006B460"],
-      id: "tgg.ucf-legacy",
-      range: ">=0.1.1",
-      game: { "tgg.ucf": false },
-    });
+    expect(codes.filter((entry) => entry.id === "tgg.variants")).toEqual([
+      {
+        code: "0x8006B460",
+        name: "UCF 0.84",
+        versions: "*",
+        id: "tgg.variants",
+        range: ">=0.84.0",
+      },
+      { ...legacy, unless: ["0x8006B460"], id: "tgg.variants", range: "0.8.0" },
+    ]);
   });
 
   it("names a new state of the mapping with a new snapshot", async () => {
@@ -582,8 +586,11 @@ describe("slippi", () => {
       .where(eq(codeModReleases.id, "tgg.spawns@0.2.0"));
     const after = await mapping();
     expect(after.snapshot).not.toBe(before);
+    // 0.2.0 no longer declares the older codes: 0.1.10 still reproduces them.
     expect(after.codes.filter((entry) => entry.id === "tgg.spawns")).toEqual([
       { code: "0x80000000", name: "", versions: "*", id: "tgg.spawns", range: ">=0.2.0" },
+      { ...SPAWNS, id: "tgg.spawns", range: "0.1.10" },
+      { code: "frozen-stadium", name: "", versions: "<3.18", id: "tgg.spawns", range: "0.1.10" },
     ]);
   });
 });
