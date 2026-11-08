@@ -544,21 +544,21 @@ textures.gg), the author's name otherwise, and `official`, which admins set
 `/api/registry/packages/`, and is the store's install count.
 
 A release's `slippi` is read with its listing: the manifest's `slippi` field,
-the Slippi gecko codes the mod reproduces, each `{code, name, versions}` (an
-address such as `0x801D45EC` or a Game Start fact, `frozen-stadium` or
-`ucf-off`, and the Slippi versions it holds for, a semver requirement). A
-malformed field fails the release. `GET /api/registry/slippi` serves the
-Slippi mapping replay players resolve a Slippi replay's mods with (core
-docs/mod-profiles.md): each code the newest approved release of a listed mod
-declares, with that mod's id and `>=` the oldest release of the newest run
-that declares it, after the entries for what the game does itself (the
-built-in UCF, and gameplay codes nothing reproduces yet that matter on one
-stage); `minor`, gameplay codes nothing reproduces yet that rarely change a
-replay; and `ignore`, the codes that don't change gameplay. What the registry
-says itself lives in `packages/shared/src/slippi-mapping.json`, each entry with
-why, and changes by pull request: those lists, and what every code a mod
-declares also carries (`tgg.ucf-legacy`'s turn the built-in UCF off and don't
-hold where UCF 0.84's `0x8006B460` ran).
+the Slippi gecko codes the mod reproduces, each `{code, name, versions, unless}`
+(an address such as `0x801D45EC` or a Game Start fact, `frozen-stadium` or
+`ucf-off`; the Slippi versions it holds for, a semver requirement; and the codes
+whose presence means it doesn't hold). A malformed field fails the release.
+`GET /api/registry/slippi` serves the Slippi mapping replay players resolve a
+Slippi replay's mods with (core docs/mod-profiles.md): each code an approved
+release of a listed mod declares, as the newest release that declares it does,
+with that mod's id and a range: `>=` the oldest release of the newest run that
+declares it when the mod's newest release does, else exactly the newest release
+that does (so `tgg.ucf` 0.8.0 reproduces UCF 0.8 and 0.84.0 UCF 0.84). Before
+them come gameplay codes nothing reproduces yet that matter on one stage; then
+`minor`, gameplay codes nothing reproduces yet that rarely change a replay; and
+`ignore`, the codes that don't change gameplay. What the registry says itself
+lives in `packages/shared/src/slippi-mapping.json`, each entry with why, and
+changes by pull request.
 
 A set (`codeModSets`) is a named, curated list of code mods a player installs
 with one button, such as Competitive or Replays, served at

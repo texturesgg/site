@@ -68,12 +68,14 @@ describe("slippi field", () => {
       { code: "0x801D45EC", name: "Preload Stadium Transformations", versions: "<3.19" },
       { code: "frozen-stadium" },
       { code: "0x801D4578", versions: ">=3.9, <3.18" },
+      { code: "0x800908F4", unless: ["0x8006B460"] },
     ]);
     expect(manifest.refusal).toBeNull();
     expect(manifest.slippi).toEqual([
       { code: "0x801D45EC", name: "Preload Stadium Transformations", versions: "<3.19" },
       { code: "frozen-stadium", name: "", versions: "*" },
       { code: "0x801D4578", name: "", versions: ">=3.9, <3.18" },
+      { code: "0x800908F4", name: "", versions: "*", unless: ["0x8006B460"] },
     ]);
   });
 
@@ -85,6 +87,8 @@ describe("slippi field", () => {
     expect(read([{ code: "ucf-on" }]).refusal).toContain("frozen-stadium");
     expect(read([{ code: "0x801D45EC", versions: "before 3.19" }]).refusal).toContain("versions");
     expect(read([{ code: "0x801D45EC", name: 3 }]).refusal).toContain("name");
+    expect(read([{ code: "0x801D45EC", unless: "0x8006B460" }]).refusal).toContain("unless");
+    expect(read([{ code: "0x801D45EC", unless: ["8006B460"] }]).refusal).toContain("unless");
     expect(read(Array.from({ length: 65 }, () => ({ code: "ucf-off" }))).refusal).toContain("64");
     expect(read([]).slippi).toEqual([]);
   });
