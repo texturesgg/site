@@ -127,6 +127,13 @@
       "when": 1791229184961,
       "tag": "0017_data_only_builds",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1794100153698,
+      "tag": "0018_registry_sets",
+      "breakpoints": true
     }
   ]
 }
