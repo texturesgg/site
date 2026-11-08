@@ -39,6 +39,9 @@ export const users = sqliteTable("users", {
   onboardingCompleted: integer("onboarding_completed", { mode: "boolean" })
     .default(false)
     .notNull(),
+  // A code mod author whose pushes skip the cap on builds before review
+  // (codeModCheckRuns). Admins skip it without the flag.
+  trusted: integer("trusted", { mode: "boolean" }).default(false).notNull(),
   // Import tracking
   // null = native, "ssbmtextures" = imported, "preview-sync" = copied into preview
   source: text("source"),
@@ -486,6 +489,11 @@ export const codeMods = sqliteTable(
     // pushes straight to the Artifacts repo.
     sourceKind: text("source_kind", { enum: ["github", "push"] }).notNull(),
     sourceUrl: text("source_url"),
+    // Who the store says publishes it: this name when an admin sets one (such
+    // as "textures.gg" for first-party mods), the author's name otherwise.
+    // `official` marks a mod admins vouch for; stores list those first.
+    publisherName: text("publisher_name"),
+    official: integer("official", { mode: "boolean" }).default(false).notNull(),
     downloadCount: integer("download_count").default(0).notNull(),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
@@ -618,6 +626,26 @@ export const codeModBuilds = sqliteTable(
     uniqueIndex("code_mod_build_release_layout_idx").on(table.releaseId, table.layoutId),
     index("code_mod_build_layout_idx").on(table.layoutId, table.status),
   ]
+);
+
+// One build run a push (or an admin's rebuild) started for a release before
+// review: its check build on the newest port's Linux layout. Each author gets
+// at most CHECK_RUN_LIMIT of these in a rolling day unless trusted or an
+// admin, whatever became of the releases. Runs are never deleted with a
+// release's status change, so failed and rejected releases still count.
+export const codeModCheckRuns = sqliteTable(
+  "code_mod_check_runs",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    releaseId: text("release_id")
+      .notNull()
+      .references(() => codeModReleases.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [index("code_mod_check_run_user_idx").on(table.userId, table.createdAt)]
 );
 
 // A mod a release needs, from its manifest's `depends`: the mod's id (its

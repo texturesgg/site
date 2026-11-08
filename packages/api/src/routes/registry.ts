@@ -13,7 +13,7 @@ import {
   type Database,
 } from "@vgskins/db";
 import { logger } from "@vgskins/logger";
-import { codeModSlugSchema } from "@vgskins/shared";
+import { byVersionDescending, codeModSlugSchema } from "@vgskins/shared";
 import { and, asc, count, desc, eq, exists, inArray, isNull, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { describeRoute } from "hono-openapi";
@@ -31,24 +31,6 @@ const CATALOG_SCHEMA = 1;
 // Sets and the catalog change when an admin edits a set or a release is
 // approved or built; a minute's staleness is fine for both.
 const LISTING_CACHE = "public, max-age=60";
-
-/** A release version for ordering: major, minor and patch, and its pre-release. */
-function versionKey(version: string): { core: number[]; pre: string | null } {
-  const [core, ...pre] = version.split("+")[0].split("-");
-  const parts = core.split(".").map((part) => Number(part) || 0);
-  return { core: [0, 1, 2].map((i) => parts[i] ?? 0), pre: pre.length ? pre.join("-") : null };
-}
-
-/** Newest first; a pre-release comes after (is older than) its release. */
-function byVersionDescending(a: string, b: string): number {
-  const [x, y] = [versionKey(a), versionKey(b)];
-  const part = x.core.findIndex((value, i) => value !== y.core[i]);
-  if (part !== -1) return y.core[part] - x.core[part];
-  if (x.pre === y.pre) return 0;
-  if (x.pre === null) return -1;
-  if (y.pre === null) return 1;
-  return y.pre.localeCompare(x.pre, "en", { numeric: true });
-}
 
 async function sha256Hex(text: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
@@ -83,7 +65,12 @@ type ModSummary = {
   id: string;
   name: string;
   description: string | null;
+  // The author's account name, kept for older installers; stores show
+  // `publisher`.
   author: string;
+  // Who publishes it: an admin-set name (first-party mods say "textures.gg")
+  // or the author's name, and whether admins vouch for it.
+  publisher: { name: string; official: boolean };
   icon: Image | null;
   tags: string[];
   installs: number;
@@ -117,6 +104,8 @@ const MOD_COLUMNS = {
   sourceUrl: codeMods.sourceUrl,
   installs: codeMods.downloadCount,
   author: users.name,
+  publisherName: codeMods.publisherName,
+  official: codeMods.official,
 };
 type ModRow = {
   id: string;
@@ -125,6 +114,8 @@ type ModRow = {
   description: string | null;
   installs: number;
   author: string;
+  publisherName: string | null;
+  official: boolean;
 };
 
 /**
@@ -244,6 +235,7 @@ async function summarize(
         description:
           typeof manifest.description === "string" ? manifest.description : mod.description,
         author: mod.author,
+        publisher: { name: mod.publisherName ?? mod.author, official: mod.official },
         icon: icon
           ? { url: imageUrl(origin, icon.sha256), width: icon.width, height: icon.height }
           : null,
@@ -423,16 +415,25 @@ const app = new Hono<HonoEnv>()
       tags: ["Registry"],
       summary: "List mods",
       description:
-        "Every mod with an approved release, most installed first, paginated (`page`, `pageSize` up to 100, default 50). Each is described by its newest approved release: `{id, name, description, author, icon: {url, width, height} | null, tags, installs, version, updatedAt, sets, targets, netplay}`. `targets` are the systems (`linux`, `windows`, `macos`) that release has builds for on `port`, the newest tgg-melee release with active layouts. `installs` counts package downloads.",
+        "Every mod with an approved release, paginated (`page`, `pageSize` up to 100, default 50), in `sort` order: `official` (the default) lists official mods first, then most installed; `installs` is most installed alone. Each is described by its newest approved release: `{id, name, description, author, publisher: {name, official}, icon: {url, width, height} | null, tags, installs, version, updatedAt, sets, targets, netplay}`. `publisher.name` is the name an admin set for the mod (first-party mods say textures.gg) or else the author's account name; `official` marks mods admins vouch for. `author` is the author's account name. `targets` are the systems (`linux`, `windows`, `macos`) that release has builds for on `port`, the newest tgg-melee release with active layouts. `installs` counts package downloads.",
       responses: {
         200: { description: "A page of mods" },
         400: { description: "Invalid request" },
       },
     }),
-    zValidator("query", PaginationQuery, validationHook),
+    zValidator(
+      "query",
+      PaginationQuery.extend({ sort: z.enum(["official", "installs"]).default("official") }),
+      validationHook
+    ),
     async (c) => {
       const db = createDb(c.env.DB);
-      const pagination = parsePagination(c.req.valid("query"), { defaultPageSize: 50 });
+      const query = c.req.valid("query");
+      const pagination = parsePagination(query, { defaultPageSize: 50 });
+      const order =
+        query.sort === "official"
+          ? [desc(codeMods.official), desc(codeMods.downloadCount), asc(codeMods.slug)]
+          : [desc(codeMods.downloadCount), asc(codeMods.slug)];
       const where = listedMods(db);
       const [rows, [{ total }], port] = await Promise.all([
         db
@@ -440,7 +441,7 @@ const app = new Hono<HonoEnv>()
           .from(codeMods)
           .innerJoin(users, eq(users.id, codeMods.userId))
           .where(where)
-          .orderBy(desc(codeMods.downloadCount), asc(codeMods.slug))
+          .orderBy(...order)
           .limit(pagination.pageSize)
           .offset(pagination.offset),
         db.select({ total: count() }).from(codeMods).where(where),

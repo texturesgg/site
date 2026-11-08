@@ -1,6 +1,10 @@
 # The builder image
 
-The image the build Workflow compiles mods in: GCC (the nixpkgs revision
+The image the build Workflow compiles mods in. A pushed tag builds once
+before review, on the newest tgg-melee release's Linux layout (an author gets
+10 of these a day unless trusted); approving the release builds it for the
+image's other layouts; see `docs/DATA_MODEL.md` (Code Mods) for when each
+build runs. The image holds GCC (the nixpkgs revision
 tgg-melee releases are built with), MinGW-w64 GCC for Windows layouts,
 binutils, CMake, Ninja, bash, coreutils and `tgg`, assembled with Nix
 (`flake.nix`), plus one folder per layout it builds at
@@ -68,9 +72,11 @@ toolchain files and build.sh's format number>`), or builds it with
 
 So adding, updating or retiring a port release is an edit to `layouts.json`.
 Once the deploy is live, `../scripts/build-layouts.sh` starts the build Workflow
-for each active layout the image builds, which builds every mod's latest
-approved release that has no build for it (a package without a library already
-serves every layout). Those builds need no new review.
+for each active layout the image builds, which builds every approved release
+worth building (each mod's newest, and the newest inside a set's range when
+the newest is outside it) that has no build for it (a package without a
+library already serves every layout). Those builds need no new review. Once a
+new port release is active, pushes are checked on its Linux layout.
 
 SDK archives come from `https://dl.textures.gg/tgg-melee/<version>/`, so a
 release has to be mirrored there before `layouts.json` names it.
@@ -104,7 +110,8 @@ and on demand); any Mac with Homebrew's `gcc@15`, `cmake` and `ninja`, Xcode's
 command line tools, `jq` and `curl` runs it the same way, so the job can move to
 another CI service unchanged. Each run:
 
-1. asks the API which approved releases lack a build for each external layout
+1. asks the API which approved releases worth building (each mod's newest,
+   and a set's pin) lack a build for each external layout
    (`GET /api/external-builds/pending?target=aarch64-apple-darwin`), and stops
    there when none do, before installing anything;
 2. fetches the `tgg` release the image packs with (pinned by version and

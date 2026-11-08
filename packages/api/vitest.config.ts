@@ -6,9 +6,11 @@ import { unstable_getMiniflareWorkerOptions, unstable_readConfig } from "wrangle
 // wrangler.toml and its own empty D1, R2 and queues. Wrangler folds .dev.vars
 // (or .env) into the bindings it derives and says so on stdout, so the
 // variables are taken from the config alone: a developer's local secrets never
-// reach a test.
+// reach a test. The mod build Workflow (MOD_BUILD) belongs to another Worker,
+// which needs containers and Artifacts, so tests leave it unbound and a test
+// that starts a build passes its own (routes/code-mod-builds.test.ts).
 const config = unstable_readConfig({ config: "./wrangler.toml" });
-const { main, workerOptions } = unstable_getMiniflareWorkerOptions(config);
+const { main, workerOptions } = unstable_getMiniflareWorkerOptions({ ...config, workflows: [] });
 
 export default defineConfig({
   plugins: [

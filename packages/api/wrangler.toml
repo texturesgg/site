@@ -46,10 +46,17 @@ allowed_sender_addresses = ["noreply@textures.gg"]
 # General API: 1200 requests per 60s per key
 # Code mods: each mod's source is an Artifacts repo (mod-<id>), and built
 # packages and compiler logs live in a private bucket that only this API
-# serves. Builds run in packages/mod-build.
+# serves. Builds run in packages/mod-build's Workflow; approving a release
+# starts it (MOD_BUILD) for the targets that wait for review.
 [[artifacts]]
 binding = "MOD_SOURCES"
 namespace = "tgg-mods-dev"
+
+[[workflows]]
+binding = "MOD_BUILD"
+name = "tgg-mod-build-dev"
+class_name = "BuildMod"
+script_name = "tgg-mod-build-dev"
 
 [[r2_buckets]]
 binding = "CODE_MODS"
@@ -116,6 +123,12 @@ vars = { ENVIRONMENT = "production", API_BASE_URL = "https://api.textures.gg", S
 [[env.production.artifacts]]
 binding = "MOD_SOURCES"
 namespace = "tgg-mods"
+
+[[env.production.workflows]]
+binding = "MOD_BUILD"
+name = "tgg-mod-build"
+class_name = "BuildMod"
+script_name = "tgg-mod-build"
 
 [[env.production.r2_buckets]]
 binding = "CODE_MODS"
@@ -192,6 +205,12 @@ vars = { ENVIRONMENT = "preview", API_BASE_URL = "https://api-preview.textures.g
 [[env.preview.artifacts]]
 binding = "MOD_SOURCES"
 namespace = "tgg-mods-preview"
+
+[[env.preview.workflows]]
+binding = "MOD_BUILD"
+name = "tgg-mod-build-preview"
+class_name = "BuildMod"
+script_name = "tgg-mod-build-preview"
 
 [[env.preview.r2_buckets]]
 binding = "CODE_MODS"
