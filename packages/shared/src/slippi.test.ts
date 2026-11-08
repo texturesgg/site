@@ -3,14 +3,18 @@ import { isSlippiCode, isSlippiVersions, SLIPPI_DATA } from "./slippi";
 
 describe("the registry's Slippi data", () => {
   it("names each code once, in the mapping's syntax", () => {
-    const entries = [...SLIPPI_DATA.game, ...SLIPPI_DATA.ignore];
+    const entries = [...SLIPPI_DATA.game, ...SLIPPI_DATA.minor, ...SLIPPI_DATA.ignore];
     for (const entry of entries) {
       expect(isSlippiCode(entry.code), entry.code).toBe(true);
+      for (const stage of entry.stages ?? []) expect(Number.isInteger(stage)).toBe(true);
       expect(isSlippiVersions(entry.versions), entry.versions).toBe(true);
       expect(entry.why, entry.code).not.toBe("");
     }
     const keys = entries.map((entry) => `${entry.code} ${entry.versions}`);
     expect(new Set(keys).size).toBe(keys.length);
+    for (const { unless = [] } of Object.values(SLIPPI_DATA.mods)) {
+      for (const code of unless) expect(isSlippiCode(code), code).toBe(true);
+    }
   });
 });
 

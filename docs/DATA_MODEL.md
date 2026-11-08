@@ -552,9 +552,13 @@ Slippi mapping replay players resolve a Slippi replay's mods with (core
 docs/mod-profiles.md): each code the newest approved release of a listed mod
 declares, with that mod's id and `>=` the oldest release of the newest run
 that declares it, after the entries for what the game does itself (the
-built-in UCF); and the codes that don't change gameplay. Those two lists live in
-`packages/shared/src/slippi-mapping.json`, each entry with why, and change by
-pull request.
+built-in UCF, and gameplay codes nothing reproduces yet that matter on one
+stage); `minor`, gameplay codes nothing reproduces yet that rarely change a
+replay; and `ignore`, the codes that don't change gameplay. What the registry
+says itself lives in `packages/shared/src/slippi-mapping.json`, each entry with
+why, and changes by pull request: those lists, and what every code a mod
+declares also carries (`tgg.ucf-legacy`'s turn the built-in UCF off and don't
+hold where UCF 0.84's `0x8006B460` ran).
 
 A set (`codeModSets`) is a named, curated list of code mods a player installs
 with one button, such as Competitive or Replays, served at
