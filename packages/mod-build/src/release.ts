@@ -84,8 +84,8 @@ export async function manifestRefusal(
 
 /**
  * The releases a newly active `layout` needs builds of: the approved ones
- * worth building (approvedReleasesWorthBuilding: each mod's newest, and a
- * set's pin), unless its package has no library (one build serves every
+ * worth building (approvedReleasesWorthBuilding: each mod's newest, a
+ * set's pin, a version the Slippi mapping names), unless its package has no library (one build serves every
  * layout) or it already has a build for the layout. Review covers the
  * source, so these stay approved.
  */

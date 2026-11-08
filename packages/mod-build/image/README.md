@@ -73,8 +73,8 @@ toolchain files and build.sh's format number>`), or builds it with
 So adding, updating or retiring a port release is an edit to `layouts.json`.
 Once the deploy is live, `../scripts/build-layouts.sh` starts the build Workflow
 for each active layout the image builds, which builds every approved release
-worth building (each mod's newest, and the newest inside a set's range when
-the newest is outside it) that has no build for it (a package without a
+worth building (each mod's newest, the newest inside a set's range when
+the newest is outside it, and a version the Slippi mapping names) that has no build for it (a package without a
 library already serves every layout). Those builds need no new review. Once a
 new port release is active, pushes are checked on its Linux layout.
 
@@ -111,7 +111,7 @@ command line tools, `jq` and `curl` runs it the same way, so the job can move to
 another CI service unchanged. Each run:
 
 1. asks the API which approved releases worth building (each mod's newest,
-   and a set's pin) lack a build for each external layout
+   a set's pin, a version the Slippi mapping names) lack a build for each external layout
    (`GET /api/external-builds/pending?target=aarch64-apple-darwin`), and stops
    there when none do, before installing anything;
 2. fetches the `tgg` release the image packs with (pinned by version and
