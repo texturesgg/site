@@ -53,13 +53,75 @@
         "tgg.ucf": true
       },
       "why": "External/UCF 0.84/UCF: UCF 0.84, which the port has built in"
+    },
+    {
+      "code": "0x800165AC",
+      "name": "Stadium (3.19): Online/Core/Hacks/Stadium/StadiumFileLoad",
+      "versions": ">=3.19",
+      "stages": [3],
+      "why": "gameplay on Pokemon Stadium only (Slippi 3.19 loads transformations from Dolphin memory); nothing reproduces it yet"
+    },
+    {
+      "code": "0x801C65C8",
+      "name": "Stadium (3.19): Online/Core/Hacks/Stadium/CustomZeroBuffer",
+      "versions": ">=3.19",
+      "stages": [3],
+      "why": "gameplay on Pokemon Stadium only (Slippi 3.19 loads transformations from Dolphin memory); nothing reproduces it yet"
+    },
+    {
+      "code": "0x801D4760",
+      "name": "Stadium (3.19): Online/Core/Hacks/Stadium/GrPsxIsValid",
+      "versions": ">=3.19",
+      "stages": [3],
+      "why": "gameplay on Pokemon Stadium only (Slippi 3.19 loads transformations from Dolphin memory); nothing reproduces it yet"
     }
   ],
-  "modGame": {
+  "mods": {
     "tgg.ucf-legacy": {
-      "tgg.ucf": false
+      "game": {
+        "tgg.ucf": false
+      },
+      "unless": ["0x8006B460"]
     }
   },
+  "minor": [
+    {
+      "code": "0x800AC5B8",
+      "name": "Nana determinism (Common/NanaDeterminism)",
+      "versions": "*",
+      "why": "gameplay: defines stick values the game leaves undefined when Nana DIs a throw"
+    },
+    {
+      "code": "0x801239A8",
+      "name": "Freeze glitch fix (External/FreezeGlitchFix)",
+      "versions": "*",
+      "why": "gameplay: prevents the Ice Climbers freeze glitch"
+    },
+    {
+      "code": "0x8008F090",
+      "name": "Prevent wobbling: Wobble Check",
+      "versions": "*",
+      "why": "gameplay: ends a wobble after a number of grab hits"
+    },
+    {
+      "code": "0x800DB880",
+      "name": "Prevent wobbling: Init Wobble Count Air",
+      "versions": "*",
+      "why": "gameplay: part of Prevent wobbling"
+    },
+    {
+      "code": "0x800DBBD4",
+      "name": "Prevent wobbling: Init Wobble Count Ground",
+      "versions": "*",
+      "why": "gameplay: part of Prevent wobbling"
+    },
+    {
+      "code": "0x800DA9DC",
+      "name": "Prevent wobbling (older)",
+      "versions": "*",
+      "why": "gameplay: part of Prevent wobbling (3.9)"
+    }
+  ],
   "ignore": [
     {
       "code": "0x800055EC",
@@ -470,10 +532,16 @@
       "why": "recording"
     },
     {
+      "code": "0x800908F4",
+      "name": "UCF 0.84: UCF Tumble",
+      "versions": ">=3.16",
+      "why": "ucf: at 0.8 addresses too; from 3.16 a replay without UCF 0.8 (tgg.ucf-legacy, unless 0x8006B460) ran 0.84, which the port has built in"
+    },
+    {
       "code": "0x800998A4",
-      "name": "External/UCF 0.84/UCF/UCF Shield Drop (UCF 0.8: Logic/UCF SD)",
-      "versions": "*",
-      "why": "ucf: in UCF 0.8 and 0.84 alike; which UCF ran is told by 0x8006B460 (0.84, built in) and 0x800908F4 (0.8, tgg.ucf-legacy)"
+      "name": "UCF 0.84: UCF Shield Drop",
+      "versions": ">=3.16",
+      "why": "ucf: at 0.8 addresses too; from 3.16 a replay without UCF 0.8 (tgg.ucf-legacy, unless 0x8006B460) ran 0.84, which the port has built in"
     },
     {
       "code": "0x8009E090",
@@ -489,9 +557,9 @@
     },
     {
       "code": "0x800C9A44",
-      "name": "External/UCF 0.84/UCF/UCF Dashback (UCF 0.8: Logic/UCF DB)",
-      "versions": "*",
-      "why": "ucf: in UCF 0.8 and 0.84 alike; which UCF ran is told by 0x8006B460 (0.84, built in) and 0x800908F4 (0.8, tgg.ucf-legacy)"
+      "name": "UCF 0.84: UCF Dashback",
+      "versions": ">=3.16",
+      "why": "ucf: at 0.8 addresses too; from 3.16 a replay without UCF 0.8 (tgg.ucf-legacy, unless 0x8006B460) ran 0.84, which the port has built in"
     },
     {
       "code": "0x8013C388",

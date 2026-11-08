@@ -486,7 +486,16 @@ describe("slippi", () => {
   type Mapping = {
     format: number;
     snapshot: string;
-    codes: { code: string; versions: string; id?: string; range?: string; game?: object }[];
+    codes: {
+      code: string;
+      versions: string;
+      stages?: number[];
+      unless?: string[];
+      id?: string;
+      range?: string;
+      game?: object;
+    }[];
+    minor: { code: string; name: string; versions: string }[];
     ignore: { code: string; name: string; versions: string }[];
   };
   async function mapping(): Promise<Mapping> {
@@ -521,7 +530,7 @@ describe("slippi", () => {
     await declare("me.deleted@1.0.0", [{ code: "0x80000004", name: "", versions: "*" }]);
     await db.update(codeMods).set({ deletedAt: NOW }).where(eq(codeMods.id, "me.deleted"));
 
-    const { format, snapshot, codes, ignore } = await mapping();
+    const { format, snapshot, codes, minor, ignore } = await mapping();
     expect(format).toBe(1);
     expect(snapshot).toMatch(/^[0-9a-f]{32}$/);
     const declared = codes.filter((entry) => entry.id);
@@ -539,17 +548,25 @@ describe("slippi", () => {
     });
     expect(codes.indexOf(declared[0])).toBeGreaterThan(0);
     expect(ignore).toContainEqual(expect.objectContaining({ code: "0x801A4DE4", versions: "*" }));
-    expect(ignore.every((entry) => !("why" in entry))).toBe(true);
+    expect(minor).toContainEqual(expect.objectContaining({ code: "0x801239A8", versions: "*" }));
+    expect([...codes, ...minor, ...ignore].every((entry) => !("why" in entry))).toBe(true);
+    // A gameplay code that matters on one stage, which nothing reproduces yet.
+    expect(codes).toContainEqual(
+      expect.objectContaining({ code: "0x801C65C8", versions: ">=3.19", stages: [3] })
+    );
   });
 
-  it("gives a mod's codes the built-in module states the mod implies", async () => {
+  it("gives a mod's codes what the registry says of the mod", async () => {
     await addMod("tgg.ucf-legacy", [{ version: "0.1.1", status: "approved", layout: LINUX }]);
-    await declare("tgg.ucf-legacy@0.1.1", [{ code: "0x800908F4", name: "UCF 0.8", versions: "*" }]);
+    await declare("tgg.ucf-legacy@0.1.1", [
+      { code: "0x800908F4", name: "UCF 0.8", versions: ">=3.9" },
+    ]);
     const { codes } = await mapping();
     expect(codes).toContainEqual({
       code: "0x800908F4",
       name: "UCF 0.8",
-      versions: "*",
+      versions: ">=3.9",
+      unless: ["0x8006B460"],
       id: "tgg.ucf-legacy",
       range: ">=0.1.1",
       game: { "tgg.ucf": false },

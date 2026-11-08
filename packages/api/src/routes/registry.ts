@@ -417,7 +417,7 @@ const app = new Hono<HonoEnv>()
       tags: ["Registry"],
       summary: "Get the Slippi mapping",
       description:
-        "Which mods reproduce the gecko codes a Slippi replay's console ran (core docs/mod-profiles.md): `{format: 1, snapshot, codes, ignore}`. `codes` are `{code, name, versions, id?, range?, game?}`: a code (`0x` and eight upper-case hex digits, or a Game Start fact, `frozen-stadium` or `ucf-off`), the Slippi versions the entry holds for (a semver requirement such as `*` or `<3.19`), and the mod (`id`) and range of its releases that reproduce it, or `game`, the built-in module states it implies. The first entry for a code whose `versions` match a replay's Slippi version wins: what the game does itself comes first, then what each mod's newest approved release declares in its manifest's `slippi` field. `ignore` are `{code, name, versions}`, codes that don't change gameplay. `snapshot` names this state of the mapping.",
+        "Which mods reproduce the gecko codes a Slippi replay's console ran (core docs/mod-profiles.md): `{format: 1, snapshot, codes, minor, ignore}`. `codes` are `{code, name, versions, stages?, unless?, id?, range?, game?}`: a code (`0x` and eight upper-case hex digits, or a Game Start fact, `frozen-stadium` or `ucf-off`), the Slippi versions the entry holds for (a semver requirement such as `*` or `<3.19`), the Game Start stage ids it matters on, codes whose presence keeps it from holding, and the mod (`id`) and range of its releases that reproduce it, or `game`, the built-in module states it implies (an entry with neither is a gameplay code nothing reproduces yet). For each code, the first `codes` entry that holds wins: what the game does itself comes first, then what each mod's newest approved release declares in its manifest's `slippi` field. `minor` (gameplay codes nothing reproduces yet that rarely change a replay) and `ignore` (codes that don't change gameplay) are `{code, name, versions, stages?}`. `snapshot` names this state of the mapping.",
       responses: { 200: { description: "The mapping" } },
     }),
     async (c) => {
@@ -445,10 +445,10 @@ const app = new Hono<HonoEnv>()
         mod.releases.push({ version: row.version, slippi: row.slippi });
         mods.set(row.id, mod);
       }
-      const { codes, ignore } = buildSlippiMapping([...mods.values()], byVersionDescending);
-      const snapshot = (await sha256Hex(JSON.stringify({ codes, ignore }))).slice(0, 32);
+      const { codes, minor, ignore } = buildSlippiMapping([...mods.values()], byVersionDescending);
+      const snapshot = (await sha256Hex(JSON.stringify({ codes, minor, ignore }))).slice(0, 32);
       c.header("Cache-Control", LISTING_CACHE);
-      return c.json({ format: SLIPPI_FORMAT, snapshot, codes, ignore }, 200);
+      return c.json({ format: SLIPPI_FORMAT, snapshot, codes, minor, ignore }, 200);
     }
   )
 

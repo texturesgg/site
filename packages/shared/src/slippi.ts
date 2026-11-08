@@ -19,18 +19,27 @@ export type SlippiCodeDecl = { code: string; name: string; versions: string };
 /** Built-in module states a code implies, by module id (`tgg.ucf`). */
 export type SlippiGame = Record<string, boolean>;
 
-/** One `codes` entry of the mapping. */
+/**
+ * One `codes` entry of the mapping. It holds for a replay on one of `stages`
+ * (Game Start stage ids; every stage when absent) whose console ran none of
+ * `unless`.
+ */
 export type SlippiCode = {
   code: string;
   name: string;
   versions: string;
+  stages?: number[];
+  unless?: string[];
   id?: string;
   range?: string;
   game?: SlippiGame;
 };
 
-/** One `ignore` entry: a code that doesn't change gameplay. */
-export type SlippiIgnore = { code: string; name: string; versions: string };
+/**
+ * One `minor` entry (a gameplay code nothing reproduces yet that rarely
+ * changes a replay) or `ignore` entry (a code that doesn't change gameplay).
+ */
+export type SlippiIgnore = { code: string; name: string; versions: string; stages?: number[] };
 
 /**
  * A code as the mapping names it: `0x` and eight upper-case hex digits (the
@@ -100,9 +109,12 @@ export function readSlippiDecls(value: unknown): { decls: SlippiCodeDecl[] } | {
 export type SlippiData = {
   // Codes the game reproduces itself, by its built-in modules.
   game: (SlippiCode & { why: string })[];
-  // Built-in module states every code of a mod implies (tgg.ucf-legacy
-  // replaces the built-in UCF).
-  modGame: Record<string, SlippiGame>;
+  // What every code a mod declares also says, by mod id: the built-in
+  // module states it implies and the codes that keep it from holding
+  // (tgg.ucf-legacy replaces the built-in UCF, but not where UCF 0.84 ran).
+  mods: Record<string, { game?: SlippiGame; unless?: string[] }>;
+  // Gameplay codes nothing reproduces yet that rarely change a replay.
+  minor: (SlippiIgnore & { why: string })[];
   // Codes that don't change gameplay, each with why.
   ignore: (SlippiIgnore & { why: string })[];
 };
@@ -117,23 +129,23 @@ export type SlippiMod = {
 };
 
 /**
- * The mapping's `codes` and `ignore`: first what the game does itself, then
+ * The mapping's `codes`, `minor` and `ignore`: first what the game does itself, then
  * each code the newest approved release of a mod declares, by code (official
  * mods first where two claim one), with the range of that mod's releases
- * that declare it (from the oldest of the newest run that does); and the
- * codes that don't change gameplay.
+ * that declare it (from the oldest of the newest run that does); then the
+ * registry's minor and ignored codes.
  */
 export function buildSlippiMapping(
   mods: SlippiMod[],
   byVersionDescending: (a: string, b: string) => number,
   registry: SlippiData = SLIPPI_DATA
-): { codes: SlippiCode[]; ignore: SlippiIgnore[] } {
+): { codes: SlippiCode[]; minor: SlippiIgnore[]; ignore: SlippiIgnore[] } {
   const declared: (SlippiCode & { official: boolean })[] = [];
   for (const mod of mods) {
     const releases = [...mod.releases].sort((a, b) => byVersionDescending(a.version, b.version));
     const newest = releases[0];
     if (!newest?.slippi) continue;
-    const game = registry.modGame[mod.id];
+    const extra = registry.mods[mod.id] ?? {};
     for (const decl of newest.slippi) {
       let oldest = newest;
       for (const release of releases.slice(1)) {
@@ -144,7 +156,8 @@ export function buildSlippiMapping(
         ...decl,
         id: mod.id,
         range: `>=${oldest.version}`,
-        ...(game ? { game } : {}),
+        ...(extra.unless ? { unless: extra.unless } : {}),
+        ...(extra.game ? { game: extra.game } : {}),
         official: mod.official,
       });
     }
@@ -160,6 +173,7 @@ export function buildSlippiMapping(
       ...registry.game.map(({ why: _, ...entry }) => entry),
       ...declared.map(({ official: _, ...entry }) => entry),
     ],
+    minor: registry.minor.map(({ why: _, ...entry }) => entry),
     ignore: registry.ignore.map(({ why: _, ...entry }) => entry),
   };
 }
