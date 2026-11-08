@@ -98,7 +98,7 @@ const app = new Hono<HonoEnv>()
       tags: ["Registry"],
       summary: "Get the mod catalog for a game layout",
       description:
-        "tgg-mod's catalog (schema 1) for `layout`, a port's game layout id: every approved release with a successful build for it, newest first per mod. Each entry is the packed manifest with `netplay` and `package: {url, sha256, size}`; package URLs are content-addressed and immutable. `snapshot` names this state of the catalog. An unknown layout has no mods.",
+        "tgg-mod's catalog (schema 1) for `layout`, a port's game layout id: every approved release with a successful build for it, newest first per mod. Each entry is the packed manifest with `netplay` and `package: {url, sha256, size}`; package URLs are content-addressed and immutable. `ids` is every mod id with an approved release, built for this layout or not. `snapshot` names this state of the catalog. An unknown layout has no mods.",
       parameters: [{ name: "layout", in: "query", required: true, schema: { type: "string" } }],
       responses: {
         200: { description: "The catalog" },
@@ -140,6 +140,18 @@ const app = new Hono<HonoEnv>()
             )
         : [];
 
+      // Every mod the registry has, built for this layout or not, so a client
+      // can tell a mod that doesn't exist from one not built for its game yet.
+      const ids = (
+        await db
+          .selectDistinct({ slug: codeMods.slug })
+          .from(codeMods)
+          .innerJoin(codeModReleases, eq(codeModReleases.codeModId, codeMods.id))
+          .where(and(eq(codeModReleases.status, "approved"), isNull(codeMods.deletedAt)))
+      )
+        .map((mod) => mod.slug)
+        .sort();
+
       const usable = rows.flatMap((row) =>
         row.manifest && row.sha256 && row.size !== null && row.netplay
           ? [
@@ -178,17 +190,19 @@ const app = new Hono<HonoEnv>()
         },
       }));
       // The packages' hashes identify everything an entry says, so the
-      // snapshot is a hash of which packages are listed, by layout.
+      // snapshot is a hash of which packages are listed, by layout, and of
+      // which mods the registry has.
       const snapshot = (
         await sha256Hex(
           [
             `layout ${layout}`,
             ...entries.map((row) => `${row.id} ${row.version} ${row.sha256}`),
+            `ids ${ids.join(" ")}`,
           ].join("\n")
         )
       ).slice(0, 32);
       c.header("Cache-Control", LISTING_CACHE);
-      return c.json({ schema: CATALOG_SCHEMA, snapshot, mods }, 200);
+      return c.json({ schema: CATALOG_SCHEMA, snapshot, mods, ids }, 200);
     }
   )
 

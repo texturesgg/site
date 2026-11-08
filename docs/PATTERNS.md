@@ -323,12 +323,13 @@ limiter convention.
   not consume another area's allowance.
 - CORS preflights, Better Auth, file/download delivery (code mod packages
   included), and routes already using a stricter limiter (pack upload, code mod
-  creation, mod retry, comments, reports, editor reports) are excluded from the
-  general counter.
+  creation, mod retry, comments, reports, editor reports, external mod builds)
+  are excluded from the general counter.
 - Better Auth uses `RATE_LIMIT_AUTH` by IP; pack upload, code mod creation, mod
   retry, comments, and reports use `RATE_LIMIT_UPLOAD` by user; editor reports use
-  `RATE_LIMIT_EDITOR_REPORT` by IP. These limits must not also consume the general
-  counter.
+  `RATE_LIMIT_EDITOR_REPORT` by IP; the external mod builder's routes
+  (`/api/external-builds`) use `RATE_LIMIT_UPLOAD` by IP. These limits must not
+  also consume the general counter.
 - Pack downloads are never refused. `RATE_LIMIT_DOWNLOAD_COUNT`, keyed by IP and
   pack, gates only whether a served download is counted: once per client and
   pack per minute.

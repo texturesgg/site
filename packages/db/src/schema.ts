@@ -545,10 +545,11 @@ export const codeModLayouts = sqliteTable("code_mod_layouts", {
   portVersion: text("port_version").notNull(), // the tgg-melee release the SDK came from
   active: integer("active", { mode: "boolean" }).default(true).notNull(),
   // Who builds mods for it: the builder image (`image`, Linux and Windows,
-  // which it cross-compiles), or nobody yet (`none`: macOS, which needs
-  // Apple's linker and SDK). A `none` layout is still known to the catalog,
-  // which serves it the packages without a library.
-  builder: text("builder", { enum: ["image", "none"] })
+  // which it cross-compiles), a machine of the target's own system that
+  // fetches approved releases and uploads their packages (`external`: macOS,
+  // which needs Apple's linker and SDK), or nobody (`none`). Every layout is
+  // known to the catalog, which serves it the packages without a library.
+  builder: text("builder", { enum: ["image", "external", "none"] })
     .default("image")
     .notNull(),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
@@ -569,8 +570,11 @@ export const codeModBuilds = sqliteTable(
     status: text("status", { enum: ["queued", "building", "succeeded", "failed"] })
       .default("queued")
       .notNull(),
-    runId: text("run_id"), // the build Workflow instance
-    image: text("image"), // the builder image this build ran in, pinned by digest
+    // The build Workflow instance, or the external builder's run (a CI run URL).
+    runId: text("run_id"),
+    // The builder image this build ran in, pinned by digest, or what an
+    // external builder says it built with (its system, compiler and tgg).
+    image: text("image"),
     // The package zip in R2, keyed by its SHA-256, which identifies the build.
     packageKey: text("package_key"),
     packageSha256: text("package_sha256"),

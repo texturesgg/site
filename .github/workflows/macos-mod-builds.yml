@@ -1,0 +1,83 @@
+# Builds approved code mod releases for the macOS layouts (builder
+# `external`), which the Linux builder image can't: their libraries link with
+# Apple's linker against Apple's SDK. The job is packages/mod-build/scripts/
+# external-build.sh on an Apple silicon runner; it asks the registry what's
+# missing, and when nothing is, stops before installing anything.
+#
+# Needs, in the `mod-builds` environment: the secret MOD_BUILDER_TOKEN (the
+# API Worker's secret of the same name) and optionally the variable TGG_API
+# (https://api-preview.textures.gg to build for preview). See
+# packages/mod-build/image/README.md, "macOS".
+name: macOS mod builds
+
+on:
+  schedule:
+    - cron: "17,47 * * * *"
+  workflow_dispatch:
+    inputs:
+      retry_failed:
+        description: Build again releases whose last macOS build failed
+        type: boolean
+        default: false
+      max_builds:
+        description: The most builds this run makes (1 to 50)
+        type: number
+        default: 10
+  # The registry, or anyone with a token that may dispatch, can start a run
+  # early, such as after an approval.
+  repository_dispatch:
+    types: [macos-mod-builds]
+
+# One run at a time; a queued one waits rather than cancelling uploads.
+concurrency:
+  group: macos-mod-builds
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build pending macOS mods
+    runs-on: macos-15
+    environment: mod-builds
+    timeout-minutes: 60
+    env:
+      TGG_BUILDER_TOKEN: ${{ secrets.MOD_BUILDER_TOKEN }}
+      TGG_API: ${{ vars.TGG_API || 'https://api.textures.gg' }}
+      RETRY_FAILED: ${{ inputs.retry_failed && '1' || '0' }}
+      MAX_BUILDS: ${{ inputs.max_builds || 10 }}
+    steps:
+      # No credentials stay in the checkout: the mods compiled here are
+      # reviewed, but nothing in reach of a compiler needs to hold a token.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: packages/mod-build
+
+      - name: Count pending builds
+        id: pending
+        run: echo "count=$(packages/mod-build/scripts/external-build.sh pending aarch64-apple-darwin)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Homebrew downloads
+        if: steps.pending.outputs.count != '0'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/Library/Caches/Homebrew/downloads
+          key: homebrew-macos-15-gcc15-cmake-ninja-v1
+
+      # The SDK's toolchain file finds Homebrew's gcc-15 and Xcode's clang
+      # and macOS SDK, which the runner has.
+      - name: Install GCC, CMake and Ninja
+        if: steps.pending.outputs.count != '0'
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+          HOMEBREW_NO_ANALYTICS: "1"
+        run: brew install gcc@15 cmake ninja
+
+      - name: Build and upload
+        if: steps.pending.outputs.count != '0'
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: packages/mod-build/scripts/external-build.sh build aarch64-apple-darwin

@@ -19,6 +19,7 @@ export default defineConfig({
         bindings: {
           ...config.vars,
           BETTER_AUTH_SECRET: "handler-test-secret-of-32-characters",
+          MOD_BUILDER_TOKEN: "external-builder-test-token",
           TEST_MIGRATIONS: await readD1Migrations("../db/migrations"),
         },
       },

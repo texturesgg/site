@@ -115,14 +115,14 @@ it("builds Linux and Windows layouts in the image, and leaves macOS out", async 
     [
       ["linux", "x86_64-linux-gnu", "image"],
       ["windows", "x86_64-windows-gnu", "image"],
-      ["macos", "aarch64-apple-darwin", "none"],
+      ["macos", "aarch64-apple-darwin", "external"],
     ].map(([id, target, builder]) => ({
       id,
       api: "tgg-melee/0",
       port: "tgg-melee",
       target,
       portVersion: "0.1.0-rc.8",
-      builder: builder as "image" | "none",
+      builder: builder as "image" | "external",
       createdAt: NOW,
     }))
   );

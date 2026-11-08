@@ -13,6 +13,10 @@ export type Env = Omit<ApiEnv, "EMAIL" | "PROCESSING_QUEUE"> & {
   EMAIL?: SendEmail;
   DISCORD_WEBHOOK_REPORTS?: string;
   DISCORD_WEBHOOK_UPLOADS?: string;
+
+  // The bearer token of the external mod builder (routes/external-builds.ts);
+  // unset turns those routes off.
+  MOD_BUILDER_TOKEN?: string;
 };
 
 export type HonoEnv = {

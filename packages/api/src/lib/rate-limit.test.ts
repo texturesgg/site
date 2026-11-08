@@ -14,6 +14,8 @@ describe("general API rate-limit policy", () => {
     ["POST", "/api/packs"],
     ["GET", "/api/code-mods/packages/0123.zip"],
     ["GET", "/api/registry/packages/0123.zip"],
+    ["GET", "/api/external-builds/pending"],
+    ["PUT", "/api/external-builds/releases/abc/builds/0123456789abcdef"],
     ["POST", "/api/code-mods"],
     ["POST", "/api/editor/reports"],
     ["POST", "/api/reports"],

@@ -25,6 +25,7 @@
     "@hono/zod-validator": "^0.9.1",
     "@vgskins/db": "workspace:*",
     "@vgskins/logger": "workspace:*",
+    "@vgskins/mod-build": "workspace:*",
     "@vgskins/shared": "workspace:*",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",

@@ -12,7 +12,7 @@
 #
 # The image builds mods for Linux and, with MinGW, Windows. A macOS mod needs
 # Apple's linker and SDK, so a macOS SDK is checked and its layout listed
-# (builder "none": known to the catalog, built by nobody yet) but not put in
+# (builder "external": a Mac builds it, scripts/external-build.sh) but not put in
 # the image.
 #
 # Needs curl, jq, sha256sum and tar. A change to what this puts in the image
@@ -40,7 +40,7 @@ archive_suffix() {
 builder() {
   case $1 in
   x86_64-linux-gnu | x86_64-windows-gnu) echo image ;;
-  *) echo none ;;
+  *) echo external ;;
   esac
 }
 
