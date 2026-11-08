@@ -56,6 +56,10 @@ it("fails a release that depends on a mod the registry doesn't have", async () =
       version: "1.0.0",
       license: null,
       depends: { "me.core": "^1.0", "me.missing": "*" },
+      icon: null,
+      screenshots: [],
+      tags: [],
+      homepage: null,
       refusal: null,
     },
   });

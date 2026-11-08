@@ -18,7 +18,14 @@ import { generateId } from "@vgskins/shared";
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 import { NonRetryableError } from "cloudflare:workflows";
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import { insertRelease, layoutsToBuild, releasesToBuildFor, type ReleaseStatus } from "./release";
+import { readListing, storeListing } from "./listing";
+import {
+  insertRelease,
+  layoutsToBuild,
+  releasesToBuildFor,
+  releasesToList,
+  type ReleaseStatus,
+} from "./release";
 import { hasLibrary, readManifest, readSource, resolveTag, type Commit } from "./source";
 import { storedZip } from "./zip";
 
@@ -34,6 +41,10 @@ type PushEvent = {
 // layout is missing.
 type LayoutEvent = { type: "layout"; layout: string };
 
+// Sent by hand once after listings were added: read the listing of every
+// release recorded before them (releasesToList).
+type ListingsEvent = { type: "listings" };
+
 const TAG_PREFIX = "refs/tags/";
 const REPO_PREFIX = "mod-";
 
@@ -41,11 +52,15 @@ type Hooks = { before?: string[]; after?: string[]; replaces?: string[] };
 // What tgg says a package counts as for netplay.
 const NETPLAY_CLASSES = codeModBuilds.netplay.enumValues;
 
-export class BuildMod extends WorkflowEntrypoint<BuildEnv, PushEvent | LayoutEvent> {
-  async run(event: WorkflowEvent<PushEvent | LayoutEvent>, step: WorkflowStep) {
+export class BuildMod extends WorkflowEntrypoint<
+  BuildEnv,
+  PushEvent | LayoutEvent | ListingsEvent
+> {
+  async run(event: WorkflowEvent<PushEvent | LayoutEvent | ListingsEvent>, step: WorkflowStep) {
     if (event.payload.type === "layout") {
       return buildLayout(this.env, step, event.payload.layout, event.instanceId);
     }
+    if (event.payload.type === "listings") return listReleases(this.env, step);
     const { source, payload } = event.payload;
     if (!payload.ref.startsWith(TAG_PREFIX) || /^0+$/.test(payload.after)) {
       return { skipped: `not a tag: ${payload.ref}` };
@@ -61,6 +76,22 @@ export class BuildMod extends WorkflowEntrypoint<BuildEnv, PushEvent | LayoutEve
     );
     if ("skipped" in release) return release;
     if (release.status !== "processing") return { release: release.id, status: release.status };
+
+    // The store listing, read before review so review covers it. A listing
+    // that can't be read (an icon that isn't a PNG) fails the release.
+    const listed = await step.do("record listing", () =>
+      recordListing(this.env, repoName, release.id, release.commit)
+    );
+    if (listed.error !== null) {
+      await step.do("fail listing", () =>
+        transitionRelease(createDb(this.env.DB), release.id, {
+          from: ["processing"],
+          to: "failed",
+          set: { error: listed.error },
+        }).then(() => null)
+      );
+      return { release: release.id, status: "failed" };
+    }
 
     // The step's name changed with its result's shape, so a run that started
     // before a deploy doesn't read back the old one.
@@ -163,6 +194,50 @@ async function buildLayout(env: BuildEnv, step: WorkflowStep, layout: string, ru
     );
   }
   return { layout, releases: releases.length, built };
+}
+
+/** Read and keep the listing of `releaseId` at `commit`; the reason when it can't. */
+async function recordListing(
+  env: BuildEnv,
+  repoName: string,
+  releaseId: string,
+  commit: Commit
+): Promise<{ error: string | null }> {
+  using repo = await env.ARTIFACTS.get(repoName);
+  let manifest;
+  try {
+    manifest = await readManifest(repo, commit.id);
+  } catch (error) {
+    return { error: String(error instanceof Error ? error.message : error) };
+  }
+  const read = await readListing(repo, commit, manifest);
+  if ("error" in read) return read;
+  await storeListing(createDb(env.DB), env.PACKAGES, releaseId, read.listing);
+  return { error: null };
+}
+
+/**
+ * Read the listing of each release recorded before listings were, one step
+ * each. A release whose listing can't be read keeps none; it isn't failed,
+ * since it may already be approved.
+ */
+async function listReleases(env: BuildEnv, step: WorkflowStep) {
+  const releases = await step.do("releases to list", () => releasesToList(createDb(env.DB)));
+  const failed: { release: string; error: string }[] = [];
+  for (const release of releases) {
+    const repoName = `${REPO_PREFIX}${release.codeModId}`;
+    const listed = await step.do(`list ${release.releaseId}`, async () => {
+      using repo = await env.ARTIFACTS.get(repoName);
+      const found = await repo.readCommit(release.commitSha);
+      if (!found) return { error: `commit ${release.commitSha} not found` };
+      return recordListing(env, repoName, release.releaseId, {
+        id: found.hash,
+        tree: found.treeHash,
+      });
+    });
+    if (listed.error !== null) failed.push({ release: release.releaseId, error: listed.error });
+  }
+  return { listed: releases.length - failed.length, failed };
 }
 
 /**
