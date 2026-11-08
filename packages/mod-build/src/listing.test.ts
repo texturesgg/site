@@ -111,7 +111,7 @@ describe("readListing", () => {
   it("has no README or changelog when the source has none", async () => {
     const read = await readListing(repo({ "manifest.json": "{}" }), COMMIT, manifest({}));
     expect(read).toEqual({
-      listing: { readme: null, changelog: null, tags: [], homepage: null, images: [] },
+      listing: { readme: null, changelog: null, tags: [], homepage: null, slippi: [], images: [] },
     });
   });
 
@@ -169,14 +169,23 @@ describe("storeListing", () => {
     const read = await readListing(
       repo({ "README.md": "Hi.", "assets/icon.png": png(32, 32) }),
       COMMIT,
-      manifest({ icon: "icon.png", homepage: "https://example.com" })
+      manifest({
+        icon: "icon.png",
+        homepage: "https://example.com",
+        slippi: [{ code: "0x8016E510", name: "Neutral Spawns" }],
+      })
     );
     if ("error" in read) throw new Error(read.error);
     await storeListing(db, env.PACKAGES, "r1", read.listing);
     await storeListing(db, env.PACKAGES, "r1", read.listing);
 
     const [release] = await db.select().from(codeModReleases).where(eq(codeModReleases.id, "r1"));
-    expect(release).toMatchObject({ readme: "Hi.", homepage: "https://example.com", tags: [] });
+    expect(release).toMatchObject({
+      readme: "Hi.",
+      homepage: "https://example.com",
+      tags: [],
+      slippi: [{ code: "0x8016E510", name: "Neutral Spawns", versions: "*" }],
+    });
     expect(release.listedAt).not.toBeNull();
     const images = await db.select().from(codeModReleaseImages);
     expect(images).toEqual([

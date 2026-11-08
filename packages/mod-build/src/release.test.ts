@@ -64,6 +64,7 @@ it("fails a release that depends on a mod the registry doesn't have", async () =
       screenshots: [],
       tags: [],
       homepage: null,
+      slippi: [],
       refusal: null,
     },
   });

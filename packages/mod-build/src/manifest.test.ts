@@ -54,3 +54,38 @@ describe("listing fields", () => {
     expect(refusal({})).toBeNull();
   });
 });
+
+describe("slippi field", () => {
+  const base = { api: "tgg-melee/0", id: "me.mod", version: "1.0.0" };
+  const read = (slippi: unknown) => {
+    const parsed = parseManifest(JSON.stringify({ ...base, slippi }));
+    if ("error" in parsed) throw new Error(parsed.error);
+    return parsed.manifest;
+  };
+
+  it("reads the codes a mod reproduces, name and versions defaulting", () => {
+    const manifest = read([
+      { code: "0x801D45EC", name: "Preload Stadium Transformations", versions: "<3.19" },
+      { code: "frozen-stadium" },
+      { code: "0x801D4578", versions: ">=3.9, <3.18" },
+    ]);
+    expect(manifest.refusal).toBeNull();
+    expect(manifest.slippi).toEqual([
+      { code: "0x801D45EC", name: "Preload Stadium Transformations", versions: "<3.19" },
+      { code: "frozen-stadium", name: "", versions: "*" },
+      { code: "0x801D4578", name: "", versions: ">=3.9, <3.18" },
+    ]);
+  });
+
+  it("fails a release whose slippi field isn't a list of codes", () => {
+    expect(read({ code: "0x801D45EC" }).refusal).toContain("slippi");
+    expect(read(["0x801D45EC"]).refusal).toContain("slippi");
+    expect(read([{ code: "0x801d45ec" }]).refusal).toContain("upper-case");
+    expect(read([{ code: "801D45EC" }]).refusal).toContain("0x801D45EC");
+    expect(read([{ code: "ucf-on" }]).refusal).toContain("frozen-stadium");
+    expect(read([{ code: "0x801D45EC", versions: "before 3.19" }]).refusal).toContain("versions");
+    expect(read([{ code: "0x801D45EC", name: 3 }]).refusal).toContain("name");
+    expect(read(Array.from({ length: 65 }, () => ({ code: "ucf-off" }))).refusal).toContain("64");
+    expect(read([]).slippi).toEqual([]);
+  });
+});

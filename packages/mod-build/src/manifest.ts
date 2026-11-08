@@ -1,6 +1,8 @@
 // The manifest fields a release records, read from a tag's manifest.json
 // before anything is built.
 
+import { readSlippiDecls, type SlippiCodeDecl } from "@vgskins/shared";
+
 // The tags a manifest's `tags` may name, as tgg-mod's `manifest::TAGS`.
 export const MOD_TAGS = [
   "competitive",
@@ -29,6 +31,8 @@ export type SourceManifest = {
   screenshots: string[];
   tags: string[];
   homepage: string | null;
+  // The Slippi gecko codes it reproduces, for the registry's Slippi mapping.
+  slippi: SlippiCodeDecl[];
   // Why the release fails without a build, or null when it can be built.
   refusal: string | null;
 };
@@ -52,6 +56,7 @@ export function parseManifest(text: string): { manifest: SourceManifest } | { er
   const dependsOk =
     isObject(depends) && Object.values(depends).every((range) => typeof range === "string");
   const listing = readListingFields(json);
+  const slippi = readSlippiDecls(json.slippi);
   return {
     manifest: {
       id,
@@ -62,13 +67,14 @@ export function parseManifest(text: string): { manifest: SourceManifest } | { er
       screenshots: listing.screenshots,
       tags: listing.tags,
       homepage: listing.homepage,
+      slippi: "decls" in slippi ? slippi.decls : [],
       // The game refuses the first two too; tgg refuses the listing's.
       refusal:
         "netplay" in json
           ? "manifest.json has a netplay field; remove it, the game works out what counts"
           : !dependsOk
             ? "manifest.json's depends has to map mod ids to version ranges"
-            : listing.refusal,
+            : (listing.refusal ?? ("error" in slippi ? slippi.error : null)),
     },
   };
 }

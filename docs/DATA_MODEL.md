@@ -543,6 +543,19 @@ textures.gg), the author's name otherwise, and `official`, which admins set
 `codeMods.downloadCount` counts downloads of its packages from
 `/api/registry/packages/`, and is the store's install count.
 
+A release's `slippi` is read with its listing: the manifest's `slippi` field,
+the Slippi gecko codes the mod reproduces, each `{code, name, versions}` (an
+address such as `0x801D45EC` or a Game Start fact, `frozen-stadium` or
+`ucf-off`, and the Slippi versions it holds for, a semver requirement). A
+malformed field fails the release. `GET /api/registry/slippi` serves the
+Slippi mapping replay players resolve a Slippi replay's mods with (core
+docs/mod-profiles.md): each code the newest approved release of a listed mod
+declares, with that mod's id and `>=` the oldest release of the newest run
+that declares it, after the entries for what the game does itself (the
+built-in UCF); and the codes that don't change gameplay. Those two lists live in
+`packages/shared/src/slippi-mapping.json`, each entry with why, and change by
+pull request.
+
 A set (`codeModSets`) is a named, curated list of code mods a player installs
 with one button, such as Competitive or Replays, served at
 `GET /api/registry/sets`. `codeModSetMods` lists its mods by id (`codeMods.slug`),

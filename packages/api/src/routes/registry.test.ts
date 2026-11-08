@@ -481,3 +481,92 @@ describe("mods", () => {
     expect(await installs()).toBe(before + 1);
   });
 });
+
+describe("slippi", () => {
+  type Mapping = {
+    format: number;
+    snapshot: string;
+    codes: { code: string; versions: string; id?: string; range?: string; game?: object }[];
+    ignore: { code: string; name: string; versions: string }[];
+  };
+  async function mapping(): Promise<Mapping> {
+    const response = await get("/api/registry/slippi");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("public, max-age=60");
+    return response.json();
+  }
+  const declare = (release: string, slippi: { code: string; name: string; versions: string }[]) =>
+    db.update(codeModReleases).set({ slippi }).where(eq(codeModReleases.id, release));
+  const SPAWNS = { code: "0x8016E510", name: "Neutral Spawns", versions: "*" };
+
+  it("maps each code a mod's newest approved release declares, with the releases that do", async () => {
+    await addMod("tgg.spawns", [
+      { version: "0.1.0", status: "approved", layout: LINUX },
+      { version: "0.1.1", status: "approved", layout: LINUX },
+      { version: "0.1.10", status: "approved", layout: LINUX },
+      { version: "0.2.0", status: "pending", layout: LINUX },
+    ]);
+    await db.update(codeMods).set({ official: true }).where(eq(codeMods.id, "tgg.spawns"));
+    await declare("tgg.spawns@0.1.1", [SPAWNS]);
+    await declare("tgg.spawns@0.1.10", [
+      SPAWNS,
+      { code: "frozen-stadium", name: "", versions: "<3.18" },
+    ]);
+    await declare("tgg.spawns@0.2.0", [{ code: "0x80000000", name: "", versions: "*" }]);
+    // Another mod claiming the same code comes after the official one, and a
+    // deleted mod's codes aren't mapped.
+    await addMod("me.spawns", [{ version: "1.0.0", status: "approved", layout: LINUX }]);
+    await declare("me.spawns@1.0.0", [SPAWNS]);
+    await addMod("me.deleted", [{ version: "1.0.0", status: "approved", layout: LINUX }]);
+    await declare("me.deleted@1.0.0", [{ code: "0x80000004", name: "", versions: "*" }]);
+    await db.update(codeMods).set({ deletedAt: NOW }).where(eq(codeMods.id, "me.deleted"));
+
+    const { format, snapshot, codes, ignore } = await mapping();
+    expect(format).toBe(1);
+    expect(snapshot).toMatch(/^[0-9a-f]{32}$/);
+    const declared = codes.filter((entry) => entry.id);
+    expect(declared).toEqual([
+      { ...SPAWNS, id: "tgg.spawns", range: ">=0.1.1" },
+      { ...SPAWNS, id: "me.spawns", range: ">=1.0.0" },
+      { code: "frozen-stadium", name: "", versions: "<3.18", id: "tgg.spawns", range: ">=0.1.10" },
+    ]);
+    // What the game does itself comes first.
+    expect(codes[0]).toEqual({
+      code: "ucf-off",
+      name: "UCF off",
+      versions: "*",
+      game: { "tgg.ucf": false },
+    });
+    expect(codes.indexOf(declared[0])).toBeGreaterThan(0);
+    expect(ignore).toContainEqual(expect.objectContaining({ code: "0x801A4DE4", versions: "*" }));
+    expect(ignore.every((entry) => !("why" in entry))).toBe(true);
+  });
+
+  it("gives a mod's codes the built-in module states the mod implies", async () => {
+    await addMod("tgg.ucf-legacy", [{ version: "0.1.1", status: "approved", layout: LINUX }]);
+    await declare("tgg.ucf-legacy@0.1.1", [{ code: "0x800908F4", name: "UCF 0.8", versions: "*" }]);
+    const { codes } = await mapping();
+    expect(codes).toContainEqual({
+      code: "0x800908F4",
+      name: "UCF 0.8",
+      versions: "*",
+      id: "tgg.ucf-legacy",
+      range: ">=0.1.1",
+      game: { "tgg.ucf": false },
+    });
+  });
+
+  it("names a new state of the mapping with a new snapshot", async () => {
+    const before = (await mapping()).snapshot;
+    expect((await mapping()).snapshot).toBe(before);
+    await db
+      .update(codeModReleases)
+      .set({ status: "approved" })
+      .where(eq(codeModReleases.id, "tgg.spawns@0.2.0"));
+    const after = await mapping();
+    expect(after.snapshot).not.toBe(before);
+    expect(after.codes.filter((entry) => entry.id === "tgg.spawns")).toEqual([
+      { code: "0x80000000", name: "", versions: "*", id: "tgg.spawns", range: ">=0.2.0" },
+    ]);
+  });
+});

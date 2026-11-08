@@ -1,9 +1,11 @@
 // A release's store listing, read from its source once when it is recorded
 // (so review covers it) and kept in D1 and R2 for the registry's
 // /api/registry/mods routes: the README, this version's CHANGELOG.md section,
-// the manifest's tags and homepage, and its icon and screenshots.
+// the manifest's tags, homepage and Slippi codes, and its icon and
+// screenshots.
 
 import { codeModReleaseImages, codeModReleases, type Database } from "@vgskins/db";
+import type { SlippiCodeDecl } from "@vgskins/shared";
 import { eq } from "drizzle-orm";
 import type { SourceManifest } from "./manifest";
 import type { Commit } from "./source";
@@ -33,6 +35,7 @@ export type Listing = {
   changelog: string | null;
   tags: string[];
   homepage: string | null;
+  slippi: SlippiCodeDecl[];
   images: ListingImage[];
 };
 
@@ -94,6 +97,7 @@ export async function readListing(
       changelog: changelogFile === null ? null : changelogSection(changelogFile, manifest.version),
       tags: manifest.tags,
       homepage: manifest.homepage,
+      slippi: manifest.slippi,
       images,
     },
   };
@@ -119,6 +123,7 @@ export async function storeListing(
       changelog: listing.changelog,
       tags: listing.tags,
       homepage: listing.homepage,
+      slippi: listing.slippi,
       listedAt: new Date(),
     })
     .where(eq(codeModReleases.id, releaseId));
