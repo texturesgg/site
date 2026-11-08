@@ -544,6 +544,13 @@ export const codeModLayouts = sqliteTable("code_mod_layouts", {
   target: text("target").notNull(), // the target triple, e.g. "x86_64-linux-gnu"
   portVersion: text("port_version").notNull(), // the tgg-melee release the SDK came from
   active: integer("active", { mode: "boolean" }).default(true).notNull(),
+  // Who builds mods for it: the builder image (`image`, Linux and Windows,
+  // which it cross-compiles), or nobody yet (`none`: macOS, which needs
+  // Apple's linker and SDK). A `none` layout is still known to the catalog,
+  // which serves it the packages without a library.
+  builder: text("builder", { enum: ["image", "none"] })
+    .default("image")
+    .notNull(),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
 });
 
@@ -615,6 +622,36 @@ export const codeModReleaseDependencies = sqliteTable(
     primaryKey({ columns: [table.releaseId, table.dependency] }),
     index("code_mod_release_dependency_idx").on(table.dependency),
   ]
+);
+
+// A set: a named, curated list of code mods a player installs with one
+// button ("Competitive", "Replays"), edited by admins and served at
+// /api/registry/sets. Its version goes up whenever its list or a range
+// changes, so installers can tell an installed set is out of date.
+export const codeModSets = sqliteTable("code_mod_sets", {
+  // The set's id, such as `competitive`: lowercase letters, digits, `-`, `_`.
+  name: text("name").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").default("").notNull(),
+  version: integer("version").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+});
+
+// A mod in a set: its id (`codeMods.slug`) and the releases the set takes, as
+// a range in the game's `depends` syntax (1.2.3, 1.2, ^1.2, ~1.2, >=1.2, *).
+export const codeModSetMods = sqliteTable(
+  "code_mod_set_mods",
+  {
+    setName: text("set_name")
+      .notNull()
+      .references(() => codeModSets.name, { onDelete: "cascade" }),
+    mod: text("mod").notNull(),
+    range: text("range").notNull(),
+    // The order an admin listed the mods in.
+    position: integer("position").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.setName, table.mod] })]
 );
 
 // ============================================================================
