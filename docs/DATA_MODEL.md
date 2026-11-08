@@ -441,13 +441,20 @@ Cloudflare Artifacts repo `mod-<id>`.
 
 A release is one tag on that repo. A compiled mod library loads only into a port
 build with the same game layout id, so a release is built once per active row of
-`codeModLayouts`, against that layout's game SDK in the builder image (one
-tgg-melee release per layout). A release without a library (files and assets
+`codeModLayouts` the builder image builds (`builder` `image`), against that
+layout's game SDK in the image. Each tgg-melee release brings three layouts, one
+per target: Linux and Windows (cross-compiled with MinGW GCC) build in the
+image; macOS (`builder` `none`) needs Apple's linker and SDK, so nothing builds
+it yet, and it is known only so the catalog serves it the packages without a
+library. A release without a library (files and assets
 only) makes the same package for every layout, so it is built once, with a null
 `layoutId`, and serves them all. A new layout gets builds of existing releases
 without a new review, since review covers the source at `commitSha`. A retired
 layout (`active` false) gets no new builds, and its packages stay downloadable. Players fetch the builds for the
-layout id their port executable reports.
+layout id their port executable reports, through the registry's per-layout
+catalog (`GET /api/registry/catalog?layout=`): every approved release with a
+succeeded build for that layout, with packages served by SHA-256 at
+`/api/registry/packages/<sha256>.zip`.
 
 `canonicalHooks` holds the manifest's hooks under canonical names: `name` for an
 exported function and `file.c:name` for a static. The runtime treats both spellings
@@ -463,6 +470,15 @@ count, `costumes` counts unless the game finds its costumes change only looks,
 and `data` (menu and trophy files, assets) is free. Manifests don't declare it;
 a manifest with a `netplay` field fails its release. A release shows its
 builds' class.
+
+A set (`codeModSets`) is a named, curated list of code mods a player installs
+with one button, such as Competitive or Replays, served at
+`GET /api/registry/sets`. `codeModSetMods` lists its mods by id (`codeMods.slug`),
+each with the range of releases the set takes, in the manifest `depends` syntax.
+Admins write a set whole (`PUT /api/admin/code-mods/sets/:name`); its `version`
+goes up whenever its mods or ranges change, and installers compare it to tell an
+installed set is out of date. Sets have no delete, since a name recreated at a
+lower version would hide updates.
 
 ```
 codeModReleases: processing -> pending -> approved | rejected
