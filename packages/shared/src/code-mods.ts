@@ -31,3 +31,38 @@ export type CreateCodeMod = z.infer<typeof createCodeModSchema>;
  */
 export const CODE_MOD_NETPLAY_CLASSES = ["code", "files", "costumes", "data"] as const;
 export type CodeModNetplay = (typeof CODE_MOD_NETPLAY_CLASSES)[number];
+
+/**
+ * A version range in the game's `depends` syntax, as tgg-mod reads it: a
+ * version (`1.2.3` exactly, `1.2` any 1.2.x), `^1.2`, `~1.2`, `>=1.2`, or
+ * `*`. A pre-release or build suffix on the version is allowed and ignored.
+ */
+export const codeModRangeSchema = z
+  .string()
+  .max(64)
+  .regex(
+    /^(\*|(>=|\^|~)?\d+(\.\d+){0,2}([-+].*)?)$/,
+    "Use a version range: 1.2.3, 1.2, ^1.2, ~1.2, >=1.2 or *"
+  );
+
+/** A set's name, its id: lowercase letters, digits, `-` and `_`. */
+export const codeModSetNameSchema = z
+  .string()
+  .min(1, "A set name is required")
+  .max(64, "A set name is at most 64 characters")
+  .regex(/^[a-z0-9][a-z0-9_-]*$/, "Use lowercase letters, digits, '-' and '_'");
+
+/** A set as an admin writes it; the registry keeps its version. */
+export const putCodeModSetSchema = z.object({
+  title: z.string().trim().min(1, "A title is required").max(80),
+  description: z.string().trim().max(2000).default(""),
+  mods: z
+    .array(z.object({ id: codeModSlugSchema, range: codeModRangeSchema }))
+    .max(200)
+    .refine(
+      (mods) => new Set(mods.map((mod) => mod.id)).size === mods.length,
+      "A set lists each mod once"
+    ),
+});
+
+export type PutCodeModSet = z.infer<typeof putCodeModSetSchema>;
