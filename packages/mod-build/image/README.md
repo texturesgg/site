@@ -20,7 +20,7 @@ each target it was released for, the SHA-256 of that target's SDK archive
 ```json
 [
   {
-    "version": "0.1.0-rc.9",
+    "version": "0.1.0-rc.10",
     "sdks": {
       "x86_64-linux-gnu": "5a2d…",
       "x86_64-windows-gnu": "55e1…",
