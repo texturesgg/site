@@ -52,8 +52,8 @@ main() {
   echo "Installed tgg $version to $dir/tgg"
 
   case ":$PATH:" in
-    *":$dir:"*) echo "Run tgg login to sign in." ;;
-    *) echo "$dir isn't on your PATH yet; add it in your shell's config, then run tgg login." ;;
+    *":$dir:"*) echo "Next: tgg port install, then tgg port run." ;;
+    *) echo "$dir isn't on your PATH yet; add it in your shell's config, then run tgg port install." ;;
   esac
 }
 
