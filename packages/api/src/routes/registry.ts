@@ -302,7 +302,7 @@ const app = new Hono<HonoEnv>()
       tags: ["Registry"],
       summary: "Get the mod catalog for a game layout",
       description:
-        "tgg-mod's catalog (schema 1) for `layout`, a port's game layout id: every approved release with a successful build for it, newest first per mod. Each entry is the packed manifest with `netplay` and `package: {url, sha256, size}`; package URLs are content-addressed and immutable. `ids` is every mod id with an approved release, built for this layout or not. `snapshot` names this state of the catalog. An unknown layout has no mods.",
+        "tgg-mod's catalog (schema 1) for `layout`, a port's game layout id: every approved release with a successful build for it, newest first per mod. Each entry is the packed manifest with `netplay`, `publisher: {name, official}` (as the mods list gives it) and `package: {url, sha256, size}`; package URLs are content-addressed and immutable. `ids` is every mod id with an approved release, built for this layout or not. `snapshot` names this state of the catalog. An unknown layout has no mods.",
       parameters: [{ name: "layout", in: "query", required: true, schema: { type: "string" } }],
       responses: {
         200: { description: "The catalog" },
@@ -330,10 +330,14 @@ const app = new Hono<HonoEnv>()
               size: codeModBuilds.packageSize,
               signature: codeModBuilds.signature,
               netplay: codeModBuilds.netplay,
+              author: users.name,
+              publisherName: codeMods.publisherName,
+              official: codeMods.official,
             })
             .from(codeModBuilds)
             .innerJoin(codeModReleases, eq(codeModReleases.id, codeModBuilds.releaseId))
             .innerJoin(codeMods, eq(codeMods.id, codeModReleases.codeModId))
+            .innerJoin(users, eq(users.id, codeMods.userId))
             .where(
               and(
                 or(eq(codeModBuilds.layoutId, layout), isNull(codeModBuilds.layoutId)),
@@ -386,6 +390,7 @@ const app = new Hono<HonoEnv>()
       const mods = entries.map((row) => ({
         ...row.manifest,
         netplay: row.netplay,
+        publisher: { name: row.publisherName ?? row.author, official: row.official },
         package: {
           url: packageUrl(origin, row.sha256),
           sha256: row.sha256,
@@ -393,14 +398,16 @@ const app = new Hono<HonoEnv>()
           ...(row.signature ? { signature: row.signature } : {}),
         },
       }));
-      // The packages' hashes identify everything an entry says, so the
-      // snapshot is a hash of which packages are listed, by layout, and of
-      // which mods the registry has.
+      // The snapshot is a hash of which packages are listed, by layout, who
+      // publishes each, and which mods the registry has.
       const snapshot = (
         await sha256Hex(
           [
             `layout ${layout}`,
-            ...entries.map((row) => `${row.id} ${row.version} ${row.sha256}`),
+            ...entries.map(
+              (row) =>
+                `${row.id} ${row.version} ${row.sha256} ${row.publisherName ?? row.author} ${row.official}`
+            ),
             `ids ${ids.join(" ")}`,
           ].join("\n")
         )
