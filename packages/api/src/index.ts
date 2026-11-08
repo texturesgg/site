@@ -20,6 +20,7 @@ import filesRoutes from "./routes/files";
 import flagsRoutes from "./routes/flags";
 import gamesRoutes from "./routes/games";
 import packsRoutes from "./routes/packs";
+import registryRoutes from "./routes/registry";
 import reportsRoutes from "./routes/reports";
 import sitemapRoutes from "./routes/sitemap";
 import statsRoutes from "./routes/stats";
@@ -56,6 +57,7 @@ const app = new Hono<HonoEnv>()
   .route("/api/sitemap", sitemapRoutes)
   .route("/api/admin", adminRoutes)
   .route("/api/code-mods", codeModsRoutes)
+  .route("/api/registry", registryRoutes)
   .route("/api/editor", editorRoutes);
 
 // The OpenAPI document and its reference page. Both answer 404 in production;
