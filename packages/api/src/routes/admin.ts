@@ -2,6 +2,8 @@ import { zValidator } from "@hono/zod-validator";
 import {
   accounts,
   codeModReleases,
+  codeModSetMods,
+  codeModSets,
   codeMods,
   comments,
   createDb,
@@ -18,7 +20,12 @@ import {
   votes,
 } from "@vgskins/db";
 import { logger } from "@vgskins/logger";
-import { REPORT_STATUSES, USER_ROLES } from "@vgskins/shared";
+import {
+  codeModSetNameSchema,
+  putCodeModSetSchema,
+  REPORT_STATUSES,
+  USER_ROLES,
+} from "@vgskins/shared";
 import { and, asc, count, desc, eq, gte, inArray, isNull, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -431,6 +438,89 @@ const app = new Hono<HonoEnv>()
 
       logger.info({ releaseId }, "Code mod release rejected");
       return c.json({ success: true, status: "rejected" }, 200);
+    }
+  )
+  // Create or replace a mod set (/api/registry/sets). Its version goes up when
+  // its list or a range changes. There is no delete: installers compare set
+  // versions, so a name must never start over at a lower one.
+  .put(
+    "/code-mods/sets/:name",
+    requireAuth,
+    requireAdmin,
+    requireCodeMods,
+    zValidator("param", z.object({ name: codeModSetNameSchema }), validationHook),
+    zValidator("json", putCodeModSetSchema, validationHook),
+    async (c) => {
+      const user = c.get("user");
+      const db = createDb(c.env.DB);
+      const { name } = c.req.valid("param");
+      const input = c.req.valid("json");
+
+      const ids = input.mods.map((mod) => mod.id);
+      const found = ids.length
+        ? await db
+            .select({ slug: codeMods.slug })
+            .from(codeMods)
+            .where(and(inArray(codeMods.slug, ids), isNull(codeMods.deletedAt)))
+        : [];
+      const missing = ids.filter((id) => !found.some((mod) => mod.slug === id));
+      if (missing.length) {
+        return c.json({ error: `Not in the registry: ${missing.join(", ")}` }, 400);
+      }
+
+      const [[existing], listed] = await Promise.all([
+        db.select().from(codeModSets).where(eq(codeModSets.name, name)),
+        db.select().from(codeModSetMods).where(eq(codeModSetMods.setName, name)),
+      ]);
+      // Order alone isn't a change: installers read a set as mods and ranges.
+      const key = (mods: { id: string; range: string }[]) =>
+        mods
+          .map((mod) => `${mod.id} ${mod.range}`)
+          .sort()
+          .join("\n");
+      const changed =
+        key(input.mods) !== key(listed.map((mod) => ({ id: mod.mod, range: mod.range })));
+      const version = existing ? existing.version + (changed ? 1 : 0) : 1;
+
+      const now = new Date();
+      const write = db
+        .insert(codeModSets)
+        .values({
+          name,
+          title: input.title,
+          description: input.description,
+          version,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: codeModSets.name,
+          set: { title: input.title, description: input.description, version, updatedAt: now },
+        });
+      const clear = db.delete(codeModSetMods).where(eq(codeModSetMods.setName, name));
+      const rows = input.mods.map((mod, position) => ({
+        setName: name,
+        mod: mod.id,
+        range: mod.range,
+        position,
+      }));
+      if (rows.length) {
+        await db.batch([write, clear, db.insert(codeModSetMods).values(rows)]);
+      } else {
+        await db.batch([write, clear]);
+      }
+
+      logger.info({ userId: user.id, set: name, version }, "Mod set saved");
+      return c.json(
+        {
+          name,
+          title: input.title,
+          description: input.description,
+          version,
+          mods: input.mods,
+        },
+        existing ? 200 : 201
+      );
     }
   )
   // List users with their auth providers (moderator + admin)
