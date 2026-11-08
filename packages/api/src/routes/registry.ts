@@ -13,7 +13,7 @@ import {
   type Database,
 } from "@vgskins/db";
 import { logger } from "@vgskins/logger";
-import { byVersionDescending, codeModSlugSchema } from "@vgskins/shared";
+import { buildSlippiMapping, byVersionDescending, codeModSlugSchema } from "@vgskins/shared";
 import { and, asc, count, desc, eq, exists, inArray, isNull, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { describeRoute } from "hono-openapi";
@@ -28,6 +28,8 @@ import type { HonoEnv } from "../types";
 
 // The catalog format tgg-mod reads (its `catalog::SCHEMA`).
 const CATALOG_SCHEMA = 1;
+// The Slippi mapping's format (core docs/mod-profiles.md).
+const SLIPPI_FORMAT = 1;
 // Sets and the catalog change when an admin edits a set or a release is
 // approved or built; a minute's staleness is fine for both.
 const LISTING_CACHE = "public, max-age=60";
@@ -405,6 +407,48 @@ const app = new Hono<HonoEnv>()
       ).slice(0, 32);
       c.header("Cache-Control", LISTING_CACHE);
       return c.json({ schema: CATALOG_SCHEMA, snapshot, mods, ids }, 200);
+    }
+  )
+
+  // The Slippi mapping: which mods reproduce the gecko codes a Slippi replay ran
+  .get(
+    "/slippi",
+    describeRoute({
+      tags: ["Registry"],
+      summary: "Get the Slippi mapping",
+      description:
+        "Which mods reproduce the gecko codes a Slippi replay's console ran (core docs/mod-profiles.md): `{format: 1, snapshot, codes, ignore}`. `codes` are `{code, name, versions, id?, range?, game?}`: a code (`0x` and eight upper-case hex digits, or a Game Start fact, `frozen-stadium` or `ucf-off`), the Slippi versions the entry holds for (a semver requirement such as `*` or `<3.19`), and the mod (`id`) and range of its releases that reproduce it, or `game`, the built-in module states it implies. The first entry for a code whose `versions` match a replay's Slippi version wins: what the game does itself comes first, then what each mod's newest approved release declares in its manifest's `slippi` field. `ignore` are `{code, name, versions}`, codes that don't change gameplay. `snapshot` names this state of the mapping.",
+      responses: { 200: { description: "The mapping" } },
+    }),
+    async (c) => {
+      const db = createDb(c.env.DB);
+      const rows = await db
+        .select({
+          id: codeMods.slug,
+          official: codeMods.official,
+          version: codeModReleases.version,
+          slippi: codeModReleases.slippi,
+        })
+        .from(codeModReleases)
+        .innerJoin(codeMods, eq(codeMods.id, codeModReleases.codeModId))
+        .where(and(eq(codeModReleases.status, "approved"), isNull(codeMods.deletedAt)));
+      const mods = new Map<
+        string,
+        {
+          id: string;
+          official: boolean;
+          releases: { version: string; slippi: (typeof rows)[number]["slippi"] }[];
+        }
+      >();
+      for (const row of rows) {
+        const mod = mods.get(row.id) ?? { id: row.id, official: row.official, releases: [] };
+        mod.releases.push({ version: row.version, slippi: row.slippi });
+        mods.set(row.id, mod);
+      }
+      const { codes, ignore } = buildSlippiMapping([...mods.values()], byVersionDescending);
+      const snapshot = (await sha256Hex(JSON.stringify({ codes, ignore }))).slice(0, 32);
+      c.header("Cache-Control", LISTING_CACHE);
+      return c.json({ format: SLIPPI_FORMAT, snapshot, codes, ignore }, 200);
     }
   )
 

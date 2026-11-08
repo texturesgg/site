@@ -1,0 +1,1967 @@
+{
+  "game": [
+    {
+      "code": "ucf-off",
+      "name": "UCF off",
+      "versions": "*",
+      "game": {
+        "tgg.ucf": false
+      },
+      "why": "Game Start: every player's dashback and shield-drop fix off, so the built-in UCF runs off"
+    },
+    {
+      "code": "0x8006B460",
+      "name": "UCF 0.84: UCF Pad Buffer + 1.0 Cardinals",
+      "versions": "*",
+      "game": {
+        "tgg.ucf": true
+      },
+      "why": "External/UCF 0.84/UCF: UCF 0.84, which the port has built in"
+    },
+    {
+      "code": "0x8008E54C",
+      "name": "UCF 0.84: UCF SDI",
+      "versions": "*",
+      "game": {
+        "tgg.ucf": true
+      },
+      "why": "External/UCF 0.84/UCF: UCF 0.84, which the port has built in"
+    },
+    {
+      "code": "0x80093294",
+      "name": "UCF 0.84: UCF Shield SDI",
+      "versions": "*",
+      "game": {
+        "tgg.ucf": true
+      },
+      "why": "External/UCF 0.84/UCF: UCF 0.84, which the port has built in"
+    },
+    {
+      "code": "0x8009A0B8",
+      "name": "UCF 0.84: UCF Shield Drop Extended",
+      "versions": "*",
+      "game": {
+        "tgg.ucf": true
+      },
+      "why": "External/UCF 0.84/UCF: UCF 0.84, which the port has built in"
+    },
+    {
+      "code": "0x800D65EC",
+      "name": "UCF 0.84: UCF DBOOC SquatRv Fix",
+      "versions": "*",
+      "game": {
+        "tgg.ucf": true
+      },
+      "why": "External/UCF 0.84/UCF: UCF 0.84, which the port has built in"
+    }
+  ],
+  "modGame": {
+    "tgg.ucf-legacy": {
+      "tgg.ucf": false
+    }
+  },
+  "ignore": [
+    {
+      "code": "0x800055EC",
+      "name": "Required: Slippi Online: Online/Static/MultiplyRWithF",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x800055F0",
+      "name": "Slippi Recording: Common/EXITransferBuffer/EXITransferBuffer",
+      "versions": "*",
+      "why": "recording"
+    },
+    {
+      "code": "0x800055F4",
+      "name": "Required: Slippi Online: Online/Static/IntToFloat",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x800055F8",
+      "name": "Required: Slippi Recording: Common/GetIsFollower",
+      "versions": "*",
+      "why": "recording"
+    },
+    {
+      "code": "0x800055FC",
+      "name": "Slippi Recording: Common/Gecko/ProcessCodeList",
+      "versions": "*",
+      "why": "recording"
+    },
+    {
+      "code": "0x80005600",
+      "name": "Slippi Recording: Common/ConsoleOverrides/SetGeckoStart",
+      "versions": "*",
+      "why": "recording"
+    },
+    {
+      "code": "0x80005604",
+      "name": "Required: Slippi Recording: Recording/ShouldRecord",
+      "versions": "*",
+      "why": "recording"
+    },
+    {
+      "code": "0x80005608",
+      "name": "Required: Slippi Online: Online/Static/SaveState",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x8000560C",
+      "name": "Required: Slippi Online: Online/Static/LoadState",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80005610",
+      "name": "Required: Slippi Online: Online/Static/LoadMatchState",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80005618",
+      "name": "Required: Slippi Online: Online/Static/UserDisplayFunctions",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x8000561C",
+      "name": "Recommended: Apply Delay to all In-Game Scenes: Common/GetCommonMinorID/GetCommonMinorID",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x8000568C",
+      "name": "Required: Slippi Online: Online/Static/StaticData",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80005690",
+      "name": "Required: Slippi Online: Online/Static/CheckAltStageName",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80005694",
+      "name": "Required: Slippi Online: Online/Static/AdjustNullCharID",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80005698",
+      "name": "Required: Slippi Online: Online/Static/GetCSSIconNum",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8000569C",
+      "name": "Required: Slippi Online: Common/CompatibilityHooks/GetFighterNum",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x800056A0",
+      "name": "Required: Slippi Online: Common/CompatibilityHooks/GetSSMIndex",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x800056A4",
+      "name": "Required: Slippi Online: Online/Static/LoadPremadeText",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x800056A8",
+      "name": "Required: Slippi Online: Common/CompatibilityHooks/RequestSSMLoad",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x800056AC",
+      "name": "Online/Static/ChatMessages.asm",
+      "versions": "*",
+      "why": "netplay: chat messages"
+    },
+    {
+      "code": "0x800056B0",
+      "name": "Required: Slippi Online: Online/Static/GetTeamCostumeIndex",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x800056B4",
+      "name": "Required: Slippi Online: Online/Static/SubtextFunctions",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x800056B8",
+      "name": "Required: Slippi Online: Online/Static/GetCSSIconData",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x800056BC",
+      "name": "Required: Slippi Online: Online/Static/CSSUpdateCSP",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x800158D8",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x800158F0",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80015914",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80015984",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x800159B4",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80015B94",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80015BC0",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80015C00",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80015CD4",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80015D9C",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80015E18",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80015F50",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80015F88",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80016138",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x800163FC",
+      "name": "Online/Core/EXIFileLoad/GetFileSize",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x800166B8",
+      "name": "Online/Core/EXIFileLoad/TransferFile",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x800186A8",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80018D80",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80019260",
+      "name": "Online/Core/Hacks/ForceNoDiskCrash",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80019608",
+      "name": "Online/Core/Hacks/PreventPadAlarmDuringRollback",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80019614",
+      "name": "Online/Core/ForceInputRefetchOnAdvance",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x8001985C",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80019860",
+      "name": "External/Lag Reduction/Polling Drift/Branch",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x8001CEAC",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x800236EC",
+      "name": "Online/Core/Music/Stop",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x80023FFC",
+      "name": "Online/Core/PreventFileAlarms/MuteMusic",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x800249F0",
+      "name": "Online/Core/Music/VolumeChange",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x8002CB34",
+      "name": "Required: General Codes",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80030C7C",
+      "name": "External/Widescreen/Adjust Offscreen Scissor/Left Camera Bound",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x80030C88",
+      "name": "External/Widescreen/Adjust Offscreen Scissor/Right Camera Bound",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x80030E44",
+      "name": "External/Disable Screen Shake/Disable Screen Shake",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x800355B4",
+      "name": "Online/Optional/IndicateLocalPlayer/ForceLocalPlayerTag",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x800679BC",
+      "name": "Recording/ExtendPlayerBlock",
+      "versions": "*",
+      "why": "recording"
+    },
+    {
+      "code": "0x80068EEC",
+      "name": "Common/Initialize Player Data/Init Player Data.asm",
+      "versions": "*",
+      "why": "port: zeroes new fighter data; the port plays replays frame for frame without it"
+    },
+    {
+      "code": "0x8006B0DC",
+      "name": "Playback/Core/RestoreGameFrame",
+      "versions": "*",
+      "why": "recording"
+    },
+    {
+      "code": "0x8006B0E0",
+      "name": "Recording/SendGamePreFrame",
+      "versions": "*",
+      "why": "recording"
+    },
+    {
+      "code": "0x8006C324",
+      "name": "Recording/GetLCancelStatus/ResetLCancelStatus",
+      "versions": "*",
+      "why": "recording"
+    },
+    {
+      "code": "0x8006DA34",
+      "name": "Recording/SendGamePostFrame",
+      "versions": "*",
+      "why": "recording"
+    },
+    {
+      "code": "0x80086B24",
+      "name": "External/Widescreen/Adjust Offscreen Scissor/Draw High Poly Models",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x80088224",
+      "name": "Online/Core/Sound/NoDestroyVoice",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x800882B0",
+      "name": "Online/Core/Sound/NoDestroyVoice2",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x8008D690",
+      "name": "External/FlashRedFailedLCancel/TriggerColor",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x8008D698",
+      "name": "Recording/GetLCancelStatus/GetLCancelStatus",
+      "versions": "*",
+      "why": "recording"
+    },
+    {
+      "code": "0x800998A4",
+      "name": "External/UCF 0.84/UCF/UCF Shield Drop (UCF 0.8: Logic/UCF SD)",
+      "versions": "*",
+      "why": "ucf: in UCF 0.8 and 0.84 alike; which UCF ran is told by 0x8006B460 (0.84, built in) and 0x800908F4 (0.8, tgg.ucf-legacy)"
+    },
+    {
+      "code": "0x8009E090",
+      "name": "Common/FastForward/DynamicsFix",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x800C0148",
+      "name": "External/FlashRedFailedLCancel/ChangeColor",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x800C9A44",
+      "name": "External/UCF 0.84/UCF/UCF Dashback (UCF 0.8: Logic/UCF DB)",
+      "versions": "*",
+      "why": "ucf: in UCF 0.8 and 0.84 alike; which UCF ran is told by 0x8006B460 (0.84, built in) and 0x800908F4 (0.8, tgg.ucf-legacy)"
+    },
+    {
+      "code": "0x8013C388",
+      "name": "Common/CostumeBoundCheck/PuffCostume",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8015D94C",
+      "name": "General",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8015D968",
+      "name": "General",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8015D984",
+      "name": "General",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8015D9D8",
+      "name": "General",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8015ECEC",
+      "name": "Required: General Codes",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8015EDDC",
+      "name": "General",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8015EE14",
+      "name": "General",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8015EE4C",
+      "name": "General",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8015EE98",
+      "name": "General",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x801644E8",
+      "name": "General",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80164658",
+      "name": "General",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x801648F4",
+      "name": "General",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80164B14",
+      "name": "General",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80167F40",
+      "name": "External/PreventPauseSoftLocks/ForcePauseOn",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x8016B480",
+      "name": "General",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8016BE28",
+      "name": "Online/Core/Teams/PreventDeadStranding",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x8016CD08",
+      "name": "Online/Core/PreventPauseStranding",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x8016D26C",
+      "name": "Online/Core/PauseCounter",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x8016D294",
+      "name": "Common/IncrementFrameIndex",
+      "versions": "*",
+      "why": "recording"
+    },
+    {
+      "code": "0x8016D310",
+      "name": "Online/Core/HandleLRAS",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x8016D884",
+      "name": "Recording/SendGameEnd",
+      "versions": "*",
+      "why": "recording"
+    },
+    {
+      "code": "0x8016DED4",
+      "name": "Common/CostumeBoundCheck/main",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8016E748",
+      "name": "Online/Core/InitOnlinePlay",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x8016E74C",
+      "name": "Recording/SendGameInfo",
+      "versions": "*",
+      "why": "recording"
+    },
+    {
+      "code": "0x8016E904",
+      "name": "Online/Core/InitPause",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x8016E9AC",
+      "name": "External/Force2PCenterHud/Force2PCenterHud",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x8016E9B4",
+      "name": "Playback/Show Player Names/InitInGame",
+      "versions": "*",
+      "why": "recording"
+    },
+    {
+      "code": "0x8016E9E8",
+      "name": "Online/Core/ReportNoContestLRAS",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x8016EA30",
+      "name": "Common/Winners Names are Gold on CSS/Remember Who LRA Started",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8016EBA8",
+      "name": "Required: General Codes",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8016EBAC",
+      "name": "Common/CSS KO Stars/Asign KO Stars Upon Exiting Dairantou",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8017229C",
+      "name": "General",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x801737B0",
+      "name": "General",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8017900C",
+      "name": "Online/Menus/ResultsScreen/GrayPanelsForRemotePlayers",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80179378",
+      "name": "Online/Menus/ResultsScreen/ControlAllPanels",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8017A890",
+      "name": "Online/Menus/ResultsScreen/MoveScaleTable",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80184ADC",
+      "name": "Online/Menus/VSScreen/HideStageText/HideLetterJObjs",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80184B1C",
+      "name": "Online/Menus/VSScreen/HideStageText/SkipStageNumberShow",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80184DE4",
+      "name": "Online/Menus/VSScreen/PlayOpponentCharAnnouncer",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80185050",
+      "name": "Online/Menus/VSScreen/HideStageDisplay/PreventEarlyR3Overwrite",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80185060",
+      "name": "Online/Menus/VSScreen/HideStageDisplay/HideAllJObjs",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80186EC4",
+      "name": "Online/Menus/VSScreen/InitVsSplash",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x801A3F24",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x801A3F2C",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x801A3F9C",
+      "name": "Online/Menus/CSS/IncreaseTextHeap",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x801A40C8",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x801A43D8",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x801A43E0",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x801A43EC",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x801A4444",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x801A4484",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x801A448C",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x801A4560",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x801A4568",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x801A45A8",
+      "name": "Required: General Codes",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x801A45B8",
+      "name": "Required: Slippi Online: Online/Slippi Online Scene/main",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x801A45BC",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x801A4C24",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x801A4C98",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x801A4CB4",
+      "name": "Common/AllocSceneBuffer",
+      "versions": "*",
+      "why": "recording"
+    },
+    {
+      "code": "0x801A4D0C",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x801A4D14",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x801A4DA0",
+      "name": "External/Lag Reduction/Polling Drift/Injection",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x801A4DB4",
+      "name": "External/Lag Reduction/Polling Drift/Nop",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x801A4DE4",
+      "name": "Online/Core/StartEngineLoop",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x801A5014",
+      "name": "Online/Core/LoopEngineForRollback",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x801A5018",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x801A50A0",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x801A50AC",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x801A5B14",
+      "name": "External/Salty Runback/Salty Runback",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x801AF6F4",
+      "name": "External/Skip Memcard Prompt/Skip Memcard Prompt",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x801B0A14",
+      "name": "General",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x801B1040",
+      "name": "Online/Menus/TitleMenu/OnMenuPrep",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x801B1574",
+      "name": "Online/Menus/SSS/SceneDecideAdditions.s",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x801B1630",
+      "name": "Online/Menus/InGame/SkipResultsScreen",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x801B3650",
+      "name": "Online/Menus/VSScreen/PreventP2Color",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x801B3668",
+      "name": "Online/Menus/VSScreen/AllowP2ColorDuplicate",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x801BFA20",
+      "name": "External/Boot to CSS/Boot To CSS",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x801C154C",
+      "name": "Common/Initialize Stage Data/Init Stage Data.asm",
+      "versions": "*",
+      "why": "port: zeroes new stage data; the port plays replays frame for frame without it"
+    },
+    {
+      "code": "0x801C26B0",
+      "name": "Required: General Codes",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x801CBB90",
+      "name": "Recommended: Lagless FoD",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x801CBE9C",
+      "name": "Recommended: Lagless FoD",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x801CBEF0",
+      "name": "Recommended: Lagless FoD",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x801CBF54",
+      "name": "Recommended: Lagless FoD",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x801CC8AC",
+      "name": "Recommended: Lagless FoD",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x801CC998",
+      "name": "Recording/Stages/SendFountainInfo",
+      "versions": "*",
+      "why": "recording"
+    },
+    {
+      "code": "0x801CCDCC",
+      "name": "Recommended: Lagless FoD",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x801CD250",
+      "name": "Recommended: Lagless FoD",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x801D2D38",
+      "name": "Online/Core/Hacks/Stadium/ChangeJumbotronText",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x801D4578",
+      "name": "Online/Core/PreventFileAlarms/FreezeStadium",
+      "versions": ">=3.18",
+      "why": "inferred: froze Stadium until 2025-05 and did nothing after, within 3.18; the replay's stage events tell which"
+    },
+    {
+      "code": "0x801D457C",
+      "name": "Frozen Stadium toggle (External/Frozen PS/Toggle/FrzPkmToggleEnable.asm, Online/Core/PreventFileAlarms/FreezeStadium.asm)",
+      "versions": "*",
+      "why": "inferred: the toggle's state is the Game Start frozen flag (the frozen-stadium fact)"
+    },
+    {
+      "code": "0x801D4FD8",
+      "name": "Recording/Stages/SendStadiumInfo",
+      "versions": "*",
+      "why": "recording"
+    },
+    {
+      "code": "0x80211BF8",
+      "name": "Recording/Stages/SendDreamlandInfo",
+      "versions": "*",
+      "why": "recording"
+    },
+    {
+      "code": "0x80218D68",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x8021AAE4",
+      "name": "FD background transformations (04: Required: General Codes nop, 3.18 and earlier; C2: Online/Core/Hacks/FD/DesyncProofBGTransformations.asm, 3.19)",
+      "versions": "*",
+      "why": "rng: changes only the RNG draws of Final Destination's background, and playback sets the recorded seed every frame"
+    },
+    {
+      "code": "0x80228AF8",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80228BFC",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80228C10",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x802299C4",
+      "name": "Online/Menus/TitleMenu/ShowHidden1pOption",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x802299F0",
+      "name": "Online/Menus/TitleMenu/HandleOnlineLockedOptions",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8022B044",
+      "name": "Online/Menus/TitleMenu/AllowSwapToSameSubmenu",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8022D638",
+      "name": "Required: General Codes",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8022D88C",
+      "name": "Online/Menus/TitleMenu/OnlineModeOptionSelected",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8022E93C",
+      "name": "Online/Menus/TitleMenu/OnMenuLoad",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8022F958",
+      "name": "External/FixedDamageRatio/SkipInputHandling.asm",
+      "versions": "*",
+      "why": "menus: locks the damage ratio option; the replay records the ratio"
+    },
+    {
+      "code": "0x8023B3AC",
+      "name": "Online/Menus/CSS/TextEntryScreen/HideDescriptionText",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8023B3D0",
+      "name": "Online/Menus/CSS/TextEntryScreen/HandleDescriptionText",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8023C320",
+      "name": "Online/Menus/CSS/TextEntryScreen/Allow8CharactersJapanese",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8023C33C",
+      "name": "Online/Menus/CSS/TextEntryScreen/OnEnterJpText",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8023C588",
+      "name": "Online/Menus/CSS/TextEntryScreen/NameEntryThinkOneShot",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8023C6C0",
+      "name": "Online/Menus/CSS/TextEntryScreen/HandleJpSpace",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8023C710",
+      "name": "Online/Menus/CSS/TextEntryScreen/Allow8Characters",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8023C72C",
+      "name": "Online/Menus/CSS/TextEntryScreen/OnEnterText",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8023C81C",
+      "name": "Online/Menus/CSS/TextEntryScreen/OnErasePress",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8023C928",
+      "name": "Online/Menus/CSS/TextEntryScreen/OnRandomPress",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8023CA50",
+      "name": "Online/Menus/CSS/TextEntryScreen/OnConfirmButtonAPress",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8023CC14",
+      "name": "Online/Menus/CSS/TextEntryScreen/OnConfirmButtonHandler",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8023CCA4",
+      "name": "Online/Menus/CSS/TextEntryScreen/CheckTriggersAndZ",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8023CCBC",
+      "name": "Online/Menus/CSS/TextEntryScreen/OnLPress",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8023CCE0",
+      "name": "Online/Menus/CSS/TextEntryScreen/OnRPress",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8023CD74",
+      "name": "Online/Menus/CSS/TextEntryScreen/OnBPressAutoComplete",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8023CF80",
+      "name": "Online/Menus/CSS/TextEntryScreen/HandleAutocompleteText",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8023CF9C",
+      "name": "Online/Menus/CSS/TextEntryScreen/Display8Characters",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8023E290",
+      "name": "Online/Menus/CSS/TextEntryScreen/AlwaysUseEnglishWhenDirect3",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8023E730",
+      "name": "Online/Menus/CSS/TextEntryScreen/AlwaysUseEnglishWhenDirect",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8023E924",
+      "name": "Online/Menus/CSS/TextEntryScreen/AlwaysUseEnglishWhenDirect2",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8023E994",
+      "name": "Online/Menus/CSS/TextEntryScreen/InitNameEntry",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8023E9C8",
+      "name": "Online/Menus/CSS/TextEntryScreen/KeepPreviousTag",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80259CC8",
+      "name": "Online/Menus/SSS/ExitSSSUponStageSelect",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80259E34",
+      "name": "Online/Menus/SSS/FrozenStadiumToggle/CheckForToggledOnStageName",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80259E90",
+      "name": "Online/Menus/SSS/FrozenStadiumToggle/CheckForFrozenOnStageName",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80259FAC",
+      "name": "Online/Menus/SSS/FrozenStadiumToggle/StoreNameId",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80259FB4",
+      "name": "Online/Menus/SSS/FrozenStadiumToggle/IncMaxNames",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8025A530",
+      "name": "External/Frozen All/Blink SSS/EditColor",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8025AC6C",
+      "name": "Online/Menus/SSS/FrozenStadiumToggle/StageSelectTextProc",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8025B718",
+      "name": "External/Frozen All/Blink SSS/SavePointer",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8025B8A4",
+      "name": "Online/Menus/SSS/DisableLRSTART",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8025B8BC",
+      "name": "External/LRAStart From SSS Goes to CSS/LRAStart From SSS Goes to CSS",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8025D22C",
+      "name": "External/UCF + Arduino Toggle UI/Disable KO Stars",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8025E070",
+      "name": "External/UCF + Arduino Toggle UI/UI/UCF Indicator - Show Text",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x8025E0E8",
+      "name": "External/UCF + Arduino Toggle UI/UI/UCF Indicator - Hide Text",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x802600A8",
+      "name": "Online/Menus/CSS/PreventColorChange",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80260310",
+      "name": "Online/Menus/CSS/FetchMatchInfo",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x802604E8",
+      "name": "External/UCF + Arduino Toggle UI/UI/Update Text",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x802605FC",
+      "name": "External/Unplugging Closes CSS Door/Unplugging Closes CSS Door",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80260B90",
+      "name": "Online/Menus/CSS/Teams/PreventColorResetRandomChar",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80260C28",
+      "name": "Online/Menus/CSS/Teams/PreventColorResetCharHover",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80260C88",
+      "name": "Online/Menus/CSS/Teams/PreventWrongCSPOnCharSelect",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80260E14",
+      "name": "Online/Menus/CSS/Teams/PreventColorResetLastChar",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80261A6C",
+      "name": "External/CSS Player Hands Default to HMN Button/Fix A Button Buffer When Exiting Name Entry",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80261B1C",
+      "name": "External/Closing CSS Door Preserves Nametag/On Window Close/Skip Nametag ID Reset",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x80261B30",
+      "name": "External/Closing CSS Door Preserves Nametag/On Window Close/Skip isUsingNametag Bool Reset",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x80261E5C",
+      "name": "Online/Menus/CSS/DisableNametagBox",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x80262004",
+      "name": "Online/Menus/CSS/PreventAPressCharUnselect",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x802620AC",
+      "name": "Online/Menus/CSS/PreventBPressCharUnselect",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80262478",
+      "name": "Online/Menus/CSS/Teams/AnimateCursorPort",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80262768",
+      "name": "Online/Menus/CSS/Teams/AnimateToken",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8026295C",
+      "name": "Online/Menus/CSS/Teams/AnimateToken",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80263258",
+      "name": "Online/Menus/CSS/HandleInputsOnCSS",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8026325C",
+      "name": "External/DPad Down at CSS for Random Stage/DPad Down at CSS for Random Stage",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80264110",
+      "name": "Online/Menus/CSS/SkipReturnToCssSound",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x80264118",
+      "name": "Online/Menus/CSS/SkipReturnToCssSound",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x802641B0",
+      "name": "General",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80264534",
+      "name": "Online/Menus/CSS/LoadCSSText",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80265220",
+      "name": "Common/Winners Names are Gold on CSS/Change Name Color",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x802652EC",
+      "name": "External/UCF + Arduino Toggle UI/UI/Create Text",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x802652F0",
+      "name": "Online/Menus/CSS/InitSheikSelector.s",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x802652F4",
+      "name": "Online/Menus/CSS/InitTeamToggleButton",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x802662D0",
+      "name": "External/UCF 0.8/Indicator/UCF Text",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x8026699C",
+      "name": "Online/Menus/CSS/SceneLoadCSS",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80266BC4",
+      "name": "Online/Menus/CSS/DisableLRSTART",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80266CE0",
+      "name": "External/Disable FoD During Doubles/Disable FoD During Doubles",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x802F666C",
+      "name": "Recommended: Apply Delay to all In-Game Scenes: Common/UseInGameDelay/InitializeInGameDelay",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x802F6690",
+      "name": "Common/UseInGameDelay (InitInGameDelay, older injection)",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x802F6694",
+      "name": "Online/Menus/InGame/InitInGame",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x802F7094",
+      "name": "Online/Core/CustomizeMessageLRAS",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x802F70C4",
+      "name": "Online/Core/LGLExceededGameEnd.asm",
+      "versions": "*",
+      "why": "match end: ends the game over the ledge-grab limit; the replay ends there too"
+    },
+    {
+      "code": "0x802FC9E4",
+      "name": "Online/Optional/ShowAllyIndicator/ShowAllyIndicator",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x802FCCD8",
+      "name": "External/Hide Nametag When Invisible/Hide Nametag When Invisible",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x802FCFC4",
+      "name": "External/Widescreen/Nametag Fixes/Adjust Nametag Background X Scale",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x802FD1EC",
+      "name": "Online/Optional/IndicateLocalPlayer/SetLocalPlayerTag",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x803044F0",
+      "name": "General",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x8030490C",
+      "name": "General",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x803219EC",
+      "name": "Recording/FlushFrameBuffer",
+      "versions": "*",
+      "why": "recording"
+    },
+    {
+      "code": "0x80321D70",
+      "name": "Online/Core/Hacks/PreventCharacterCrowdChants",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x8034DED8",
+      "name": "Online/Core/HandleRumble",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x8035E6E0",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x8035E6E4",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x8035E918",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x8035ECE0",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x8035ECFC",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80360A38",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80360A3C",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x8036A4A8",
+      "name": "External/Widescreen/Overwrite CObj Values",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x803753B0",
+      "name": "Bootloader/main",
+      "versions": "*",
+      "why": "recording"
+    },
+    {
+      "code": "0x803753B4",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x803761EC",
+      "name": "Recommended: Normal Lag Reduction",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80376200",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80376238",
+      "name": "Recommended: Normal Lag Reduction",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80376304",
+      "name": "Online/Core/Hacks/ForceNoVideoAssert",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80376A18",
+      "name": "Online/Core/SkipNewInputFetchOnRollback",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80376A20",
+      "name": "Online/Core/SkipNewInputFetchOnRollback",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80376A24",
+      "name": "Common/UseInGameDelay/ApplyInGameDelay",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80376A28",
+      "name": "Online/Core/TriggerSendInput",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x803775B0",
+      "name": "Online/Debugging/LogInputOnCopy",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x803775B8",
+      "name": "Online/Logging/LogInputOnCopy",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x803786A4",
+      "name": "Online/Menus/Hacks/VsSplashRumbleHack",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x8038ADD0",
+      "name": "Online/Core/PreventFileAlarms/PreventMusicAlarm",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x8038D0B0",
+      "name": "Online/Core/Sound/PreventDuplicateSounds",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x8038D224",
+      "name": "Online/Core/Sound/AssignSoundInstanceId",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x8038E910",
+      "name": "Online/Core/Music/StartSong",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x80390838",
+      "name": "Recommended: Lagless FoD",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x80394A74",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80394BD4",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80397838",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80397878",
+      "name": "General",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x803A63A8",
+      "name": "Online/Core/Hacks/LoadPremadeTextDataFromDolphin",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x803A69C0",
+      "name": "Online/Menus/InGame/ParseNumbersBetter",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x803BB05C",
+      "name": "External/Widescreen/Fix Screen Flash",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x803D4A48",
+      "name": "General",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x803D4A4C",
+      "name": "General",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x803D4A50",
+      "name": "General",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x803D4A60",
+      "name": "General",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x803D4A70",
+      "name": "External/Rumble Off/Rumble Off",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x803D4A78",
+      "name": "General",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x803D7060",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x803D706C",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x803D7074",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x803D7090",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x803D709C",
+      "name": "Required: Slippi Online",
+      "versions": "*",
+      "why": "netplay"
+    },
+    {
+      "code": "0x80452F54",
+      "name": "Required: General Codes",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80452F58",
+      "name": "Required: General Codes",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80452F5C",
+      "name": "Required: General Codes",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80452F60",
+      "name": "Required: General Codes",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x80452F64",
+      "name": "Required: General Codes",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x804DC47C",
+      "name": "External/CSS Player Hands Default to HMN Button/Change Default Hand Position",
+      "versions": "*",
+      "why": "menus"
+    },
+    {
+      "code": "0x804DDB28",
+      "name": "External/Widescreen/Adjust Offscreen Scissor/Fix Bubble Positions/Extend Positive Vertical Bound",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x804DDB2C",
+      "name": "External/Widescreen/Adjust Offscreen Scissor/Fix Bubble Positions/Extend Negative Vertical Bound",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x804DDB30",
+      "name": "External/Widescreen/Adjust Offscreen Scissor/Fix Bubble Positions/Adjust Corner Value 1",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x804DDB34",
+      "name": "External/Widescreen/Adjust Offscreen Scissor/Fix Bubble Positions/Adjust Corner Value 2",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x804DDB4C",
+      "name": "External/Widescreen/Adjust Offscreen Scissor/Fix Bubble Positions/Widen Bubble Region",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x804DDB58",
+      "name": "External/Widescreen/Adjust Offscreen Scissor/Adjust Bubble Zoom",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x804DDB84",
+      "name": "External/Widescreen/Nametag Fixes/Adjust Nametag Text X Scale",
+      "versions": "*",
+      "why": "presentation"
+    },
+    {
+      "code": "0x804DEC1C",
+      "name": "Common/Frozen PS/FreezePokemonStadium.asm",
+      "versions": "*",
+      "why": "toggle flag only: the freeze itself is 0x801D45FC"
+    }
+  ]
+}
