@@ -128,8 +128,8 @@ const app = new Hono<HonoEnv>().get(
 
 Describe responses by description only. Response bodies stay inferred from the
 handlers through `AppType`; hand-written response schemas would be a second
-source of truth for the same contract (see *Prefer hono/client Inferred
-Types*). List the error statuses a route returns, including the 400 that
+source of truth for the same contract (see _Prefer hono/client Inferred
+Types_). List the error statuses a route returns, including the 400 that
 `validationHook` produces.
 
 ### Worker-to-Worker Calls
@@ -628,9 +628,11 @@ Code mods follow the same rule through `lib/queries.ts`. A code mod is visible
 when it is not deleted and has an approved release, or the requester owns it
 or moderates; its unapproved releases and builds are only for its owner and
 moderators (`canViewUnapprovedReleases`). Routes load a single mod with
-`loadCodeMod` and a build (for its log or package) with `loadCodeModBuild`,
-lists filter with `visibleCodeMods`, and anything hidden answers 404 as if
-missing. `transitionRelease` in `packages/db` is the only writer of a
+`loadCodeMod`, a release (for its source, listing or diff) with
+`loadCodeModRelease`, and a build (for its log or package) with
+`loadCodeModBuild`, lists filter with `visibleCodeMods`, and anything hidden
+answers 404 as if missing. A release's diff against the previous approved one
+is review material, for the mod's owner and moderators even once approved. `transitionRelease` in `packages/db` is the only writer of a
 release's status after the build pipeline inserts it, as `transitionPack` is
 for packs, and moderators review releases in `routes/admin.ts`.
 
