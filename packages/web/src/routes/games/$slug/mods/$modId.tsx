@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { appLinks } from "@/lib/app-links";
 import { api } from "@/lib/api";
+import { supportLinkLabel } from "@/lib/support-links";
 import { requireFeatureFlag } from "@/lib/feature-flags";
 import { NETPLAY_LABELS } from "@/lib/format";
 import { InstallActions } from "@/ui/patterns/InstallActions";
@@ -14,6 +15,7 @@ import { Markdown } from "@/ui/patterns/Markdown";
 import { ModEyebrow, ModHeader } from "@/ui/patterns/ModHeader";
 import { Publisher } from "@/ui/patterns/ModTile";
 import { color, font, radius, space, text } from "@/ui/tokens.stylex";
+import { PublisherControls } from "./-publisher";
 import { MakerReleases, type MakerMod } from "./-releases";
 
 type Listing = InferResponseType<(typeof api)["registry"]["mods"][":id"]["$get"], 200>;
@@ -32,10 +34,17 @@ export const Route = createFileRoute("/games/$slug/mods/$modId")({
       parseResponse(api.registry.sets.$get()),
     ]);
     const listing: Listing | null = listingRes.ok ? await listingRes.json() : null;
+    // The maker's support links, when the mod is published under their name.
+    const supportLinks =
+      listing && listing.publisher.name === listing.author
+        ? await api.users[":identifier"]
+            .$get({ param: { identifier: listing.author } })
+            .then(async (res) => (res.ok ? (await res.json()).supportLinks : []))
+        : [];
     const maker: MakerMod | null = makerRes.ok ? await makerRes.json() : null;
     if (!listing && !maker) throw notFound();
     const game = await parseResponse(gameRes);
-    return { game, listing, maker, sets };
+    return { game, listing, maker, sets, supportLinks };
   },
   head: ({ loaderData }) => {
     const name = loaderData?.listing?.name ?? loaderData?.maker?.name ?? "Mod";
@@ -84,6 +93,8 @@ const styles = stylex.create({
   },
   icon: { width: "80px", height: "80px", borderRadius: radius.lg, objectFit: "cover" },
   description: { margin: 0, fontSize: text.lg, lineHeight: 1.5, color: color.muted },
+  support: { margin: 0, fontSize: text.sm, color: color.muted },
+  supportLink: { color: color.accentText, textDecoration: "underline", textUnderlineOffset: "2px" },
   link: { color: color.text, textDecoration: { default: "none", ":hover": "underline" } },
   // After the header, which is order 1 (ModHeader).
   facts: {
@@ -132,7 +143,7 @@ function formatDate(date: string | Date): string {
 }
 
 function ModPage() {
-  const { game, listing, maker, sets } = Route.useLoaderData();
+  const { game, listing, maker, sets, supportLinks } = Route.useLoaderData();
   const { user } = useAuth();
   const canReview = user?.role === "moderator" || user?.role === "admin";
   const showReleases = maker && (maker.mine || canReview);
@@ -154,8 +165,33 @@ function ModPage() {
           {listing?.icon && <img src={listing.icon.url} alt="" {...stylex.props(styles.icon)} />}
           {description && <p {...stylex.props(styles.description)}>{description}</p>}
           {listing && <InstallActions href={appLinks.mod(listing.id)} label={`Install ${name}`} />}
+          {supportLinks.length > 0 && (
+            <p {...stylex.props(styles.support)}>
+              Support {listing?.author}:{" "}
+              {supportLinks.map((link, index) => (
+                <span key={link.url}>
+                  {index > 0 && " · "}
+                  <a
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    {...stylex.props(styles.supportLink)}
+                  >
+                    {supportLinkLabel(link)}
+                  </a>
+                </span>
+              ))}
+            </p>
+          )}
         </ModHeader>
         {listing && <Facts listing={listing} game={game.slug} sets={sets} />}
+        {listing && maker && user?.role === "admin" && (
+          <PublisherControls
+            modId={maker.id}
+            author={listing.author}
+            publisher={listing.publisher}
+          />
+        )}
       </div>
 
       <div {...stylex.props(styles.main)}>

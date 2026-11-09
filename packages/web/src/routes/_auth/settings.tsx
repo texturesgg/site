@@ -1,11 +1,19 @@
 import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { displayName, LIMITS, validateUsername } from "@vgskins/shared";
+import {
+  displayName,
+  LIMITS,
+  SUPPORT_SERVICES,
+  SupportLink,
+  type SupportService,
+  validateUsername,
+} from "@vgskins/shared";
 import { parseResponse } from "hono/client";
 import { type ReactNode, useEffect, useState } from "react";
 import { api, apiError } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
+import { SUPPORT_SERVICE_NAMES } from "@/lib/support-links";
 import { DiscordIcon, GithubIcon, XIcon } from "@/ui/brand-icons";
 import { layout } from "@/ui/patterns/layout";
 import { PageHeader } from "@/ui/patterns/PageHeader";
@@ -83,6 +91,37 @@ function SettingsPage() {
     github: profile.showGithub ?? false,
     twitter: profile.showTwitter ?? false,
   });
+  // Support links: one field per service, then one other link with a name.
+  const savedLinks = profile.supportLinks ?? [];
+  const [support, setSupport] = useState<Record<SupportService, string>>(
+    () =>
+      Object.fromEntries(
+        SUPPORT_SERVICES.map((kind) => [
+          kind,
+          savedLinks.find((link) => link.kind === kind)?.url ?? "",
+        ])
+      ) as Record<SupportService, string>
+  );
+  const savedOther = savedLinks.find((link) => link.kind === "other");
+  const [otherLabel, setOtherLabel] = useState(
+    savedOther?.kind === "other" ? savedOther.label : ""
+  );
+  const [otherUrl, setOtherUrl] = useState(savedOther?.url ?? "");
+  const supportLinks: SupportLink[] = [
+    ...SUPPORT_SERVICES.flatMap((kind) =>
+      support[kind].trim() ? [{ kind, url: support[kind].trim() }] : []
+    ),
+    ...(otherUrl.trim() || otherLabel.trim()
+      ? [{ kind: "other" as const, label: otherLabel.trim(), url: otherUrl.trim() }]
+      : []),
+  ];
+  // Each link's first problem, by kind, shown under its field.
+  const supportErrors = Object.fromEntries(
+    supportLinks.flatMap((link) => {
+      const issue = SupportLink.safeParse(link).error?.issues[0];
+      return issue ? [[link.kind, issue.message]] : [];
+    })
+  ) as Partial<Record<SupportService | "other", string>>;
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const nameCheck = validateUsername(name);
   // The current name may be an imported one the rules no longer allow; only a change is checked.
@@ -113,6 +152,7 @@ function SettingsPage() {
           showDiscord: shown.discord,
           showGithub: shown.github,
           showTwitter: shown.twitter,
+          supportLinks,
         },
       });
       if (!res.ok) throw await apiError(res);
@@ -158,7 +198,7 @@ function SettingsPage() {
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          if (!nameError) save.mutate();
+          if (!nameError && Object.keys(supportErrors).length === 0) save.mutate();
         }}
         noValidate
         {...stylex.props(layout.narrow, styles.form)}
@@ -207,6 +247,47 @@ function SettingsPage() {
             autoComplete="url"
             disabled={save.isPending}
             onChange={(event) => setWebsite(event.currentTarget.value)}
+          />
+        </section>
+
+        <section aria-labelledby="support-heading" {...stylex.props(styles.section)}>
+          <div {...stylex.props(styles.sectionHead)}>
+            <h2 id="support-heading" {...stylex.props(styles.sectionTitle)}>
+              Support links
+            </h2>
+            <p {...stylex.props(styles.sectionHint)}>On your profile and your mods.</p>
+          </div>
+          {SUPPORT_SERVICES.map((kind) => (
+            <TextField
+              key={kind}
+              label={SUPPORT_SERVICE_NAMES[kind]}
+              type="url"
+              value={support[kind]}
+              placeholder="https://"
+              error={supportErrors[kind]}
+              disabled={save.isPending}
+              onChange={(event) => {
+                const url = event.currentTarget.value;
+                setSupport((current) => ({ ...current, [kind]: url }));
+              }}
+            />
+          ))}
+          <TextField
+            label="Other link name"
+            value={otherLabel}
+            maxLength={LIMITS.SUPPORT_LINK_LABEL_MAX}
+            placeholder="Buy me a coffee"
+            disabled={save.isPending}
+            onChange={(event) => setOtherLabel(event.currentTarget.value)}
+          />
+          <TextField
+            label="Other link"
+            type="url"
+            value={otherUrl}
+            placeholder="https://"
+            error={supportErrors.other}
+            disabled={save.isPending}
+            onChange={(event) => setOtherUrl(event.currentTarget.value)}
           />
         </section>
 
