@@ -451,8 +451,9 @@ A user can have at most one pending report per target. Moderators resolve
 A code mod is a mod for tgg-melee, the Melee port with the mod runtime built in
 (`tgg-melee/0`). It is separate from `packs` and `mods`, which hold texture
 packs. Its `slug` is the manifest `id`, which also names the folder the mod
-installs into, so it is unique across the registry. Its source lives in the
-Cloudflare Artifacts repo `mod-<id>`.
+installs into, so it is unique across the registry, and never starts with
+`skin.`, which tgg keeps for the skins it makes on the player's machine. Its
+source lives in the Cloudflare Artifacts repo `mod-<id>`.
 
 A release is one tag on that repo. A compiled mod library loads only into a port
 build with the same game layout id, so a release is built once per active row of

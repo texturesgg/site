@@ -175,3 +175,17 @@ it("shows a reject's reason to the mod's owner and moderators only", async () =>
   expect(await reasonFor(moderator)).toBe("Hooks a function it doesn't need.");
   expect(await reasonFor(stranger)).toBeUndefined();
 });
+
+it("keeps ids starting with skin. for skins", async () => {
+  const flags = vi.spyOn(env.FLAGS, "getBooleanValue").mockResolvedValue(true);
+  const create = vi.spyOn(env.MOD_SOURCES, "create");
+  const response = await request("", {
+    method: "POST",
+    headers: { cookie: owner, "content-type": "application/json" },
+    body: JSON.stringify({ slug: "skin.plfx", name: "Fox" }),
+  });
+  flags.mockResolvedValue(false);
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({ error: "Ids starting with skin. are kept for skins" });
+  expect(create).not.toHaveBeenCalled();
+});
