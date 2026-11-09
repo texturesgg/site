@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import * as stylex from "@stylexjs/stylex";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { api } from "@/lib/api";
+import { useFeatureFlag } from "@/lib/feature-flags";
 import { authClient, type UserRole } from "@/lib/auth-client";
 import { sessionQuery } from "@/lib/session";
 import { layout } from "@/ui/patterns/layout";
@@ -74,6 +75,7 @@ function AdminLayout() {
     refetchInterval: 30_000,
   });
   const isAdmin = role === "admin";
+  const codeMods = useFeatureFlag("codeMods");
 
   return (
     <div {...stylex.props(layout.container, layout.page, styles.page)}>
@@ -115,6 +117,7 @@ function AdminLayout() {
             Users
           </NavTab>
         )}
+        {isAdmin && codeMods && <NavTab to="/sets">Sets</NavTab>}
         {isAdmin && <NavTab to="/analytics">Analytics</NavTab>}
       </NavTabs>
       <Outlet />

@@ -170,7 +170,7 @@ function ModPage() {
         )}
         {listing?.readme && <Markdown>{listing.readme}</Markdown>}
         {showReleases ? (
-          <MakerReleases mod={maker} canReview={canReview} />
+          <MakerReleases mod={maker} canReview={canReview} canRebuild={user?.role === "admin"} />
         ) : (
           listing && <Changelog releases={listing.releases} />
         )}
