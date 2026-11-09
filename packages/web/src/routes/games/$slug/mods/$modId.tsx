@@ -14,10 +14,10 @@ import { ModEyebrow, ModHeader } from "@/ui/patterns/ModHeader";
 import { AnchorButton, Badge, Button } from "@/ui/primitives";
 import { color, font, radius, space, text } from "@/ui/tokens.stylex";
 
-export const Route = createFileRoute("/games/$slug/code-mods/$modSlug")({
+export const Route = createFileRoute("/games/$slug/mods/$modId")({
   loader: async ({ params }) => {
     const [res, gameRes] = await Promise.all([
-      api["code-mods"][":slug"].$get({ param: { slug: params.modSlug } }),
+      api["code-mods"][":slug"].$get({ param: { slug: params.modId } }),
       api.games[":slug"].$get({ param: { slug: params.slug } }),
     ]);
     if (res.status === 404 || gameRes.status === 404) throw notFound();
@@ -27,7 +27,7 @@ export const Route = createFileRoute("/games/$slug/code-mods/$modSlug")({
     return { ...mod, gameName: game.name };
   },
   head: ({ loaderData }) => ({
-    meta: [{ title: `${loaderData?.name ?? "Code mod"} - textures.gg` }],
+    meta: [{ title: `${loaderData?.name ?? "Mod"} - textures.gg` }],
   }),
   component: CodeMod,
 });
@@ -114,8 +114,8 @@ function CodeMod() {
       <div {...stylex.props(styles.side)}>
         <ModHeader
           eyebrow={
-            <ModEyebrow to="/games/$slug/code-mods" params={{ slug: mod.game }}>
-              Code mod · {mod.gameName}
+            <ModEyebrow to="/games/$slug/mods" params={{ slug: mod.game }}>
+              Mod · {mod.gameName}
             </ModEyebrow>
           }
           title={mod.name}
@@ -244,8 +244,8 @@ function ReleaseCard({
             <span key={dependency.id}>
               {i > 0 && ", "}
               <Link
-                to="/games/$slug/code-mods/$modSlug"
-                params={{ slug: game, modSlug: dependency.id }}
+                to="/games/$slug/mods/$modId"
+                params={{ slug: game, modId: dependency.id }}
                 {...stylex.props(styles.id, styles.creator)}
               >
                 {dependency.id}

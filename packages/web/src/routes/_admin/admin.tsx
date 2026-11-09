@@ -213,7 +213,7 @@ function CodeModReleaseQueue({ releases }: { releases: PendingRelease[] }) {
   return (
     <section aria-labelledby="code-mod-releases">
       <h2 id="code-mod-releases" {...stylex.props(styles.heading)}>
-        Code mod releases
+        Mod releases
       </h2>
       {decide.isError && (
         <p role="alert" {...stylex.props(styles.error)}>
@@ -226,8 +226,8 @@ function CodeModReleaseQueue({ releases }: { releases: PendingRelease[] }) {
           return (
             <li key={release.id} {...stylex.props(styles.releaseRow)}>
               <Link
-                to="/games/$slug/code-mods/$modSlug"
-                params={{ slug: release.gameSlug, modSlug: release.slug }}
+                to="/games/$slug/mods/$modId"
+                params={{ slug: release.gameSlug, modId: release.slug }}
                 {...stylex.props(styles.title)}
               >
                 {release.name}
