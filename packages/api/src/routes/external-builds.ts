@@ -17,6 +17,7 @@ import { Hono, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { describeRoute } from "hono-openapi";
 import { z } from "zod";
+import { modRepoName } from "../lib/mod-source";
 import { rateLimitByIp } from "../lib/rate-limit";
 import { validationHook } from "../lib/validation";
 import type { HonoEnv } from "../types";
@@ -369,7 +370,7 @@ const app = new Hono<HonoEnv>()
       const db = createDb(c.env.DB);
       const release = await approvedRelease(db, c.req.valid("param").id);
       if (!release) return c.json({ error: "Release not found" }, 404);
-      using repo = await c.env.MOD_SOURCES.get(`mod-${release.codeModId}`);
+      using repo = await c.env.MOD_SOURCES.get(modRepoName(release.codeModId));
       const commit = await repo.readCommit(release.commitSha);
       if (!commit) return c.json({ error: "Release not found" }, 404);
       const zip = storedZip(await readSource(repo, commit.treeHash));
