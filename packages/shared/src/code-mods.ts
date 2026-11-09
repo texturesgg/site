@@ -14,8 +14,17 @@ export const codeModSlugSchema = z
     "Use lowercase letters, digits, '.', '-' and '_', not starting with '.'"
   );
 
+/**
+ * The id prefix no registry mod may take: tgg names the skins it makes on
+ * the player's machine `skin.<file>`.
+ */
+export const RESERVED_CODE_MOD_ID_PREFIX = "skin.";
+
 export const createCodeModSchema = z.object({
-  slug: codeModSlugSchema,
+  slug: codeModSlugSchema.refine(
+    (slug) => !slug.startsWith(RESERVED_CODE_MOD_ID_PREFIX),
+    `Ids starting with ${RESERVED_CODE_MOD_ID_PREFIX} are kept for skins`
+  ),
   name: z.string().trim().min(1, "A name is required").max(80),
   description: z.string().trim().max(2000).optional(),
 });
