@@ -373,10 +373,11 @@ const app = new Hono<HonoEnv>()
 
     return c.json({ success: true, status: "rejected" }, 200);
   })
-  // List code mod releases waiting for review
+  // List code mod releases waiting for review, with whether each author is
+  // trusted and how many of their releases were approved and rejected before
   .get("/code-mods/releases/pending", requireAuth, requireModerator, requireCodeMods, async (c) => {
     const db = createDb(c.env.DB);
-    const items = await db
+    const rows = await db
       .select({
         id: codeModReleases.id,
         version: codeModReleases.version,
@@ -385,13 +386,39 @@ const app = new Hono<HonoEnv>()
         slug: codeMods.slug,
         name: codeMods.name,
         gameSlug: codeMods.gameId,
+        userId: codeMods.userId,
         userName: users.name,
+        trusted: users.trusted,
       })
       .from(codeModReleases)
       .innerJoin(codeMods, eq(codeMods.id, codeModReleases.codeModId))
       .leftJoin(users, eq(users.id, codeMods.userId))
       .where(and(eq(codeModReleases.status, "pending"), isNull(codeMods.deletedAt)))
       .orderBy(desc(codeModReleases.createdAt));
+    const reviewed = rows.length
+      ? await db
+          .select({ userId: codeMods.userId, status: codeModReleases.status, total: count() })
+          .from(codeModReleases)
+          .innerJoin(codeMods, eq(codeMods.id, codeModReleases.codeModId))
+          .where(
+            and(
+              inArray(
+                codeMods.userId,
+                rows.map((row) => row.userId)
+              ),
+              inArray(codeModReleases.status, ["approved", "rejected"])
+            )
+          )
+          .groupBy(codeMods.userId, codeModReleases.status)
+      : [];
+    const tally = (userId: string, status: "approved" | "rejected") =>
+      reviewed.find((row) => row.userId === userId && row.status === status)?.total ?? 0;
+    const items = rows.map(({ userId, trusted, ...row }) => ({
+      ...row,
+      trusted: trusted ?? false,
+      approvedReleases: tally(userId, "approved"),
+      rejectedReleases: tally(userId, "rejected"),
+    }));
     return c.json({ items }, 200);
   })
   // Approve a code mod release
