@@ -3,7 +3,7 @@ import { optionalAuth } from "../lib/auth";
 import { codeModsEnabled } from "../lib/feature-flags";
 import type { HonoEnv } from "../types";
 
-/** The flags the web app shows or hides things by, for the signed-in viewer. */
+/** The flags the web app shows or hides things by, for the viewer, signed in or not. */
 const app = new Hono<HonoEnv>().get("/me", optionalAuth, async (c) => {
   const codeMods = await codeModsEnabled(c.env.FLAGS, c.get("user"));
   c.header("Cache-Control", "private, no-store");
