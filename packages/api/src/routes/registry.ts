@@ -491,7 +491,7 @@ const app = new Hono<HonoEnv>()
       tags: ["Registry"],
       summary: "List mods",
       description:
-        "Every mod with an approved release, paginated (`page`, `pageSize` up to 100, default 50), in `sort` order: `official` (the default) lists official mods first, then most installed; `installs` is most installed alone. Each is described by its newest approved release: `{id, name, description, author, publisher: {name, official}, icon: {url, width, height} | null, tags, installs, version, updatedAt, sets, targets, netplay}`. `publisher.name` is the name an admin set for the mod (first-party mods say textures.gg) or else the author's account name; `official` marks mods admins vouch for. `author` is the author's account name. `targets` are the systems (`linux`, `windows`, `macos`) that release has builds for on `port`, the newest tgg-melee release with active layouts. `installs` counts package downloads.",
+        "Every mod with an approved release, paginated (`page`, `pageSize` up to 100, default 50), in `sort` order: `official` (the default) lists official mods first, then most installed; `installs` is most installed alone. Each is described by its newest approved release: `{id, name, description, author, publisher: {name, official}, icon: {url, width, height} | null, tags, installs, version, updatedAt, sets, targets, netplay}`. `publisher.name` is the name an admin set for the mod (first-party mods say textures.gg) or else the author's account name; `official` marks mods admins vouch for. `author` is the author's account name. `targets` are the systems (`linux`, `windows`, `macos`) that release has builds for on `port`, the newest tgg-melee release with active layouts. `installs` counts first installs: package downloads with `for=install`.",
       responses: {
         200: { description: "A page of mods" },
         400: { description: "Invalid request" },
@@ -677,7 +677,8 @@ const app = new Hono<HonoEnv>()
       tags: ["Registry"],
       summary: "Download a mod package",
       description:
-        "A package the catalog lists, by `<sha256>.zip`. The bytes behind a hash never change.",
+        "A package the catalog lists, by `<sha256>.zip`. The bytes behind a hash never change. `for=install` says the player is installing the mod for the first time, which counts toward its installs; any other download (an update, a reinstall, no `for`) isn't counted.",
+      parameters: [{ name: "for", in: "query", required: false, schema: { type: "string" } }],
       responses: {
         200: { description: "The package zip" },
         400: { description: "Invalid request" },
@@ -689,9 +690,12 @@ const app = new Hono<HonoEnv>()
       z.object({ file: z.string().regex(/^[0-9a-f]{64}\.zip$/, "Not a package file name") }),
       validationHook
     ),
+    // Any `for` is served: it only decides whether the download is counted.
+    zValidator("query", z.object({ for: z.string().max(32).optional() }), validationHook),
     async (c) => {
       const db = createDb(c.env.DB);
       const sha256 = c.req.valid("param").file.slice(0, 64);
+      const firstInstall = c.req.valid("query").for === "install";
       const [build] = await db
         .select({ packageKey: codeModBuilds.packageKey, codeModId: codeMods.id })
         .from(codeModBuilds)
@@ -709,18 +713,20 @@ const app = new Hono<HonoEnv>()
       if (!build?.packageKey) return c.json({ error: "Package not found" }, 404);
       const object = await c.env.CODE_MODS.get(build.packageKey);
       if (!object) return c.json({ error: "Package not found" }, 404);
-      // The mod's install count: every download, counted after the response
-      // so it never slows one.
-      c.executionCtx.waitUntil(
-        db
-          .update(codeMods)
-          .set({ downloadCount: sql`${codeMods.downloadCount} + 1` })
-          .where(eq(codeMods.id, build.codeModId))
-          .then(
-            () => undefined,
-            (error: unknown) => logger.warn({ error, sha256 }, "Counting a package download failed")
-          )
-      );
+      // The mod's install count: first installs only, counted after the
+      // response so it never slows one.
+      if (firstInstall) {
+        c.executionCtx.waitUntil(
+          db
+            .update(codeMods)
+            .set({ downloadCount: sql`${codeMods.downloadCount} + 1` })
+            .where(eq(codeMods.id, build.codeModId))
+            .then(
+              () => undefined,
+              (error: unknown) => logger.warn({ error, sha256 }, "Counting an install failed")
+            )
+        );
+      }
       return new Response(object.body, {
         headers: {
           "Content-Type": "application/zip",

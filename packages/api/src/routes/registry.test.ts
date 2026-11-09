@@ -532,13 +532,15 @@ describe("mods", () => {
     expect((await get("/api/registry/images/icon.png")).status).toBe(400);
   });
 
-  it("counts a package download as an install", async () => {
+  it("counts a download as an install only when it's the first install", async () => {
     const installs = async () =>
       ((await (await get("/api/registry/mods/tgg.menu-art")).json()) as { installs: number })
         .installs;
     const before = await installs();
     const sha256 = await sha256Hex(new TextEncoder().encode("tgg.menu-art@0.1.0"));
-    expect((await get(`/api/registry/packages/${sha256}.zip`)).status).toBe(200);
+    for (const query of ["?for=install", "", "?for=update"]) {
+      expect((await get(`/api/registry/packages/${sha256}.zip${query}`)).status).toBe(200);
+    }
     expect(await installs()).toBe(before + 1);
   });
 });
