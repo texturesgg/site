@@ -41,8 +41,8 @@ export function CodeModList({ mods, label }: { mods: CodeModListItem[]; label: s
         <li key={mod.slug} {...stylex.props(styles.row)}>
           <span {...stylex.props(styles.text)}>
             <Link
-              to="/games/$slug/code-mods/$modSlug"
-              params={{ slug: mod.game, modSlug: mod.slug }}
+              to="/games/$slug/mods/$modId"
+              params={{ slug: mod.game, modId: mod.slug }}
               {...stylex.props(styles.name)}
             >
               {mod.name}

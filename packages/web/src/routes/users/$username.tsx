@@ -346,12 +346,12 @@ function ProfilePage() {
             ? [
                 {
                   value: "mods" as const,
-                  label: "Code mods",
+                  label: "Mods",
                   count: codeMods.data?.total,
                   panel: (
                     <CodeModPanel
                       query={codeMods}
-                      label={`${name}'s code mods`}
+                      label={`${name}'s mods`}
                       page={tab === "mods" ? page : 1}
                       onPage={(next) => update({ page: next > 1 ? next : undefined })}
                     />
@@ -452,13 +452,13 @@ function CodeModPanel({
   if (query.isError) {
     return (
       <EmptyState
-        title="Code mods couldn't be loaded"
+        title="Mods couldn't be loaded"
         body="This may be a temporary problem."
         action={<Button onClick={() => query.refetch()}>Try again</Button>}
       />
     );
   }
-  if (query.data.items.length === 0) return <EmptyState title="No code mods yet." />;
+  if (query.data.items.length === 0) return <EmptyState title="No mods yet." />;
   return (
     <div {...stylex.props(styles.panel)}>
       <CodeModList mods={query.data.items} label={label} />

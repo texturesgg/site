@@ -1,6 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
 import { createLink, Link } from "@tanstack/react-router";
-import { useFeatureFlag } from "@/lib/feature-flags";
 import { type ComponentProps, type Ref, useState } from "react";
 import { MenuIcon, UploadIcon } from "../icons";
 import {
@@ -134,7 +133,6 @@ type SiteHeaderProps = {
 };
 
 export function SiteHeader({ user, isLoading, onSignIn, onSignOut }: SiteHeaderProps) {
-  const codeMods = useFeatureFlag("codeMods");
   const [menuOpen, setMenuOpen] = useState(false);
   const canModerate = user?.role === "moderator" || user?.role === "admin";
   const close = () => setMenuOpen(false);
@@ -161,28 +159,9 @@ export function SiteHeader({ user, isLoading, onSignIn, onSignOut }: SiteHeaderP
           ) : user ? (
             <>
               <span {...stylex.props(styles.wideOnly)}>
-                {codeMods ? (
-                  <MenuRoot>
-                    <MenuTrigger>
-                      <Button variant="primary" icon={<UploadIcon />}>
-                        New
-                      </Button>
-                    </MenuTrigger>
-                    <MenuPanel>
-                      <MenuLink to="/upload">Texture pack</MenuLink>
-                      <MenuLink
-                        to="/games/$slug/code-mods/new"
-                        params={{ slug: PRIMARY_GAME_SLUG }}
-                      >
-                        Code mod
-                      </MenuLink>
-                    </MenuPanel>
-                  </MenuRoot>
-                ) : (
-                  <ButtonLink to="/upload" variant="primary" icon={<UploadIcon />}>
-                    Upload
-                  </ButtonLink>
-                )}
+                <ButtonLink to="/upload" variant="primary" icon={<UploadIcon />}>
+                  Upload
+                </ButtonLink>
               </span>
               <MenuRoot>
                 <MenuTrigger>
@@ -239,15 +218,6 @@ export function SiteHeader({ user, isLoading, onSignIn, onSignOut }: SiteHeaderP
                 {user && (
                   <SheetLink to="/upload" onClick={close}>
                     Upload a pack
-                  </SheetLink>
-                )}
-                {user && codeMods && (
-                  <SheetLink
-                    to="/games/$slug/code-mods/new"
-                    params={{ slug: PRIMARY_GAME_SLUG }}
-                    onClick={close}
-                  >
-                    Publish a code mod
                   </SheetLink>
                 )}
               </nav>
