@@ -57,9 +57,11 @@ function shippedFiles(manifest: Record<string, unknown> | null): { path: string;
 // Code mods: mods for tgg-melee. Creating one makes its Artifacts repo
 // (mod-<id>), its owner pushes tags to it with a short-lived token from here,
 // and packages/mod-build builds each tag. Moderators review releases in
-// routes/admin.ts. Everything here sits behind the codeMods flag.
+// routes/admin.ts. Reads are public under the code mod visibility rule
+// (lib/queries.ts); creating a mod and publishing to it sit behind the
+// codeMods flag.
 const app = new Hono<HonoEnv>()
-  .use("*", optionalAuth, requireCodeMods)
+  .use("*", optionalAuth)
 
   // List code mods the viewer may see, optionally one game's or one creator's
   .get(
@@ -147,6 +149,7 @@ const app = new Hono<HonoEnv>()
   // Create a code mod and its source repo
   .post(
     "/",
+    requireCodeMods,
     requireAuth,
     rateLimitByUser((env) => env.RATE_LIMIT_UPLOAD),
     zValidator("json", createCodeModSchema, validationHook),
@@ -225,6 +228,7 @@ const app = new Hono<HonoEnv>()
 
     return c.json(
       {
+        id: mod.id,
         slug: mod.slug,
         game: mod.gameId,
         name: mod.name,
@@ -271,6 +275,7 @@ const app = new Hono<HonoEnv>()
   // Mint a write token for the owner to push to the mod's source repo
   .post(
     "/:slug/push-token",
+    requireCodeMods,
     requireAuth,
     zValidator("param", SlugParam, validationHook),
     async (c) => {

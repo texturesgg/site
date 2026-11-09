@@ -630,9 +630,11 @@ or moderates; its unapproved releases and builds are only for its owner and
 moderators (`canViewUnapprovedReleases`). Routes load a single mod with
 `loadCodeMod` and a build (for its log or package) with `loadCodeModBuild`,
 lists filter with `visibleCodeMods`, and anything hidden answers 404 as if
-missing. `transitionRelease` in `packages/db` is the only writer of a
-release's status after the build pipeline inserts it, as `transitionPack` is
-for packs, and moderators review releases in `routes/admin.ts`.
+missing. This rule is all that guards reads, so `routes/code-mods.ts` reads
+are public and only its writes carry the code mods flag. `transitionRelease`
+in `packages/db` is the only writer of a release's status after the build
+pipeline inserts it, as `transitionPack` is for packs, and moderators review
+releases in `routes/admin.ts`.
 
 ### Role Hierarchy
 
@@ -647,9 +649,9 @@ Roles follow this hierarchy: `admin > moderator > user`
 Flags come from Cloudflare Flagship through the `FLAGS` binding; there is no
 flag table or wrapper around it. `lib/feature-flags.ts` asks Flagship with the
 user's id and role as context (`codeModsEnabled`), and `GET /api/flags/me`
-tells the signed-in viewer which flags are on. A route area behind a flag
-mounts its middleware (`requireCodeMods`), which answers 404 so the area reads
-as missing to anyone the flag is off for.
+tells the signed-in viewer which flags are on. A route behind a flag carries
+its middleware (`requireCodeMods`), which answers 404 so the route reads as
+missing to anyone the flag is off for.
 
 The web reads the same answer: `useFeatureFlag` in components, and in a
 flagged page's loader `requireFeatureFlag` (not found when off) or
