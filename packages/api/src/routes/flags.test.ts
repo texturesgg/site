@@ -12,7 +12,7 @@ it("asks Flagship about a signed-out viewer as anonymous", async () => {
   const flags = vi
     .spyOn(env.FLAGS, "getBooleanValue")
     .mockImplementation(async (_key, fallback, context) =>
-      context?.role === "anonymous" ? true : fallback,
+      context?.role === "anonymous" ? true : fallback
     );
   const res = await app.request("/api/flags/me", {}, env, createExecutionContext());
   expect(res.status).toBe(200);
