@@ -14,6 +14,7 @@ import {
 import { openApiRoutes } from "./lib/openapi";
 import { generalApiRateLimit, rateLimitByIp } from "./lib/rate-limit";
 import adminRoutes from "./routes/admin";
+import codeModReleasesRoutes from "./routes/code-mod-releases";
 import codeModsRoutes from "./routes/code-mods";
 import editorRoutes from "./routes/editor";
 import externalBuildsRoutes from "./routes/external-builds";
@@ -58,6 +59,7 @@ const app = new Hono<HonoEnv>()
   .route("/api/sitemap", sitemapRoutes)
   .route("/api/admin", adminRoutes)
   .route("/api/code-mods", codeModsRoutes)
+  .route("/api/code-mod-releases", codeModReleasesRoutes)
   .route("/api/registry", registryRoutes)
   .route("/api/external-builds", externalBuildsRoutes)
   .route("/api/editor", editorRoutes);
