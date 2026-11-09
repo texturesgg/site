@@ -485,7 +485,12 @@ async function build(
 ): Promise<boolean> {
   using repo = await env.ARTIFACTS.get(repoName);
   const source = storedZip(await readSource(repo, commit.tree));
-  const result = await env.BUILDER.getByName(buildId).build(target.sdk, target.target, source);
+  const result = await env.BUILDER.getByName(buildId).build(
+    target.sdk,
+    target.target,
+    commit.id,
+    source
+  );
 
   const logKey = `code-mods/logs/${buildId}.log`;
   await env.PACKAGES.put(logKey, result.log, {

@@ -142,10 +142,13 @@ it("builds Linux and Windows layouts in the image, and leaves macOS out", async 
     { id: "windows", target: "x86_64-windows-gnu" },
   ]);
   // A Windows build cross-compiles with MinGW, through the image's toolchain file.
-  const windows = buildCommand("windows", "x86_64-windows-gnu");
+  const commit = "0123456789abcdef0123456789abcdef01234567";
+  const windows = buildCommand("windows", "x86_64-windows-gnu", commit);
+  // The package records the reviewed source it was built from.
+  expect(windows.args).toEqual(expect.arrayContaining(["--source-commit", commit]));
   expect(windows.args).toEqual(expect.arrayContaining(["--cc", "x86_64-w64-mingw32-gcc"]));
   expect(windows.env.CMAKE_TOOLCHAIN_FILE).toBe("/opt/tgg/toolchains/x86_64-windows-gnu.cmake");
-  expect(buildCommand("linux", "x86_64-linux-gnu").args).not.toContain("--cc");
+  expect(buildCommand("linux", "x86_64-linux-gnu", commit).args).not.toContain("--cc");
 });
 
 it("a new layout builds an older release a set pins outside the newest", async () => {
