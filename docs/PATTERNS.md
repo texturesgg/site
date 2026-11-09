@@ -648,8 +648,9 @@ Roles follow this hierarchy: `admin > moderator > user`
 
 Flags come from Cloudflare Flagship through the `FLAGS` binding; there is no
 flag table or wrapper around it. `lib/feature-flags.ts` asks Flagship with the
-user's id and role as context (`codeModsEnabled`), and `GET /api/flags/me`
-tells the signed-in viewer which flags are on. A route behind a flag carries
+user's id and role as context (`codeModsEnabled`; someone signed out is the
+role `anonymous` with no id), and `GET /api/flags/me` tells the viewer, signed
+in or not, which flags are on. A route behind a flag carries
 its middleware (`requireCodeMods`), which answers 404 so the route reads as
 missing to anyone the flag is off for.
 
