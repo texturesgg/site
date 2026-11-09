@@ -31,7 +31,7 @@ type ModPage = {
   id: string;
   releases: {
     version: string;
-    builds: { layoutId: string | null; hasLog: boolean }[];
+    builds: { layoutId: string | null; layout: unknown }[];
   }[];
 };
 
@@ -115,4 +115,20 @@ it("anyone reads a mod and its approved releases, with the flag off", async () =
   expect(
     (await request("/me.mod/push-token", { method: "POST", headers: { cookie: owner } })).status
   ).toBe(404);
+});
+
+it("labels each build with its layout's system and port version", async () => {
+  const page = (await (await request("/me.mod")).json()) as ModPage;
+  expect(page.releases[0].builds).toMatchObject([
+    {
+      layoutId: LAYOUT,
+      layout: {
+        id: LAYOUT,
+        target: "x86_64-linux-gnu",
+        system: "linux",
+        portVersion: "0.1.0",
+        active: true,
+      },
+    },
+  ]);
 });

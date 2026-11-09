@@ -1,6 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import {
   codeModBuilds,
+  codeModLayouts,
   codeModReleaseDependencies,
   codeModReleases,
   codeMods,
@@ -13,6 +14,7 @@ import { and, count, desc, eq, getTableColumns, inArray, isNull, or } from "driz
 import { Hono } from "hono";
 import { z } from "zod";
 import { optionalAuth, requireAuth } from "../lib/auth";
+import { layoutSummary } from "../lib/code-mod-layouts";
 import { requireCodeMods } from "../lib/feature-flags";
 import { rateLimitByUser } from "../lib/rate-limit";
 import {
@@ -215,7 +217,11 @@ const app = new Hono<HonoEnv>()
     const releaseIds = releases.map((release) => release.id);
     const [builds, dependencies, [owner]] = await Promise.all([
       releaseIds.length
-        ? db.select().from(codeModBuilds).where(inArray(codeModBuilds.releaseId, releaseIds))
+        ? db
+            .select({ build: codeModBuilds, layout: codeModLayouts })
+            .from(codeModBuilds)
+            .leftJoin(codeModLayouts, eq(codeModLayouts.id, codeModBuilds.layoutId))
+            .where(inArray(codeModBuilds.releaseId, releaseIds))
         : Promise.resolve([]),
       releaseIds.length
         ? db
@@ -237,7 +243,7 @@ const app = new Hono<HonoEnv>()
         mine: user?.id === mod.userId,
         createdAt: mod.createdAt,
         releases: releases.map((release) => {
-          const releaseBuilds = builds.filter((build) => build.releaseId === release.id);
+          const releaseBuilds = builds.filter(({ build }) => build.releaseId === release.id);
           return {
             id: release.id,
             version: release.version,
@@ -252,9 +258,11 @@ const app = new Hono<HonoEnv>()
             depends: dependencies
               .filter((dependency) => dependency.releaseId === release.id)
               .map(({ dependency, range }) => ({ id: dependency, range })),
-            builds: releaseBuilds.map((build) => ({
+            builds: releaseBuilds.map(({ build, layout }) => ({
               id: build.id,
-              layout: build.layoutId,
+              // Null for a package without a library, which serves every layout.
+              layoutId: build.layoutId,
+              layout: layout ? layoutSummary(layout) : null,
               status: build.status,
               error: build.error,
               sha256: build.packageSha256,

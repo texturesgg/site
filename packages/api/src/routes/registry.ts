@@ -19,6 +19,12 @@ import { Hono } from "hono";
 import { describeRoute } from "hono-openapi";
 import { z } from "zod";
 import {
+  CODE_MOD_SYSTEMS,
+  type CodeModSystem,
+  layoutSummary,
+  layoutSystem,
+} from "../lib/code-mod-layouts";
+import {
   PaginationQuery,
   paginationResponse,
   parsePagination,
@@ -49,16 +55,6 @@ function imageUrl(origin: string, sha256: string): string {
   return `${origin}/api/registry/images/${sha256}.png`;
 }
 
-// The systems a port runs on, by the target triples of its layouts.
-type System = "linux" | "windows" | "macos";
-function system(target: string): System | null {
-  if (target.includes("-linux")) return "linux";
-  if (target.includes("-windows")) return "windows";
-  if (target.includes("-apple-darwin")) return "macos";
-  return null;
-}
-const SYSTEMS: System[] = ["linux", "windows", "macos"];
-
 type Image = { url: string; width: number; height: number };
 type Netplay = NonNullable<(typeof codeModBuilds.$inferSelect)["netplay"]>;
 
@@ -79,7 +75,7 @@ type ModSummary = {
   version: string;
   updatedAt: Date;
   sets: string[];
-  targets: System[];
+  targets: CodeModSystem[];
   netplay: Netplay | null;
 };
 
@@ -126,7 +122,7 @@ type ModRow = {
  */
 async function currentPort(
   db: Database
-): Promise<{ version: string | null; layouts: Map<string, System> }> {
+): Promise<{ version: string | null; layouts: Map<string, CodeModSystem> }> {
   const active = await db
     .select({
       id: codeModLayouts.id,
@@ -136,10 +132,10 @@ async function currentPort(
     .from(codeModLayouts)
     .where(eq(codeModLayouts.active, true));
   const version = active.map((layout) => layout.portVersion).sort(byVersionDescending)[0] ?? null;
-  const layouts = new Map<string, System>();
+  const layouts = new Map<string, CodeModSystem>();
   for (const layout of active) {
-    const os = system(layout.target);
-    if (layout.portVersion === version && os) layouts.set(layout.id, os);
+    const os = layoutSystem(layout.target);
+    if (layout.portVersion === version && os !== "other") layouts.set(layout.id, os);
   }
   return { version, layouts };
 }
@@ -246,7 +242,7 @@ async function summarize(
         version: release.version,
         updatedAt: release.publishedAt ?? release.createdAt,
         sets: sets.filter((set) => set.mod === mod.slug).map((set) => set.setName),
-        targets: SYSTEMS.filter((os) => systems.has(os)),
+        targets: CODE_MOD_SYSTEMS.filter((os) => systems.has(os)),
         netplay: built.find((build) => build.netplay)?.netplay ?? null,
       },
     ];
@@ -291,6 +287,35 @@ const app = new Hono<HonoEnv>()
         })),
         200
       );
+    }
+  )
+
+  // Every game layout mods are built for: its system and the port release it came from
+  .get(
+    "/layouts",
+    describeRoute({
+      tags: ["Registry"],
+      summary: "List game layouts",
+      description:
+        "Every game layout the registry knows, newest port release first: `{id, target, system, portVersion, active}`. `target` is the target triple, `system` is `linux`, `windows`, `macos` or `other`, `portVersion` is the tgg-melee release the layout came from, and `active` is whether new releases are built for it (a retired layout keeps its packages).",
+      responses: { 200: { description: "Every layout" } },
+    }),
+    async (c) => {
+      const db = createDb(c.env.DB);
+      const layouts = await db
+        .select({
+          id: codeModLayouts.id,
+          target: codeModLayouts.target,
+          portVersion: codeModLayouts.portVersion,
+          active: codeModLayouts.active,
+        })
+        .from(codeModLayouts);
+      layouts.sort(
+        (a, b) =>
+          byVersionDescending(a.portVersion, b.portVersion) || a.target.localeCompare(b.target)
+      );
+      c.header("Cache-Control", LISTING_CACHE);
+      return c.json(layouts.map(layoutSummary), 200);
     }
   )
 

@@ -507,7 +507,9 @@ catalog (`GET /api/registry/catalog?layout=`): every approved release with a
 succeeded build for that layout, with packages served by SHA-256 at
 `/api/registry/packages/<sha256>.zip`. The catalog's `ids` names every mod with an
 approved release, built for the layout or not, so a client can tell a mod that
-doesn't exist from one not built for its game yet.
+doesn't exist from one not built for its game yet. `GET /api/registry/layouts`
+lists every layout with its system (from `target`), port version and whether
+it is active, and each build on a mod's page carries its layout's the same way.
 
 `canonicalHooks` holds the manifest's hooks under canonical names: `name` for an
 exported function and `file.c:name` for a static. The runtime treats both spellings
