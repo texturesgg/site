@@ -15,6 +15,7 @@ import {
   Button,
   ConfirmDialog,
   SearchField,
+  Switch,
   TextField,
   TextLink,
   ToggleGroup,
@@ -279,6 +280,16 @@ function UserRow({
       refresh();
     },
   });
+  const trust = useMutation({
+    mutationFn: async (trusted: boolean) => {
+      const res = await api.admin.users[":id"].trusted.$put({
+        param: { id: user.id },
+        json: { trusted },
+      });
+      if (!res.ok) throw await apiError(res);
+    },
+    onSuccess: refresh,
+  });
   const unban = useMutation({
     mutationFn: () => run(authClient.admin.unbanUser({ userId: user.id })),
     onSuccess: refresh,
@@ -308,7 +319,7 @@ function UserRow({
       });
     },
   });
-  const actionError = setRole.error ?? unban.error ?? verify.error;
+  const actionError = setRole.error ?? unban.error ?? verify.error ?? trust.error;
 
   return (
     <li {...stylex.props(styles.item)}>
@@ -330,6 +341,7 @@ function UserRow({
           <span {...stylex.props(styles.nameRow)}>
             <span {...stylex.props(styles.name, banned && styles.struck)}>{name}</span>
             {currentRole !== "user" && <Badge tone="accent">{currentRole}</Badge>}
+            {user.trusted && <Badge>Trusted</Badge>}
             {!user.emailVerified && <Badge>Unverified</Badge>}
             {banned && <Badge>Banned</Badge>}
           </span>
@@ -366,6 +378,18 @@ function UserRow({
                 onValueChange={(role) => {
                   if (role !== currentRole && !setRole.isPending) setRole.mutate(role);
                 }}
+              />
+            </div>
+          )}
+
+          {canSetRoles && (
+            <div {...stylex.props(styles.control)}>
+              <span {...stylex.props(styles.controlLabel)}>Mods</span>
+              <Switch
+                label="Trusted mod maker"
+                checked={Boolean(user.trusted)}
+                disabled={trust.isPending}
+                onCheckedChange={(trusted) => trust.mutate(trusted)}
               />
             </div>
           )}

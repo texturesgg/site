@@ -74,7 +74,15 @@ const styles = stylex.create({
 });
 
 /** Every release of `mod`, newest first, with how to publish for its maker. */
-export function MakerReleases({ mod, canReview }: { mod: MakerMod; canReview: boolean }) {
+export function MakerReleases({
+  mod,
+  canReview,
+  canRebuild,
+}: {
+  mod: MakerMod;
+  canReview: boolean;
+  canRebuild: boolean;
+}) {
   return (
     <section {...stylex.props(styles.section)}>
       <h2 {...stylex.props(styles.heading)}>Releases</h2>
@@ -83,7 +91,13 @@ export function MakerReleases({ mod, canReview }: { mod: MakerMod; canReview: bo
         <EmptyState title="No releases yet" />
       ) : (
         mod.releases.map((release) => (
-          <ReleaseCard key={release.id} release={release} game={mod.game} canReview={canReview} />
+          <ReleaseCard
+            key={release.id}
+            release={release}
+            game={mod.game}
+            canReview={canReview}
+            canRebuild={canRebuild}
+          />
         ))
       )}
     </section>
@@ -106,10 +120,12 @@ function ReleaseCard({
   release,
   game,
   canReview,
+  canRebuild,
 }: {
   release: Release;
   game: string;
   canReview: boolean;
+  canRebuild: boolean;
 }) {
   const router = useRouter();
   const review = useMutation({
@@ -123,6 +139,19 @@ function ReleaseCard({
     },
     onSuccess: () => router.invalidate(),
   });
+  // A failed release is checked again; an approved one builds what failed.
+  const rebuild = useMutation({
+    mutationFn: async () => {
+      const res = await api.admin["code-mods"].releases[":id"].rebuild.$post({
+        param: { id: release.id },
+      });
+      if (!res.ok) throw await apiError(res);
+    },
+    onSuccess: () => router.invalidate(),
+  });
+  const rebuildable =
+    release.status === "failed" ||
+    (release.status === "approved" && release.builds.some((build) => build.status === "failed"));
 
   return (
     <article {...stylex.props(styles.card)}>
@@ -135,6 +164,11 @@ function ReleaseCard({
           {release.netplay && <Badge>{NETPLAY_LABELS[release.netplay]}</Badge>}
           {release.license && <Badge>{release.license}</Badge>}
         </div>
+        {canRebuild && rebuildable && (
+          <Button onClick={() => rebuild.mutate()} disabled={rebuild.isPending}>
+            {rebuild.isPending ? "Rebuilding…" : "Rebuild"}
+          </Button>
+        )}
         {canReview && release.status === "pending" && (
           <div {...stylex.props(styles.row)}>
             <Button
@@ -173,6 +207,7 @@ function ReleaseCard({
       )}
       {release.error && <p {...stylex.props(styles.error)}>{release.error}</p>}
       {review.error && <p {...stylex.props(styles.error)}>{review.error.message}</p>}
+      {rebuild.error && <p {...stylex.props(styles.error)}>{rebuild.error.message}</p>}
       {release.builds.map((build: Build) => (
         <BuildRow key={build.id} build={build} />
       ))}
