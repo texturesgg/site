@@ -667,11 +667,12 @@ package. Shared holds:
 
 - **Enum const tuples with derived types** — `PACK_STATUSES`,
   `PACK_SORT_OPTIONS`, `PACK_PERIODS`, `TARGET_CATEGORIES`, `REPORT_REASONS`,
-  `REPORT_TARGET_TYPES`, `REPORT_STATUSES`, `USER_ROLES`. Each follows the
+  `REPORT_TARGET_TYPES`, `REPORT_STATUSES`, `USER_ROLES`, `SUPPORT_SERVICES`,
+  `SUPPORT_LINK_KINDS`. Each follows the
   `export const X = [...] as const; export type X = (typeof X)[number];` pattern.
 - **`LIMITS`** — validation constants shared between client and server.
 - **Input/upload Zod schemas** — `UploadPackForm`, `CommentInput`,
-  `OnboardingInput`, `UpdateProfileInput`.
+  `OnboardingInput`, `UpdateProfileInput`, `SupportLink`.
 - **File validators** — `fileError`, `modFileError`, `imagesError` (each returns a message or null),
   and `toFileArray`.
 - **File-name helpers** — `isModFileName`, `canonicalDatFileName`,

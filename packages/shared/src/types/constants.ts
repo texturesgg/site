@@ -41,6 +41,19 @@ export type ReportReason = (typeof REPORT_REASONS)[number];
 export const REPORT_TARGET_TYPES = ["pack", "comment"] as const;
 export type ReportTargetType = (typeof REPORT_TARGET_TYPES)[number];
 
+// Where a profile links for support: each service at most once, plus one
+// `other` link with its own label.
+export const SUPPORT_SERVICES = [
+  "kofi",
+  "patreon",
+  "github-sponsors",
+  "youtube",
+  "twitch",
+] as const;
+export type SupportService = (typeof SUPPORT_SERVICES)[number];
+export const SUPPORT_LINK_KINDS = [...SUPPORT_SERVICES, "other"] as const;
+export type SupportLinkKind = (typeof SUPPORT_LINK_KINDS)[number];
+
 export const REPORT_STATUSES = ["pending", "resolved", "dismissed"] as const;
 export type ReportStatus = (typeof REPORT_STATUSES)[number];
 
@@ -60,6 +73,8 @@ export const LIMITS = {
   COMMENT_MIN: 1,
   COMMENT_MAX: 2000,
   REPORT_DETAILS_MAX: 1000,
+  SUPPORT_LINK_URL_MAX: 500,
+  SUPPORT_LINK_LABEL_MAX: 40,
   // The largest Melee reference file is 2.2 MB and stages run a few MB. The
   // queue Worker holds a DAT about three times over while parsing it (the
   // upload, the parser's copy, its data section), inside a 128 MB isolate.

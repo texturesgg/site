@@ -162,6 +162,13 @@
       "when": 1794262984955,
       "tag": "0022_release_rejection_reason",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1794263114988,
+      "tag": "0023_user_support_links",
+      "breakpoints": true
     }
   ]
 }

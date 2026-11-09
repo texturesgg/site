@@ -5,7 +5,16 @@ import { z } from "zod";
 // genuinely consumed by more than one package: enum tuples, validation
 // limits, upload/input schemas, and file-name helpers.
 
-import { IMAGE_TYPE_EXTENSIONS, isModFileName, LIMITS, MOD_FILE_EXTENSIONS } from "./constants.js";
+import {
+  IMAGE_TYPE_EXTENSIONS,
+  isModFileName,
+  LIMITS,
+  MOD_FILE_EXTENSIONS,
+  SUPPORT_LINK_KINDS,
+  SUPPORT_SERVICES,
+  type SupportLinkKind,
+  type SupportService,
+} from "./constants.js";
 
 export * from "./constants.js";
 
@@ -28,6 +37,81 @@ const websiteUrl = z
   .transform((val) => (val === "" ? null : val))
   .pipe(z.httpUrl("Website must be a full URL starting with http:// or https://").nullable());
 
+// Each service's name and the hosts its links live on. A GitHub Sponsors
+// link is also under /sponsors/.
+const SERVICES: Record<SupportService, { name: string; hosts: string[]; path?: RegExp }> = {
+  kofi: { name: "Ko-fi", hosts: ["ko-fi.com", "www.ko-fi.com"] },
+  patreon: { name: "Patreon", hosts: ["patreon.com", "www.patreon.com"] },
+  "github-sponsors": {
+    name: "GitHub Sponsors",
+    hosts: ["github.com"],
+    path: /^\/sponsors\/[^/]+\/?$/,
+  },
+  youtube: { name: "YouTube", hosts: ["youtube.com", "www.youtube.com"] },
+  twitch: { name: "Twitch", hosts: ["twitch.tv", "www.twitch.tv"] },
+};
+
+/** Why `url` can't be a `kind` support link, or null when it can. */
+function supportLinkUrlError(kind: SupportLinkKind, url: string): string | null {
+  const service = kind === "other" ? null : SERVICES[kind];
+  const name = service?.name ?? "Link";
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return `${name} link must be a full URL starting with https://`;
+  }
+  if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.port) {
+    return `${name} link must be a plain URL starting with https://`;
+  }
+  if (!service) return parsed.hostname.includes(".") ? null : "Link must be a public URL";
+  if (
+    !service.hosts.includes(parsed.hostname) ||
+    (service.path && !service.path.test(parsed.pathname))
+  ) {
+    return `${name} link must be a ${service.name} page`;
+  }
+  return null;
+}
+
+const supportLinkUrl = z
+  .string()
+  .trim()
+  .max(LIMITS.SUPPORT_LINK_URL_MAX, maxLength("Link", LIMITS.SUPPORT_LINK_URL_MAX));
+
+export const SupportLink = z
+  .discriminatedUnion("kind", [
+    z.object({
+      kind: z.enum(SUPPORT_SERVICES),
+      url: supportLinkUrl,
+    }),
+    z.object({
+      kind: z.literal("other"),
+      label: z
+        .string()
+        .trim()
+        .min(1, "Name the other link")
+        .max(LIMITS.SUPPORT_LINK_LABEL_MAX, maxLength("Link name", LIMITS.SUPPORT_LINK_LABEL_MAX)),
+      url: supportLinkUrl,
+    }),
+  ])
+  .superRefine((link, ctx) => {
+    const error = supportLinkUrlError(link.kind, link.url);
+    if (error) ctx.addIssue({ code: "custom", message: error, path: ["url"] });
+  });
+export type SupportLink = z.infer<typeof SupportLink>;
+
+/** A profile's support links: each kind at most once. */
+const supportLinks = z
+  .array(SupportLink)
+  .max(SUPPORT_LINK_KINDS.length)
+  .superRefine((links, ctx) => {
+    const kinds = links.map((link) => link.kind);
+    if (new Set(kinds).size !== kinds.length) {
+      ctx.addIssue({ code: "custom", message: "Add each kind of support link once" });
+    }
+  });
+
 export const OnboardingInput = z.object({
   // Bounds only: the API applies validateUsername unless the name is unchanged, since an
   // imported creator may keep a name that predates today's rules.
@@ -48,6 +132,7 @@ export const UpdateProfileInput = z.object({
   showGithub: z.boolean().optional(),
   twitterHandle: twitterHandle.optional(),
   websiteUrl: websiteUrl.optional(),
+  supportLinks: supportLinks.optional(),
 });
 export type UpdateProfileInput = z.infer<typeof UpdateProfileInput>;
 

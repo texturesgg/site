@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import type { SlippiCodeDecl } from "@vgskins/shared";
+import type { SlippiCodeDecl, SupportLink } from "@vgskins/shared";
 import {
   type AnySQLiteColumn,
   index,
@@ -36,6 +36,9 @@ export const users = sqliteTable("users", {
   twitterHandle: text("twitter_handle"),
   githubUsername: text("github_username"),
   websiteUrl: text("website_url"),
+  // Where the profile links for support, as set in profile settings
+  // (`SupportLink` in @vgskins/shared). Null for none.
+  supportLinks: text("support_links", { mode: "json" }).$type<SupportLink[]>(),
   // Onboarding
   onboardingCompleted: integer("onboarding_completed", { mode: "boolean" })
     .default(false)
