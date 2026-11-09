@@ -29,6 +29,8 @@
     "better-auth": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "sonner": "^2.0.7",
     "zod": "^4.4.3"
   },
