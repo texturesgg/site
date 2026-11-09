@@ -1,44 +1,62 @@
 import * as stylex from "@stylexjs/stylex";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link, notFound, useRouter } from "@tanstack/react-router";
-import { displayName } from "@vgskins/shared";
+import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { PRIMARY_GAME_SLUG } from "@vgskins/shared";
 import { type InferResponseType, parseResponse } from "hono/client";
-import { useState } from "react";
+import type { ReactNode } from "react";
 import { useAuth } from "@/contexts/auth-context";
-import { api, apiError } from "@/lib/api";
-import { API_BASE_URL } from "@/lib/config";
+import { appLinks } from "@/lib/app-links";
+import { api } from "@/lib/api";
+import { requireFeatureFlag } from "@/lib/feature-flags";
 import { NETPLAY_LABELS } from "@/lib/format";
-import { EmptyState } from "@/ui/patterns/EmptyState";
+import { InstallActions } from "@/ui/patterns/InstallActions";
 import { layout } from "@/ui/patterns/layout";
+import { Markdown } from "@/ui/patterns/Markdown";
 import { ModEyebrow, ModHeader } from "@/ui/patterns/ModHeader";
-import { AnchorButton, Badge, Button } from "@/ui/primitives";
+import { Publisher } from "@/ui/patterns/ModTile";
 import { color, font, radius, space, text } from "@/ui/tokens.stylex";
+import { MakerReleases, type MakerMod } from "./-releases";
+
+type Listing = InferResponseType<(typeof api)["registry"]["mods"][":id"]["$get"], 200>;
 
 export const Route = createFileRoute("/games/$slug/mods/$modId")({
-  loader: async ({ params }) => {
-    const [res, gameRes] = await Promise.all([
-      api["code-mods"][":slug"].$get({ param: { slug: params.modId } }),
+  loader: async ({ context, params }) => {
+    await requireFeatureFlag(context.queryClient, "codeMods");
+    if (params.slug !== PRIMARY_GAME_SLUG) throw notFound();
+    // The store listing (approved releases, for everyone) and the maker's view
+    // (every release, for its maker and moderators); a mod nobody approved yet
+    // has only the second, and only for them.
+    const [gameRes, listingRes, makerRes, sets] = await Promise.all([
       api.games[":slug"].$get({ param: { slug: params.slug } }),
+      api.registry.mods[":id"].$get({ param: { id: params.modId } }),
+      api["code-mods"][":slug"].$get({ param: { slug: params.modId } }),
+      parseResponse(api.registry.sets.$get()),
     ]);
-    if (res.status === 404 || gameRes.status === 404) throw notFound();
-    const [mod, game] = await Promise.all([parseResponse(res), parseResponse(gameRes)]);
-    // A mod belongs to one game; another game's URL for it is not a page.
-    if (mod.game !== game.slug) throw notFound();
-    return { ...mod, gameName: game.name };
+    const listing: Listing | null = listingRes.ok ? await listingRes.json() : null;
+    const maker: MakerMod | null = makerRes.ok ? await makerRes.json() : null;
+    if (!listing && !maker) throw notFound();
+    const game = await parseResponse(gameRes);
+    return { game, listing, maker, sets };
   },
-  head: ({ loaderData }) => ({
-    meta: [{ title: `${loaderData?.name ?? "Mod"} - textures.gg` }],
-  }),
-  component: CodeMod,
+  head: ({ loaderData }) => {
+    const name = loaderData?.listing?.name ?? loaderData?.maker?.name ?? "Mod";
+    const description = loaderData?.listing?.description ?? loaderData?.maker?.description;
+    const icon = loaderData?.listing?.icon?.url;
+    return {
+      meta: [
+        { title: `${name} - textures.gg` },
+        ...(description ? [{ name: "description", content: description }] : []),
+        { property: "og:title", content: name },
+        ...(description ? [{ property: "og:description", content: description }] : []),
+        ...(icon ? [{ property: "og:image", content: icon }] : []),
+      ],
+    };
+  },
+  component: ModPage,
 });
 
-type Release = InferResponseType<
-  (typeof api)["code-mods"][":slug"]["$get"],
-  200
->["releases"][number];
-type Build = Release["builds"][number];
-
 const WIDE = "@media (min-width: 1024px)";
+
+const SYSTEM_NAMES = { linux: "Linux", windows: "Windows", macos: "macOS" } as const;
 
 const styles = stylex.create({
   // The pack page's frame: on wide screens the work on the left and the
@@ -48,294 +66,240 @@ const styles = stylex.create({
     flexDirection: "column",
     gridTemplateColumns: "minmax(0, 1fr) 400px",
     alignItems: { default: "stretch", [WIDE]: "start" },
-    gap: { default: space.lg, [WIDE]: space.xl },
+    gap: { default: space.xl, [WIDE]: space.xxl },
   },
   side: {
     order: { default: 1, [WIDE]: 2 },
     display: "flex",
     flexDirection: "column",
-    gap: space.xl,
+    gap: space.lg,
     minWidth: 0,
   },
-  main: { order: { default: 2, [WIDE]: 1 }, minWidth: 0 },
-  // The header is order 1 (ModHeader), so what follows it in the column
-  // comes after it.
-  afterHead: { order: 2 },
-  creator: { color: color.text, textDecoration: { default: "none", ":hover": "underline" } },
-  description: { margin: 0, fontSize: text.md, lineHeight: 1.5, color: color.muted },
-  section: { display: "flex", flexDirection: "column", gap: space.md },
-  heading: { margin: 0, fontSize: text.lg, fontWeight: 700 },
-  id: { fontFamily: font.mono },
-  card: {
+  main: {
+    order: { default: 2, [WIDE]: 1 },
     display: "flex",
     flexDirection: "column",
-    gap: space.sm,
-    padding: space.md,
-    borderRadius: radius.md,
-    backgroundColor: color.surface,
+    gap: space.xxl,
+    minWidth: 0,
   },
-  row: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.sm },
-  spread: { justifyContent: "space-between" },
-  version: { fontSize: text.lg, fontWeight: 700 },
-  muted: { margin: 0, fontSize: text.sm, color: color.muted },
-  error: { margin: 0, fontSize: text.sm, color: color.danger },
-  build: {
-    display: "flex",
-    flexDirection: "column",
-    gap: space.xs,
-    paddingTop: space.sm,
+  icon: { width: "80px", height: "80px", borderRadius: radius.lg, objectFit: "cover" },
+  description: { margin: 0, fontSize: text.lg, lineHeight: 1.5, color: color.muted },
+  link: { color: color.text, textDecoration: { default: "none", ":hover": "underline" } },
+  // After the header, which is order 1 (ModHeader).
+  facts: {
+    order: 2,
+    display: "grid",
+    gridTemplateColumns: "auto minmax(0, 1fr)",
+    columnGap: space.lg,
+    rowGap: space.sm,
+    margin: 0,
+    paddingTop: space.lg,
     borderTopWidth: 1,
     borderTopStyle: "solid",
     borderTopColor: color.line,
+    fontSize: text.sm,
   },
-  code: {
-    margin: 0,
-    padding: space.sm,
-    overflowX: "auto",
-    borderRadius: radius.sm,
-    backgroundColor: color.bg,
-    fontFamily: font.mono,
-    fontSize: text.xs,
-    lineHeight: 1.5,
-    whiteSpace: "pre-wrap",
-    overflowWrap: "anywhere",
+  term: { color: color.muted },
+  value: { margin: 0, overflowWrap: "anywhere" },
+  mono: { fontFamily: font.mono },
+  section: { display: "flex", flexDirection: "column", gap: space.md },
+  heading: { margin: 0, fontSize: text.h3, fontWeight: 800 },
+  shots: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+    gap: space.sm,
   },
+  shot: {
+    display: "block",
+    width: "100%",
+    aspectRatio: "4 / 3",
+    objectFit: "cover",
+    borderRadius: radius.md,
+    backgroundColor: color.surface,
+  },
+  release: { display: "flex", flexDirection: "column", gap: space.xs },
+  releaseHead: { display: "flex", alignItems: "baseline", gap: space.sm },
+  releaseVersion: { fontSize: text.lg, fontWeight: 700 },
+  muted: { margin: 0, fontSize: text.sm, color: color.muted },
 });
 
-function CodeMod() {
-  const mod = Route.useLoaderData();
+function formatDate(date: string | Date): string {
+  return new Date(date).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function ModPage() {
+  const { game, listing, maker, sets } = Route.useLoaderData();
   const { user } = useAuth();
   const canReview = user?.role === "moderator" || user?.role === "admin";
-  const created = new Date(mod.createdAt);
-  const latest = mod.releases.find((release) => release.status === "approved") ?? mod.releases[0];
+  const showReleases = maker && (maker.mine || canReview);
+  const name = listing?.name ?? maker?.name ?? "";
+  const description = listing?.description ?? maker?.description;
 
   return (
     <div {...stylex.props(layout.container, layout.page, styles.page)}>
       <div {...stylex.props(styles.side)}>
         <ModHeader
           eyebrow={
-            <ModEyebrow to="/games/$slug/mods" params={{ slug: mod.game }}>
-              Mod · {mod.gameName}
+            <ModEyebrow to="/games/$slug/mods" params={{ slug: game.slug }}>
+              Mod · {game.name}
             </ModEyebrow>
           }
-          title={mod.name}
-          byline={
-            <>
-              {mod.owner && (
-                <>
-                  by{" "}
-                  <Link
-                    to="/users/$username"
-                    params={{ username: mod.owner }}
-                    {...stylex.props(styles.creator)}
-                  >
-                    {displayName(mod.owner)}
-                  </Link>{" "}
-                  ·{" "}
-                </>
-              )}
-              <time dateTime={created.toISOString()}>
-                {created.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-              </time>
-            </>
-          }
+          title={name}
+          byline={listing ? <Byline listing={listing} /> : maker?.owner && <>by {maker.owner}</>}
         >
-          <div {...stylex.props(styles.row)}>
-            <span {...stylex.props(styles.id)}>{mod.slug}</span>
-            {latest && <Badge>{latest.version}</Badge>}
-            {latest?.netplay && <Badge>{NETPLAY_LABELS[latest.netplay]}</Badge>}
-          </div>
-          {mod.description && <p {...stylex.props(styles.description)}>{mod.description}</p>}
+          {listing?.icon && <img src={listing.icon.url} alt="" {...stylex.props(styles.icon)} />}
+          {description && <p {...stylex.props(styles.description)}>{description}</p>}
+          {listing && <InstallActions href={appLinks.mod(listing.id)} label={`Install ${name}`} />}
         </ModHeader>
-        {mod.mine && (
-          <div {...stylex.props(styles.afterHead)}>
-            <Publish />
+        {listing && <Facts listing={listing} game={game.slug} sets={sets} />}
+      </div>
+
+      <div {...stylex.props(styles.main)}>
+        {listing && listing.screenshots.length > 0 && (
+          <div {...stylex.props(styles.shots)}>
+            {listing.screenshots.map((shot) => (
+              <a key={shot.url} href={shot.url} target="_blank" rel="noreferrer">
+                <img src={shot.url} alt="" loading="lazy" {...stylex.props(styles.shot)} />
+              </a>
+            ))}
           </div>
+        )}
+        {listing?.readme && <Markdown>{listing.readme}</Markdown>}
+        {showReleases ? (
+          <MakerReleases mod={maker} canReview={canReview} />
+        ) : (
+          listing && <Changelog releases={listing.releases} />
         )}
       </div>
-      <section {...stylex.props(styles.main, styles.section)}>
-        <h2 {...stylex.props(styles.heading)}>Releases</h2>
-        {mod.releases.length === 0 ? (
-          <EmptyState
-            title="No releases yet"
-            body={mod.mine ? "Publish a version to build one." : undefined}
-          />
-        ) : (
-          mod.releases.map((release) => (
-            <ReleaseCard key={release.id} release={release} game={mod.game} canReview={canReview} />
-          ))
-        )}
-      </section>
     </div>
   );
 }
 
-/** How the owner publishes a version, with the tgg command line. */
-function Publish() {
+/** Who publishes it, linking to their profile when it's the maker's own name, and when it last changed. */
+function Byline({ listing }: { listing: Listing }) {
+  const own = listing.publisher.name === listing.author;
   return (
-    <section {...stylex.props(styles.section)}>
-      <h2 {...stylex.props(styles.heading)}>Publish</h2>
-      <div {...stylex.props(styles.card)}>
-        <p {...stylex.props(styles.muted)}>
-          Bump the version in manifest.json, commit, then from your mod&apos;s folder:
-        </p>
-        <pre {...stylex.props(styles.code)}>{"tgg login\ntgg mod publish"}</pre>
-        <p {...stylex.props(styles.muted)}>Each version you publish builds a release.</p>
-      </div>
-    </section>
+    <>
+      by{" "}
+      {own ? (
+        <Link
+          to="/users/$username"
+          params={{ username: listing.author }}
+          {...stylex.props(styles.link)}
+        >
+          <Publisher publisher={listing.publisher} inline />
+        </Link>
+      ) : (
+        <Publisher publisher={listing.publisher} inline />
+      )}
+    </>
   );
 }
 
-function ReleaseCard({
-  release,
-  game,
-  canReview,
-}: {
-  release: Release;
-  game: string;
-  canReview: boolean;
-}) {
-  const router = useRouter();
-  const review = useMutation({
-    mutationFn: async (decision: "approve" | "reject") => {
-      const param = { id: release.id };
-      const res =
-        decision === "approve"
-          ? await api.admin["code-mods"].releases[":id"].approve.$post({ param })
-          : await api.admin["code-mods"].releases[":id"].reject.$post({ param, json: {} });
-      if (!res.ok) throw await apiError(res);
-    },
-    onSuccess: () => router.invalidate(),
-  });
-
+function Fact({ term, children }: { term: string; children: ReactNode }) {
   return (
-    <article {...stylex.props(styles.card)}>
-      <div {...stylex.props(styles.row, styles.spread)}>
-        <div {...stylex.props(styles.row)}>
-          <span {...stylex.props(styles.version)}>{release.version}</span>
-          <Badge tone={release.status === "approved" ? "neutral" : "accent"}>
-            {release.status}
-          </Badge>
-          {release.netplay && <Badge>{NETPLAY_LABELS[release.netplay]}</Badge>}
-          {release.license && <Badge>{release.license}</Badge>}
-        </div>
-        {canReview && release.status === "pending" && (
-          <div {...stylex.props(styles.row)}>
-            <Button
-              variant="primary"
-              onClick={() => review.mutate("approve")}
-              disabled={review.isPending}
-            >
-              Approve
-            </Button>
-            <Button onClick={() => review.mutate("reject")} disabled={review.isPending}>
-              Reject
-            </Button>
-          </div>
-        )}
-      </div>
-      <p {...stylex.props(styles.muted)}>
-        {release.tag} at <span {...stylex.props(styles.id)}>{release.commit.slice(0, 12)}</span>
-      </p>
-      {release.depends.length > 0 && (
-        <p {...stylex.props(styles.muted)}>
-          Needs{" "}
-          {release.depends.map((dependency, i) => (
+    <>
+      <dt {...stylex.props(styles.term)}>{term}</dt>
+      <dd {...stylex.props(styles.value)}>{children}</dd>
+    </>
+  );
+}
+
+function Facts({
+  listing,
+  game,
+  sets,
+}: {
+  listing: Listing;
+  game: string;
+  sets: { name: string; title: string }[];
+}) {
+  const inSets = sets.filter((set) => listing.sets.includes(set.name));
+  return (
+    <dl {...stylex.props(styles.facts)}>
+      <Fact term="Version">
+        <span {...stylex.props(styles.mono)}>{listing.version}</span> ·{" "}
+        {formatDate(listing.updatedAt)}
+      </Fact>
+      <Fact term="Works on">
+        {listing.targets.length
+          ? listing.targets.map((target) => SYSTEM_NAMES[target]).join(", ")
+          : "Not built for the current game yet"}
+      </Fact>
+      {listing.netplay && <Fact term="Netplay">{NETPLAY_LABELS[listing.netplay]}</Fact>}
+      <Fact term="Installs">
+        <span {...stylex.props(styles.mono)}>{listing.installs.toLocaleString("en-US")}</span>
+      </Fact>
+      {inSets.length > 0 && (
+        <Fact term="In sets">
+          {inSets.map((set, index) => (
+            <span key={set.name}>
+              {index > 0 && ", "}
+              <Link
+                to="/games/$slug/sets/$setName"
+                params={{ slug: game, setName: set.name }}
+                {...stylex.props(styles.link)}
+              >
+                {set.title}
+              </Link>
+            </span>
+          ))}
+        </Fact>
+      )}
+      {listing.depends.length > 0 && (
+        <Fact term="Needs">
+          {listing.depends.map((dependency, index) => (
             <span key={dependency.id}>
-              {i > 0 && ", "}
+              {index > 0 && ", "}
               <Link
                 to="/games/$slug/mods/$modId"
                 params={{ slug: game, modId: dependency.id }}
-                {...stylex.props(styles.id, styles.creator)}
+                {...stylex.props(styles.link, styles.mono)}
               >
                 {dependency.id}
               </Link>{" "}
               {dependency.range}
             </span>
           ))}
-        </p>
+        </Fact>
       )}
-      {release.error && <p {...stylex.props(styles.error)}>{release.error}</p>}
-      {review.error && <p {...stylex.props(styles.error)}>{review.error.message}</p>}
-      {release.builds.map((build: Build) => (
-        <BuildRow key={build.id} build={build} />
-      ))}
-    </article>
+      {listing.license && <Fact term="License">{listing.license}</Fact>}
+      {listing.homepage && (
+        <Fact term="Homepage">
+          <a
+            href={listing.homepage}
+            target="_blank"
+            rel="noopener noreferrer nofollow ugc"
+            {...stylex.props(styles.link)}
+          >
+            {listing.homepage.replace(/^https?:\/\//, "")}
+          </a>
+        </Fact>
+      )}
+      <Fact term="Id">
+        <span {...stylex.props(styles.mono)}>{listing.id}</span>
+      </Fact>
+    </dl>
   );
 }
 
-function formatSize(bytes: number): string {
-  return bytes < 1024 * 1024
-    ? `${(bytes / 1024).toFixed(1)} KB`
-    : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
-/** The game files a build ships, the first few by name. */
-function fileSummary(files: Build["files"]): string {
-  const shown = files.slice(0, 6).map((file) => file.path);
-  const more = files.length - shown.length;
-  return `Files: ${shown.join(", ")}${more > 0 ? `, and ${more} more` : ""}`;
-}
-
-function hookSummary(hooks: Build["hooks"]): string | null {
-  if (!hooks) return null;
-  const parts = [
-    hooks.replaces?.length ? `replaces ${hooks.replaces.join(", ")}` : null,
-    hooks.before?.length ? `runs before ${hooks.before.join(", ")}` : null,
-    hooks.after?.length ? `runs after ${hooks.after.join(", ")}` : null,
-  ].filter(Boolean);
-  return parts.length ? parts.join("; ") : null;
-}
-
-function BuildRow({ build }: { build: Build }) {
-  const [showLog, setShowLog] = useState(false);
-  const log = useQuery({
-    queryKey: ["code-mod-build", build.id, "log"],
-    enabled: showLog,
-    queryFn: async () => {
-      const res = await api["code-mods"].builds[":id"].log.$get({ param: { id: build.id } });
-      if (!res.ok) throw await apiError(res);
-      return res.text();
-    },
-  });
-  const hooks = hookSummary(build.hooks);
-
+function Changelog({ releases }: { releases: Listing["releases"] }) {
   return (
-    <div {...stylex.props(styles.build)}>
-      <div {...stylex.props(styles.row, styles.spread)}>
-        <div {...stylex.props(styles.row)}>
-          <span {...stylex.props(styles.id)}>{build.layoutId ?? "Every layout"}</span>
-          <Badge tone={build.status === "succeeded" ? "neutral" : "accent"}>{build.status}</Badge>
-          {build.size !== null && (
-            <span {...stylex.props(styles.muted)}>{formatSize(build.size)}</span>
-          )}
-          {build.state !== null && <span {...stylex.props(styles.muted)}>Keeps state</span>}
-        </div>
-        <div {...stylex.props(styles.row)}>
-          {build.hasLog && (
-            <Button variant="text" onClick={() => setShowLog((shown) => !shown)}>
-              {showLog ? "Hide log" : "Log"}
-            </Button>
-          )}
-          {build.sha256 && (
-            <AnchorButton href={`${API_BASE_URL}/api/code-mods/packages/${build.sha256}.zip`}>
-              Download
-            </AnchorButton>
-          )}
-        </div>
-      </div>
-      {hooks && <p {...stylex.props(styles.muted)}>{hooks}</p>}
-      {build.files.length > 0 && <p {...stylex.props(styles.muted)}>{fileSummary(build.files)}</p>}
-      {build.error && <p {...stylex.props(styles.error)}>{build.error}</p>}
-      {showLog && (
-        <pre {...stylex.props(styles.code)}>
-          {log.isPending
-            ? "Loading…"
-            : log.error
-              ? log.error.message
-              : log.data || "The log is empty."}
-        </pre>
-      )}
-    </div>
+    <section {...stylex.props(styles.section)}>
+      <h2 {...stylex.props(styles.heading)}>Changelog</h2>
+      {releases.map((release) => (
+        <article key={release.version} {...stylex.props(styles.release)}>
+          <div {...stylex.props(styles.releaseHead)}>
+            <span {...stylex.props(styles.releaseVersion, styles.mono)}>{release.version}</span>
+            <span {...stylex.props(styles.muted)}>{formatDate(release.date)}</span>
+          </div>
+          {release.changelog && <Markdown>{release.changelog}</Markdown>}
+        </article>
+      ))}
+    </section>
   );
 }

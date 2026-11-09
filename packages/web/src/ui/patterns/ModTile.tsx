@@ -48,12 +48,14 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
   },
   publisher: {
-    display: "flex",
+    display: "inline-flex",
     alignItems: "center",
     gap: space.xxs,
     fontSize: text.sm,
     color: color.muted,
   },
+  // In a sentence, such as a mod page's byline, it reads as part of it.
+  inline: { fontSize: "inherit", color: "inherit" },
   official: { display: "inline-flex", color: color.accentText },
   description: {
     margin: 0,
@@ -78,9 +80,15 @@ export type ModTileData = {
 };
 
 /** Who publishes a mod, with a check when textures.gg vouches for them. */
-export function Publisher({ publisher }: { publisher: ModTileData["publisher"] }) {
+export function Publisher({
+  publisher,
+  inline = false,
+}: {
+  publisher: ModTileData["publisher"];
+  inline?: boolean;
+}) {
   return (
-    <span {...stylex.props(styles.publisher)}>
+    <span {...stylex.props(styles.publisher, inline && styles.inline)}>
       {publisher.name}
       {publisher.official && (
         <span {...stylex.props(styles.official)} title="Official">
