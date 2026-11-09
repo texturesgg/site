@@ -154,6 +154,29 @@ export async function loadCodeModBuild(
 }
 
 /**
+ * Load a release the requester may see, with its mod: an approved release of a
+ * mod that isn't deleted, or any release of a mod they own or moderate.
+ * Anything else is undefined, as a missing release. Routes load single
+ * releases through this, never from `codeModReleases`.
+ */
+export async function loadCodeModRelease(
+  db: Database,
+  id: string,
+  options: { requester: Requester }
+) {
+  const [row] = await db
+    .select({ release: codeModReleases, mod: codeMods })
+    .from(codeModReleases)
+    .innerJoin(codeMods, eq(codeMods.id, codeModReleases.codeModId))
+    .where(and(eq(codeModReleases.id, id), isNull(codeMods.deletedAt)));
+  return row &&
+    (row.release.status === "approved" ||
+      canViewUnapprovedReleases(row.mod.userId, options.requester))
+    ? row
+    : undefined;
+}
+
+/**
  * A release's netplay class, selected beside `codeModReleases`: what its
  * builds report (each build of a release reports the same), or null before
  * one succeeds.
