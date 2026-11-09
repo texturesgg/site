@@ -14,18 +14,20 @@ const flagsQuery = (userId: string) =>
     staleTime: 1000 * 30,
   });
 
-/** A flag for the signed-in viewer, from Flagship through the API; off until it answers. */
+/**
+ * A flag for the viewer, signed in or not, from Flagship through the API;
+ * off until it answers.
+ */
 export function useFeatureFlag(name: FlagName): boolean {
   const { user } = useAuth();
-  const { data } = useQuery({ ...flagsQuery(user?.id ?? ""), enabled: Boolean(user) });
+  const { data } = useQuery(flagsQuery(user?.id ?? ""));
   return data?.[name] ?? false;
 }
 
-/** A flag for the signed-in viewer, for loaders. */
+/** A flag for the viewer, for loaders. */
 export async function featureFlag(queryClient: QueryClient, name: FlagName): Promise<boolean> {
   const session = await queryClient.ensureQueryData(sessionQuery);
-  if (!session?.user) return false;
-  const flags = await queryClient.ensureQueryData(flagsQuery(session.user.id));
+  const flags = await queryClient.ensureQueryData(flagsQuery(session?.user?.id ?? ""));
   return flags[name];
 }
 

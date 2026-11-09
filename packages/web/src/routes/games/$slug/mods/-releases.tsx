@@ -6,7 +6,9 @@ import { useState } from "react";
 import { api, apiError } from "@/lib/api";
 import { API_BASE_URL } from "@/lib/config";
 import { NETPLAY_LABELS } from "@/lib/format";
+import { byVersionDescending } from "@vgskins/shared";
 import { EmptyState } from "@/ui/patterns/EmptyState";
+import { RejectReleaseDialog } from "@/ui/patterns/RejectReleaseDialog";
 import { AnchorButton, Badge, Button } from "@/ui/primitives";
 import { color, font, radius, space, text } from "@/ui/tokens.stylex";
 
@@ -25,6 +27,38 @@ const RELEASE_STATUS: Record<string, string> = {
   failed: "Failed",
 };
 
+const SYSTEM_NAMES: Record<string, string> = { linux: "Linux", windows: "Windows", macos: "macOS" };
+
+/** Which game a build is for: the system and tgg-melee version, or every one. */
+function buildLabel(build: Build): string {
+  if (!build.layout) return build.layoutId ?? "Every system";
+  const system = SYSTEM_NAMES[build.layout.system] ?? build.layout.target;
+  return `${system} · ${build.layout.portVersion}${build.layout.active ? "" : " (retired)"}`;
+}
+
+/** Newest port first, then Linux, Windows, macOS. */
+function byGame(a: Build, b: Build): number {
+  const order = Object.keys(SYSTEM_NAMES);
+  return (
+    byVersionDescending(a.layout?.portVersion ?? "0.0.0", b.layout?.portVersion ?? "0.0.0") ||
+    order.indexOf(a.layout?.system ?? "") - order.indexOf(b.layout?.system ?? "")
+  );
+}
+
+/**
+ * The newest approved release's failed builds for games players have now:
+ * the registry rebuilds a mod for each new tgg-melee without its maker, so a
+ * failure there is theirs to see first.
+ */
+function brokenBuilds(mod: MakerMod): { release: Release; builds: Build[] } | null {
+  const release = mod.releases.find((candidate) => candidate.status === "approved");
+  if (!release) return null;
+  const builds = release.builds.filter(
+    (build) => build.status === "failed" && build.layout?.active
+  );
+  return builds.length ? { release, builds: builds.sort(byGame) } : null;
+}
+
 const BUILD_STATUS: Record<string, string> = {
   queued: "Queued",
   building: "Building",
@@ -33,6 +67,9 @@ const BUILD_STATUS: Record<string, string> = {
 };
 
 const styles = stylex.create({
+  warning: { borderWidth: 1, borderStyle: "solid", borderColor: color.accent },
+  warningTitle: { margin: 0, fontSize: text.md, fontWeight: 700 },
+  buildName: { fontWeight: 600 },
   creator: { color: color.text, textDecoration: { default: "none", ":hover": "underline" } },
   section: { display: "flex", flexDirection: "column", gap: space.md },
   heading: { margin: 0, fontSize: text.h3, fontWeight: 800 },
@@ -83,9 +120,20 @@ export function MakerReleases({
   canReview: boolean;
   canRebuild: boolean;
 }) {
+  const broken = brokenBuilds(mod);
   return (
     <section {...stylex.props(styles.section)}>
       <h2 {...stylex.props(styles.heading)}>Releases</h2>
+      {broken && (
+        <div {...stylex.props(styles.card, styles.warning)}>
+          <p {...stylex.props(styles.warningTitle)}>
+            {broken.release.version} didn't build for {broken.builds.map(buildLabel).join(", ")}
+          </p>
+          <p {...stylex.props(styles.muted)}>
+            Players there can't install it until a version builds. The log is below.
+          </p>
+        </div>
+      )}
       {mod.mine && <Publish />}
       {mod.releases.length === 0 ? (
         <EmptyState title="No releases yet" />
@@ -128,16 +176,22 @@ function ReleaseCard({
   canRebuild: boolean;
 }) {
   const router = useRouter();
+  const [rejecting, setRejecting] = useState(false);
   const review = useMutation({
-    mutationFn: async (decision: "approve" | "reject") => {
+    mutationFn: async (decision: { approve: true } | { approve: false; reason: string }) => {
       const param = { id: release.id };
-      const res =
-        decision === "approve"
-          ? await api.admin["code-mods"].releases[":id"].approve.$post({ param })
-          : await api.admin["code-mods"].releases[":id"].reject.$post({ param, json: {} });
+      const res = decision.approve
+        ? await api.admin["code-mods"].releases[":id"].approve.$post({ param })
+        : await api.admin["code-mods"].releases[":id"].reject.$post({
+            param,
+            json: { reason: decision.reason || undefined },
+          });
       if (!res.ok) throw await apiError(res);
     },
-    onSuccess: () => router.invalidate(),
+    onSuccess: async () => {
+      setRejecting(false);
+      await router.invalidate();
+    },
   });
   // A failed release is checked again; an approved one builds what failed.
   const rebuild = useMutation({
@@ -173,12 +227,12 @@ function ReleaseCard({
           <div {...stylex.props(styles.row)}>
             <Button
               variant="primary"
-              onClick={() => review.mutate("approve")}
+              onClick={() => review.mutate({ approve: true })}
               disabled={review.isPending}
             >
               Approve
             </Button>
-            <Button onClick={() => review.mutate("reject")} disabled={review.isPending}>
+            <Button onClick={() => setRejecting(true)} disabled={review.isPending}>
               Reject
             </Button>
           </div>
@@ -206,11 +260,22 @@ function ReleaseCard({
         </p>
       )}
       {release.error && <p {...stylex.props(styles.error)}>{release.error}</p>}
-      {review.error && <p {...stylex.props(styles.error)}>{review.error.message}</p>}
+      {release.status === "rejected" && release.rejectionReason && (
+        <p {...stylex.props(styles.error)}>Rejected: {release.rejectionReason}</p>
+      )}
+      {review.error && !rejecting && <p {...stylex.props(styles.error)}>{review.error.message}</p>}
       {rebuild.error && <p {...stylex.props(styles.error)}>{rebuild.error.message}</p>}
-      {release.builds.map((build: Build) => (
+      {[...release.builds].sort(byGame).map((build: Build) => (
         <BuildRow key={build.id} build={build} />
       ))}
+      <RejectReleaseDialog
+        open={rejecting}
+        onOpenChange={setRejecting}
+        version={release.version}
+        pending={review.isPending}
+        error={review.error?.message}
+        onReject={(reason) => review.mutate({ approve: false, reason })}
+      />
     </article>
   );
 }
@@ -255,7 +320,7 @@ function BuildRow({ build }: { build: Build }) {
     <div {...stylex.props(styles.build)}>
       <div {...stylex.props(styles.row, styles.spread)}>
         <div {...stylex.props(styles.row)}>
-          <span {...stylex.props(styles.id)}>{build.layoutId ?? "Every layout"}</span>
+          <span {...stylex.props(styles.buildName)}>{buildLabel(build)}</span>
           <Badge tone={build.status === "succeeded" ? "neutral" : "accent"}>
             {BUILD_STATUS[build.status] ?? build.status}
           </Badge>

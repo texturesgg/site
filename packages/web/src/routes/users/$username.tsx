@@ -5,6 +5,7 @@ import { displayName } from "@vgskins/shared";
 import { type InferResponseType, parseResponse } from "hono/client";
 import type { ReactNode } from "react";
 import { useAuth } from "@/contexts/auth-context";
+import { supportLinkLabel } from "@/lib/support-links";
 import { api } from "@/lib/api";
 import { Description } from "@/ui/patterns/Description";
 import { EmptyState } from "@/ui/patterns/EmptyState";
@@ -253,6 +254,21 @@ function ProfilePage() {
       >
         <div {...stylex.props(styles.about)}>
           {profile.bio && !profile.isPlaceholder && <Description text={profile.bio} />}
+          {profile.supportLinks.length > 0 && (
+            <div {...stylex.props(styles.links)}>
+              {profile.supportLinks.map((link) => (
+                <AnchorButton
+                  key={link.url}
+                  href={link.url}
+                  variant="primary"
+                  target="_blank"
+                  rel="noopener noreferrer me"
+                >
+                  {supportLinkLabel(link)}
+                </AnchorButton>
+              ))}
+            </div>
+          )}
           {links.length > 0 && (
             <div {...stylex.props(styles.links)}>
               {links.map((link) => (

@@ -3,10 +3,12 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { displayName, PRIMARY_GAME_SLUG } from "@vgskins/shared";
 import { type InferResponseType, parseResponse } from "hono/client";
+import { useState } from "react";
 import { api, apiError, getThumbnailUrl } from "@/lib/api";
 import { featureFlag } from "@/lib/feature-flags";
 import { NETPLAY_LABELS } from "@/lib/format";
 import { EmptyState } from "@/ui/patterns/EmptyState";
+import { RejectReleaseDialog } from "@/ui/patterns/RejectReleaseDialog";
 import { Button } from "@/ui/primitives";
 import { color, font, radius, space, text } from "@/ui/tokens.stylex";
 
@@ -193,18 +195,31 @@ function PackQueue({ pending }: { pending: PendingPack[] }) {
 
 function CodeModReleaseQueue({ releases }: { releases: PendingRelease[] }) {
   const router = useRouter();
+  const [rejecting, setRejecting] = useState<PendingRelease | null>(null);
   const queryClient = useQueryClient();
 
   const decide = useMutation({
-    mutationFn: async ({ id, decision }: { id: string; decision: "approve" | "reject" }) => {
+    mutationFn: async ({
+      id,
+      decision,
+      reason,
+    }: {
+      id: string;
+      decision: "approve" | "reject";
+      reason?: string;
+    }) => {
       const param = { id };
       const res =
         decision === "approve"
           ? await api.admin["code-mods"].releases[":id"].approve.$post({ param })
-          : await api.admin["code-mods"].releases[":id"].reject.$post({ param, json: {} });
+          : await api.admin["code-mods"].releases[":id"].reject.$post({
+              param,
+              json: { reason: reason || undefined },
+            });
       if (!res.ok) throw await apiError(res);
     },
     onSuccess: async () => {
+      setRejecting(null);
       await queryClient.invalidateQueries({ queryKey: ["admin"] });
       await router.invalidate();
     },
@@ -215,7 +230,7 @@ function CodeModReleaseQueue({ releases }: { releases: PendingRelease[] }) {
       <h2 id="code-mod-releases" {...stylex.props(styles.heading)}>
         Mod releases
       </h2>
-      {decide.isError && (
+      {decide.isError && !rejecting && (
         <p role="alert" {...stylex.props(styles.error)}>
           {decide.error.message || "That decision couldn't be saved."}
         </p>
@@ -246,10 +261,7 @@ function CodeModReleaseQueue({ releases }: { releases: PendingRelease[] }) {
                 >
                   {busy && decide.variables?.decision === "approve" ? "Approving…" : "Approve"}
                 </Button>
-                <Button
-                  disabled={decide.isPending}
-                  onClick={() => decide.mutate({ id: release.id, decision: "reject" })}
-                >
+                <Button disabled={decide.isPending} onClick={() => setRejecting(release)}>
                   {busy && decide.variables?.decision === "reject" ? "Rejecting…" : "Reject"}
                 </Button>
               </div>
@@ -257,6 +269,16 @@ function CodeModReleaseQueue({ releases }: { releases: PendingRelease[] }) {
           );
         })}
       </ul>
+      <RejectReleaseDialog
+        open={rejecting !== null}
+        onOpenChange={(open) => !open && setRejecting(null)}
+        version={rejecting ? `${rejecting.name} ${rejecting.version}` : ""}
+        pending={decide.isPending}
+        error={decide.error?.message}
+        onReject={(reason) =>
+          rejecting && decide.mutate({ id: rejecting.id, decision: "reject", reason })
+        }
+      />
     </section>
   );
 }
