@@ -123,6 +123,7 @@ const app = new Hono<HonoEnv>()
         ...(body.showGithub !== undefined ? { showGithub: body.showGithub } : {}),
         twitterHandle: body.twitterHandle,
         websiteUrl: body.websiteUrl,
+        ...(body.supportLinks !== undefined ? { supportLinks: body.supportLinks } : {}),
         updatedAt: new Date(),
       })
       .where(eq(users.id, user.id));
@@ -368,6 +369,7 @@ const app = new Hono<HonoEnv>()
         twitterHandle: result.showTwitter ? result.twitterHandle : null,
         githubUsername: result.showGithub ? result.githubUsername : null,
         websiteUrl: result.websiteUrl,
+        supportLinks: result.supportLinks ?? [],
         createdAt: result.createdAt,
       },
       200

@@ -61,6 +61,7 @@ erDiagram
         text twitterHandle
         text githubUsername
         text websiteUrl
+        json supportLinks "kind, url, label (other only); nullable"
         bool onboardingCompleted
         text source "null, ssbmtextures, or preview-sync"
         int createdAt

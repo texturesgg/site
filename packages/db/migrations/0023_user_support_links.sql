@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `support_links` text;
