@@ -278,7 +278,7 @@ erDiagram
         text sourceUrl "nullable"
         text publisherName "nullable; admin-set, the author's name otherwise"
         bool official "admin-set; listed first"
-        int downloadCount
+        int downloadCount "first installs"
         int createdAt
         int updatedAt
         int deletedAt "nullable, soft delete"
@@ -544,8 +544,10 @@ with an approved release) by its newest approved release, with its publisher:
 textures.gg), the author's name otherwise, and `official`, which admins set
 (`PUT /api/admin/code-mods/:id/publisher`) and the list sorts first, and serve images at
 `/api/registry/images/<sha256>.png` while an approved release names them.
-`codeMods.downloadCount` counts downloads of its packages from
-`/api/registry/packages/`, and is the store's install count.
+`codeMods.downloadCount` is the store's install count: downloads of its
+packages from `/api/registry/packages/` with `?for=install`, which tgg-mod
+sends when the mod isn't installed yet. Updates and other downloads aren't
+counted.
 
 A release's `slippi` is read with its listing: the manifest's `slippi` field,
 the Slippi gecko codes the mod reproduces, each `{code, name, versions, unless}`
