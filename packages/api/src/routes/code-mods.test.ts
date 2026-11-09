@@ -11,17 +11,22 @@ import { Hono } from "hono";
 import { beforeAll, expect, it, vi } from "vitest";
 import { signIn } from "../test/session";
 import type { HonoEnv } from "../types";
+import adminRoutes from "./admin";
 import codeModsRoutes from "./code-mods";
 
 // Mod pages are public: anyone reads a mod and its approved releases, with
 // the flag off and signed out, while its owner and moderators see every
-// release. Creating and publishing stay behind the flag.
+// release and why a moderator rejected one. Creating and publishing stay
+// behind the flag.
 const db = createDb(env.DB);
-const app = new Hono<HonoEnv>().route("/api/code-mods", codeModsRoutes);
+const app = new Hono<HonoEnv>()
+  .route("/api/code-mods", codeModsRoutes)
+  .route("/api/admin", adminRoutes);
 const NOW = new Date();
 const LAYOUT = "0123456789abcdef";
 let owner: string;
 let stranger: string;
+let moderator: string;
 
 function request(path: string, init: RequestInit = {}) {
   return app.request(`/api/code-mods${path}`, init, env, createExecutionContext());
@@ -31,6 +36,7 @@ type ModPage = {
   id: string;
   releases: {
     version: string;
+    rejectionReason: string | null;
     builds: { layoutId: string | null; layout: unknown }[];
   }[];
 };
@@ -39,6 +45,7 @@ beforeAll(async () => {
   vi.spyOn(env.FLAGS, "getBooleanValue").mockResolvedValue(false);
   owner = await signIn(db, "owner");
   stranger = await signIn(db, "stranger");
+  moderator = await signIn(db, "moderator", "moderator");
   await db.insert(games).values({
     id: "melee",
     name: "Super Smash Bros. Melee",
@@ -131,4 +138,40 @@ it("labels each build with its layout's system and port version", async () => {
       },
     },
   ]);
+});
+
+it("shows a reject's reason to the mod's owner and moderators only", async () => {
+  await db.insert(codeModReleases).values({
+    id: "1.2.0",
+    codeModId: "mod-internal-id",
+    version: "1.2.0",
+    tag: "v1.2.0",
+    commitSha: "0".repeat(40),
+    status: "pending",
+    createdAt: NOW,
+    updatedAt: NOW,
+  });
+  const flags = vi.spyOn(env.FLAGS, "getBooleanValue").mockResolvedValue(true);
+  const reject = (reason: string) =>
+    app.request(
+      "/api/admin/code-mods/releases/1.2.0/reject",
+      {
+        method: "POST",
+        headers: { cookie: moderator, "content-type": "application/json" },
+        body: JSON.stringify({ reason }),
+      },
+      env,
+      createExecutionContext()
+    );
+  expect((await reject("x".repeat(1001))).status).toBe(400);
+  expect((await reject("  Hooks a function it doesn't need.  ")).status).toBe(200);
+  flags.mockResolvedValue(false);
+
+  const reasonFor = async (cookie: string) => {
+    const page = (await (await request("/me.mod", { headers: { cookie } })).json()) as ModPage;
+    return page.releases.find((release) => release.version === "1.2.0")?.rejectionReason;
+  };
+  expect(await reasonFor(owner)).toBe("Hooks a function it doesn't need.");
+  expect(await reasonFor(moderator)).toBe("Hooks a function it doesn't need.");
+  expect(await reasonFor(stranger)).toBeUndefined();
 });

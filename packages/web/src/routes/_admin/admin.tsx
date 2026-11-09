@@ -201,7 +201,7 @@ function CodeModReleaseQueue({ releases }: { releases: PendingRelease[] }) {
       const res =
         decision === "approve"
           ? await api.admin["code-mods"].releases[":id"].approve.$post({ param })
-          : await api.admin["code-mods"].releases[":id"].reject.$post({ param });
+          : await api.admin["code-mods"].releases[":id"].reject.$post({ param, json: {} });
       if (!res.ok) throw await apiError(res);
     },
     onSuccess: async () => {

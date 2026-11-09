@@ -294,6 +294,7 @@ erDiagram
         text error "why a failed release failed"
         text reviewedBy FK "nullable"
         int reviewedAt "nullable"
+        text rejectionReason "nullable; owner and moderators see it"
         int createdAt
         int updatedAt
         int publishedAt "nullable"

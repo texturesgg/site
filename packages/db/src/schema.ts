@@ -530,6 +530,8 @@ export const codeModReleases = sqliteTable(
     error: text("error"),
     reviewedBy: text("reviewed_by").references(() => users.id, { onDelete: "set null" }),
     reviewedAt: integer("reviewed_at", { mode: "timestamp_ms" }),
+    // Why a moderator rejected it, shown to the mod's owner and moderators.
+    rejectionReason: text("rejection_reason"),
     // The store listing, read from the source at `commitSha` when the release
     // is recorded, so review covers it: the README (markdown), this version's
     // CHANGELOG.md section, and the manifest's `tags` and `homepage`. Its

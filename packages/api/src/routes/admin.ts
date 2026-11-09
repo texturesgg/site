@@ -429,23 +429,37 @@ const app = new Hono<HonoEnv>()
       return c.json({ success: true, status: "approved", buildStarted }, 200);
     }
   )
-  // Reject a code mod release
+  // Reject a code mod release, optionally saying why: the mod's owner sees
+  // the reason on the release
   .post(
     "/code-mods/releases/:id/reject",
     requireAuth,
     requireModerator,
     requireCodeMods,
+    zValidator(
+      "json",
+      z.object({
+        reason: z
+          .string()
+          .trim()
+          .max(1000, "A reason is at most 1000 characters")
+          .optional()
+          .transform((reason) => reason || null),
+      }),
+      validationHook
+    ),
     async (c) => {
       const user = c.get("user");
       const db = createDb(c.env.DB);
       const releaseId = c.req.param("id");
+      const { reason } = c.req.valid("json");
 
       logger.info({ userId: user.id, releaseId }, "Rejecting code mod release");
 
       const rejected = await transitionRelease(db, releaseId, {
         from: ["pending"],
         to: "rejected",
-        set: { reviewedBy: user.id, reviewedAt: new Date() },
+        set: { reviewedBy: user.id, reviewedAt: new Date(), rejectionReason: reason },
       });
       if (!rejected) {
         const [release] = await db
@@ -458,7 +472,7 @@ const app = new Hono<HonoEnv>()
       }
 
       logger.info({ releaseId }, "Code mod release rejected");
-      return c.json({ success: true, status: "rejected" }, 200);
+      return c.json({ success: true, status: "rejected", reason }, 200);
     }
   )
   // Rebuild a code mod release: a failed one is checked again (without the
