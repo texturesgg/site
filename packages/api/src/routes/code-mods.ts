@@ -253,6 +253,7 @@ const app = new Hono<HonoEnv>()
             license: release.license,
             status: release.status,
             error: release.error,
+            rejectionReason: seeAll ? release.rejectionReason : null,
             createdAt: release.createdAt,
             publishedAt: release.publishedAt,
             depends: dependencies

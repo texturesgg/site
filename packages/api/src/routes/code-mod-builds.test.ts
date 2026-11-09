@@ -35,7 +35,7 @@ async function post(path: string, cookie: string, workflow: Workflow, body?: unk
     `/api/admin${path}`,
     {
       method: body === undefined ? "POST" : "PUT",
-      headers: { cookie, "content-type": "application/json" },
+      headers: body === undefined ? { cookie } : { cookie, "content-type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
     },
     { ...env, MOD_BUILD: workflow },
