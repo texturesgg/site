@@ -242,6 +242,46 @@ describe("catalog", () => {
   });
 });
 
+describe("layouts", () => {
+  it("lists every layout with its system and port version, newest port first", async () => {
+    await db.insert(codeModLayouts).values({
+      id: "1111111111111111",
+      api: "tgg-melee/0",
+      port: "tgg-melee",
+      target: "wasm32-unknown-unknown",
+      portVersion: "0.1.0-rc.7",
+      active: false,
+      createdAt: NOW,
+    });
+    const response = await get("/api/registry/layouts");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("public, max-age=60");
+    expect(await response.json()).toEqual([
+      {
+        id: MACOS,
+        target: "aarch64-apple-darwin",
+        system: "macos",
+        portVersion: "0.1.0-rc.8",
+        active: true,
+      },
+      {
+        id: LINUX,
+        target: "x86_64-linux-gnu",
+        system: "linux",
+        portVersion: "0.1.0-rc.8",
+        active: true,
+      },
+      {
+        id: "1111111111111111",
+        target: "wasm32-unknown-unknown",
+        system: "other",
+        portVersion: "0.1.0-rc.7",
+        active: false,
+      },
+    ]);
+  });
+});
+
 describe("sets", () => {
   it("lets admins create and edit sets, bumping the version when the mods change", async () => {
     const created = await putSet("competitive", {
