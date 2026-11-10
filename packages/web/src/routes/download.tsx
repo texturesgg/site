@@ -1,12 +1,14 @@
 import * as stylex from "@stylexjs/stylex";
 import { createFileRoute } from "@tanstack/react-router";
 import { DISCORD_URL } from "@/lib/config";
+import { useFeatureFlag } from "@/lib/feature-flags";
 import { DownloadIcon } from "@/ui/icons";
 import { Article, ArticleSection, Code, Strong } from "@/ui/patterns/Article";
 import { layout } from "@/ui/patterns/layout";
 import { PageHeader } from "@/ui/patterns/PageHeader";
 import { AnchorButton, TextAnchor, TextLink } from "@/ui/primitives";
 import { color, font, radius, space, text } from "@/ui/tokens.stylex";
+import { CurrentDownload } from "./-download-current";
 
 const VERSION = "0.3.0";
 
@@ -46,8 +48,7 @@ export const Route = createFileRoute("/download")({
       { title: "Download the app - textures.gg" },
       {
         name: "description",
-        content:
-          "Get the textures.gg app to put skins in the Melee you play on Slippi and play tgg-melee with mods.",
+        content: "Get the textures.gg app to put skins into the Melee you play on Slippi.",
       },
     ],
   }),
@@ -85,6 +86,11 @@ const styles = stylex.create({
 });
 
 function Download() {
+  return useFeatureFlag("codeMods") ? <AppDownload /> : <CurrentDownload />;
+}
+
+/** The download page for app 0.3.0, for viewers with code mods on. */
+function AppDownload() {
   return (
     <div {...stylex.props(layout.container, layout.page, styles.page)}>
       <PageHeader
