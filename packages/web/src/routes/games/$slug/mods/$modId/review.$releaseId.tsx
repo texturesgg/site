@@ -152,7 +152,7 @@ function ReviewPage() {
     mutationFn: async (decision: { approve: true } | { approve: false; reason: string }) => {
       const param = { id: release.id };
       const res = decision.approve
-        ? await api.admin["code-mods"].releases[":id"].approve.$post({ param })
+        ? await api.admin["code-mods"].releases[":id"].approve.$post({ param, json: {} })
         : await api.admin["code-mods"].releases[":id"].reject.$post({
             param,
             json: { reason: decision.reason || undefined },

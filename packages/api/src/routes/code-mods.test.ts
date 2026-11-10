@@ -189,3 +189,56 @@ it("keeps ids starting with skin. for skins", async () => {
   expect(await response.json()).toEqual({ error: "Ids starting with skin. are kept for skins" });
   expect(create).not.toHaveBeenCalled();
 });
+
+it("marks a release display only when its library rewrites no input", async () => {
+  // A pending release whose check build subscribes to pad_read, and one that doesn't
+  for (const [id, events] of [
+    ["2.0.0", ["pad_read", "hud_draw"]],
+    ["2.1.0", ["hud_draw"]],
+  ] as const) {
+    await db.insert(codeModReleases).values({
+      id,
+      codeModId: "mod-internal-id",
+      version: id,
+      tag: `v${id}`,
+      commitSha: "0".repeat(40),
+      status: "pending",
+      createdAt: NOW,
+      updatedAt: NOW,
+    });
+    await db.insert(codeModBuilds).values({
+      id: `${id}-build`,
+      releaseId: id,
+      layoutId: LAYOUT,
+      status: "succeeded",
+      manifest: { entry: "mod.so", events },
+      createdAt: NOW,
+    });
+  }
+  const flags = vi.spyOn(env.FLAGS, "getBooleanValue").mockResolvedValue(true);
+  const workflow = { create: vi.fn(async () => ({ id: "run" })) } as unknown as Workflow;
+  const approve = (id: string) =>
+    app.request(
+      `/api/admin/code-mods/releases/${id}/approve`,
+      {
+        method: "POST",
+        headers: { cookie: moderator, "content-type": "application/json" },
+        body: JSON.stringify({ class: "display" }),
+      },
+      { ...env, MOD_BUILD: workflow },
+      createExecutionContext()
+    );
+  const refused = await approve("2.0.0");
+  expect(refused.status).toBe(400);
+  expect(await refused.json()).toEqual({
+    error: "It can't be a display mod: it rewrites input (the pad_read event)",
+  });
+  expect((await approve("2.1.0")).status).toBe(200);
+  flags.mockResolvedValue(false);
+
+  const page = (await (await request("/me.mod")).json()) as {
+    releases: { version: string; class: string | null }[];
+  };
+  expect(page.releases.find((release) => release.version === "2.1.0")?.class).toBe("display");
+  expect(page.releases.find((release) => release.version === "2.0.0")).toBeUndefined();
+});

@@ -201,7 +201,9 @@ describe("pending builds", () => {
       [MACOS, "0.1.0-rc.8"],
     ]);
     const listed = layouts[0].releases.filter((release) => release.mod.startsWith("tgg.lister"));
-    expect(listed).toEqual([{ id: newer, mod: "tgg.lister", version: "1.1.0" }]);
+    expect(listed).toEqual([
+      { id: newer, mod: "tgg.lister", version: "1.1.0", commit: "0".repeat(40), class: null },
+    ]);
   });
 
   it("also lists the newest release inside a set's range the newest is outside", async () => {

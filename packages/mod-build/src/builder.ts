@@ -27,12 +27,13 @@ const CROSS: Record<string, { cc: string; toolchain: string }> = {
  * The `tgg mod build` command, and its environment, that builds the mod
  * whose source zip is on stdin for `layout`, whose SDK targets `target`. The
  * package records `commit`, the reviewed source it came from, which peers on
- * different systems compare.
+ * different systems compare, and the class its review gave it, if any.
  */
 export function buildCommand(
   layout: string,
   target: string,
-  commit: string
+  commit: string,
+  releaseClass: "display" | null = null
 ): { args: string[]; env: Record<string, string> } {
   const args = [
     "tgg",
@@ -48,6 +49,7 @@ export function buildCommand(
     "--json",
     "--source-commit",
     commit,
+    ...(releaseClass ? ["--class", releaseClass] : []),
   ];
   const cross = CROSS[target];
   if (!cross) return { args, env: BUILD_ENV };
@@ -75,6 +77,7 @@ export class Builder extends DurableObject<BuildEnv> {
     layout: string,
     target: string,
     commit: string,
+    releaseClass: "display" | null,
     source: Uint8Array<ArrayBuffer>
   ): Promise<BuildResult> {
     const container = this.ctx.container;
@@ -83,7 +86,7 @@ export class Builder extends DurableObject<BuildEnv> {
     if (!container.running) {
       container.start({ image, enableInternet: false, instance: "lite" });
     }
-    const command = buildCommand(layout, target, commit);
+    const command = buildCommand(layout, target, commit, releaseClass);
     try {
       const decoder = new TextDecoder();
       const built = await (

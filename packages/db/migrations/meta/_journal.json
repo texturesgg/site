@@ -169,6 +169,13 @@
       "when": 1794263114988,
       "tag": "0023_user_support_links",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1794284064301,
+      "tag": "0024_release_class",
+      "breakpoints": true
     }
   ]
 }

@@ -171,14 +171,24 @@ export async function layoutsAfterApproval(
     (release) => release.releaseId === releaseId
   );
   if (!worth) return { codeModId: "", commitSha: "", layouts: [] };
+  const [release] = await db
+    .select({ class: codeModReleases.class })
+    .from(codeModReleases)
+    .where(eq(codeModReleases.id, releaseId));
+  const wanted = release?.class ?? null;
   const builds = await db
-    .select({ layoutId: codeModBuilds.layoutId })
+    .select({ layoutId: codeModBuilds.layoutId, manifest: codeModBuilds.manifest })
     .from(codeModBuilds)
     .where(and(eq(codeModBuilds.releaseId, releaseId), eq(codeModBuilds.status, "succeeded")));
   const { codeModId, commitSha } = worth;
   if (builds.some((build) => build.layoutId === null)) return { codeModId, commitSha, layouts: [] };
+  // A build counts when its package carries the class the review gave the
+  // release: the check build, made before review, is built again for a
+  // display mod
+  const fits = (build: (typeof builds)[number]) =>
+    ((build.manifest as { class?: string } | null)?.class ?? null) === wanted;
   const layouts = (await layoutsToBuild(db)).filter(
-    (layout) => !builds.some((build) => build.layoutId === layout.id)
+    (layout) => !builds.some((build) => build.layoutId === layout.id && fits(build))
   );
   return { codeModId, commitSha, layouts };
 }
