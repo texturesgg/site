@@ -53,7 +53,7 @@ export const ClientMessage = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("connected"),
-    how: z.enum(["local", "tailscale", "stun", "stun6", "mapped"]),
+    how: z.enum(["local", "tailscale", "stun", "stun6", "mapped", "other"]),
     ms: z.number().min(0).max(120_000),
   }),
   z.object({ type: z.literal("failed"), why: z.string().max(200) }),
