@@ -279,6 +279,28 @@ importers:
         specifier: 'catalog:'
         version: 7.0.2
 
+  packages/meet:
+    dependencies:
+      '@vgskins/api':
+        specifier: workspace:*
+        version: link:../api
+      zod:
+        specifier: ^4.4.3
+        version: 4.6.5
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: 'catalog:'
+        version: 5.20261001.1
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@25.9.5)(vite@8.2.0(@types/node@25.9.5)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.5))
+      wrangler:
+        specifier: 'catalog:'
+        version: 4.146.0(@cloudflare/workers-types@5.20261001.1)(@types/node@25.9.5)
+
   packages/mod-build:
     dependencies:
       '@vgskins/db':
