@@ -241,8 +241,8 @@ function CodeModReleaseQueue({ releases }: { releases: PendingRelease[] }) {
           return (
             <li key={release.id} {...stylex.props(styles.releaseRow)}>
               <Link
-                to="/games/$slug/mods/$modId"
-                params={{ slug: release.gameSlug, modId: release.slug }}
+                to="/games/$slug/mods/$modId/review/$releaseId"
+                params={{ slug: release.gameSlug, modId: release.slug, releaseId: release.id }}
                 {...stylex.props(styles.title)}
               >
                 {release.name}

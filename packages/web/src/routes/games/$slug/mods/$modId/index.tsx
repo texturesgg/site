@@ -15,12 +15,12 @@ import { Markdown } from "@/ui/patterns/Markdown";
 import { ModEyebrow, ModHeader } from "@/ui/patterns/ModHeader";
 import { Publisher } from "@/ui/patterns/ModTile";
 import { color, font, radius, space, text } from "@/ui/tokens.stylex";
-import { PublisherControls } from "./-publisher";
-import { MakerReleases, type MakerMod } from "./-releases";
+import { PublisherControls } from "../-publisher";
+import { MakerReleases, type MakerMod } from "../-releases";
 
 type Listing = InferResponseType<(typeof api)["registry"]["mods"][":id"]["$get"], 200>;
 
-export const Route = createFileRoute("/games/$slug/mods/$modId")({
+export const Route = createFileRoute("/games/$slug/mods/$modId/")({
   loader: async ({ context, params }) => {
     await requireFeatureFlag(context.queryClient, "codeMods");
     if (params.slug !== PRIMARY_GAME_SLUG) throw notFound();
@@ -316,6 +316,15 @@ function Facts({
           </a>
         </Fact>
       )}
+      <Fact term="Source">
+        <Link
+          to="/games/$slug/mods/$modId/source"
+          params={{ slug: game, modId: listing.id }}
+          {...stylex.props(styles.link)}
+        >
+          Browse
+        </Link>
+      </Fact>
       <Fact term="Id">
         <span {...stylex.props(styles.mono)}>{listing.id}</span>
       </Fact>

@@ -16,8 +16,8 @@ import { color, font, radius, space, text } from "@/ui/tokens.stylex";
 // build with its log, and review for moderators.
 
 export type MakerMod = InferResponseType<(typeof api)["code-mods"][":slug"]["$get"], 200>;
-type Release = MakerMod["releases"][number];
-type Build = Release["builds"][number];
+export type Release = MakerMod["releases"][number];
+export type Build = Release["builds"][number];
 
 const RELEASE_STATUS: Record<string, string> = {
   processing: "Checking",
@@ -143,6 +143,7 @@ export function MakerReleases({
             key={release.id}
             release={release}
             game={mod.game}
+            modSlug={mod.slug}
             canReview={canReview}
             canRebuild={canRebuild}
           />
@@ -167,11 +168,13 @@ function Publish() {
 function ReleaseCard({
   release,
   game,
+  modSlug,
   canReview,
   canRebuild,
 }: {
   release: Release;
   game: string;
+  modSlug: string;
   canReview: boolean;
   canRebuild: boolean;
 }) {
@@ -239,6 +242,27 @@ function ReleaseCard({
         )}
       </div>
       <p {...stylex.props(styles.muted)}>
+        {release.status !== "failed" && (
+          <>
+            <Link
+              to="/games/$slug/mods/$modId/review/$releaseId"
+              params={{ slug: game, modId: modSlug, releaseId: release.id }}
+              {...stylex.props(styles.creator)}
+            >
+              {canReview && release.status === "pending" ? "Review changes" : "Changes"}
+            </Link>
+            {" · "}
+            <Link
+              to="/games/$slug/mods/$modId/source"
+              params={{ slug: game, modId: modSlug }}
+              search={{ release: release.id }}
+              {...stylex.props(styles.creator)}
+            >
+              Source
+            </Link>
+            {" · "}
+          </>
+        )}
         {release.tag} at <span {...stylex.props(styles.id)}>{release.commit.slice(0, 12)}</span>
       </p>
       {release.depends.length > 0 && (
@@ -303,7 +327,7 @@ function hookSummary(hooks: Build["hooks"]): string | null {
   return parts.length ? parts.join("; ") : null;
 }
 
-function BuildRow({ build }: { build: Build }) {
+export function BuildRow({ build }: { build: Build }) {
   const [showLog, setShowLog] = useState(false);
   const log = useQuery({
     queryKey: ["code-mod-build", build.id, "log"],
