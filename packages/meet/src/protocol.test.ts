@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { checkCandidates, mayOffer, normalizeCode } from "./protocol";
+import { udpServer } from "./relay";
 
 // The address check is what keeps the meeting point from being used to aim
 // other players' games at someone else's machine.
@@ -31,8 +32,29 @@ describe("candidates", () => {
 
 describe("codes", () => {
   it("reads codes the way people type them", () => {
-    expect(normalizeCode(" abc-23x ")).toBe("ABC23X");
-    expect(normalizeCode("ABC10X")).toBeNull(); // 1 and 0 aren't in codes
+    expect(normalizeCode(" ab-cd ")).toBe("ABCD");
+    expect(normalizeCode("ABCO")).toBeNull(); // O, I and L aren't in codes
+    expect(normalizeCode("AB2D")).toBeNull(); // letters only
     expect(normalizeCode("ABC")).toBeNull();
+  });
+});
+
+describe("relay servers", () => {
+  it("takes the UDP TURN server from Cloudflare's list", () => {
+    expect(
+      udpServer([
+        "stun:stun.cloudflare.com:3478",
+        "turn:turn.cloudflare.com:3478?transport=udp",
+        "turn:turn.cloudflare.com:3478?transport=tcp",
+        "turns:turn.cloudflare.com:5349?transport=tcp",
+      ])
+    ).toBe("turn.cloudflare.com:3478");
+    expect(udpServer(["turns:turn.cloudflare.com:5349?transport=tcp"])).toBeNull();
+  });
+
+  it("never lets a game offer a relay address itself", () => {
+    expect(checkCandidates([{ addr: "198.51.100.9:3478", kind: "relay" }], "198.51.100.9")).toEqual(
+      []
+    );
   });
 });

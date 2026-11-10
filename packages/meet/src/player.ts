@@ -5,14 +5,19 @@ import {
   checkCandidates,
   ClientMessage,
   JOIN_BUDGET,
+  JOIN_DAILY,
   JOIN_WINDOW_MS,
   MAX_MESSAGE_BYTES,
   MESSAGE_BUDGET,
   MESSAGE_WINDOW_MS,
   normalizeCode,
+  RELAY_DAILY,
+  RELAY_TTL_S,
   randomCode,
   type ServerMessage,
+  splitAddr,
 } from "./protocol";
+import { relayCredentials } from "./relay";
 
 /** What a connection remembers across hibernation. */
 type Attachment = {
@@ -26,6 +31,8 @@ type Attachment = {
   nat: string;
   messages: { start: number; count: number };
   joins: { start: number; count: number };
+  /** When this connection was last given relay credentials (0: never). */
+  relayAt: number;
 };
 
 /** Codes tried before giving up on making a room. */
@@ -64,6 +71,7 @@ export class Player extends DurableObject<MeetEnv> {
       nat: "unknown",
       messages: { start: Date.now(), count: 0 },
       joins: { start: Date.now(), count: 0 },
+      relayAt: 0,
     };
     this.ctx.acceptWebSocket(pair[1]);
     pair[1].serializeAttachment(attachment);
@@ -153,9 +161,13 @@ export class Player extends DurableObject<MeetEnv> {
           send(ws, { type: "error", message: "Too many tries. Wait a minute and try again." });
           return;
         }
+        if (!(await this.countToday("joins", JOIN_DAILY))) {
+          send(ws, { type: "error", message: "Too many tries today. Try again tomorrow." });
+          return;
+        }
         const code = normalizeCode(message.code);
         if (code === null) {
-          send(ws, { type: "error", message: "Room codes are 6 letters and numbers." });
+          send(ws, { type: "error", message: "Room codes are 4 letters." });
           return;
         }
         if (me.room === code) return;
@@ -185,7 +197,46 @@ export class Player extends DurableObject<MeetEnv> {
       case "failed":
         if (me.room !== null) await this.room(me.room).report(me.id, "failed", "", 0);
         return;
+      case "relay.request": {
+        if (me.room === null || !(await this.room(me.room).canRelay(me.id))) {
+          send(ws, { type: "error", message: "Only a room's host can ask for a relay." });
+          return;
+        }
+        if (!(await this.countToday("relays", RELAY_DAILY))) {
+          send(ws, { type: "error", message: "That's all the relayed games for today." });
+          return;
+        }
+        const credentials = await relayCredentials(this.env);
+        if (credentials === null) {
+          send(ws, { type: "error", message: "There's no relay to fall back on yet." });
+          return;
+        }
+        me.relayAt = Date.now();
+        ws.serializeAttachment(me);
+        send(ws, { type: "relay", ...credentials });
+        return;
+      }
+      case "relay.ready": {
+        // Only from a host just given relay credentials, so nobody can point
+        // other games at an address of their choosing this way.
+        if (me.room === null || Date.now() - me.relayAt > RELAY_TTL_S * 1000) return;
+        if (splitAddr(message.addr) === null) return;
+        await this.room(me.room).relayPeer(me.id, message.addr);
+        return;
+      }
+      case "relay.bytes":
+        if (me.room !== null) await this.room(me.room).relayBytes(me.id, message.bytes);
+        return;
     }
+  }
+
+  /** Counts one more `what` today for this account: false once `cap` is reached. */
+  private async countToday(what: string, cap: number): Promise<boolean> {
+    const key = `${what}:${new Date().toISOString().slice(0, 10)}`;
+    const count = ((await this.ctx.storage.get<number>(key)) ?? 0) + 1;
+    if (count > cap) return false;
+    await this.ctx.storage.put(key, count);
+    return true;
   }
 
   private room(code: string) {
