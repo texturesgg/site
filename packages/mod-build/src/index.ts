@@ -485,10 +485,17 @@ async function build(
 ): Promise<boolean> {
   using repo = await env.ARTIFACTS.get(repoName);
   const source = storedZip(await readSource(repo, commit.tree));
+  // The class a review gave the release, which the package records
+  const [release] = await createDb(env.DB)
+    .select({ class: codeModReleases.class })
+    .from(codeModBuilds)
+    .innerJoin(codeModReleases, eq(codeModReleases.id, codeModBuilds.releaseId))
+    .where(eq(codeModBuilds.id, buildId));
   const result = await env.BUILDER.getByName(buildId).build(
     target.sdk,
     target.target,
     commit.id,
+    release?.class ?? null,
     source
   );
 

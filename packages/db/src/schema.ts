@@ -535,6 +535,10 @@ export const codeModReleases = sqliteTable(
     reviewedAt: integer("reviewed_at", { mode: "timestamp_ms" }),
     // Why a moderator rejected it, shown to the mod's owner and moderators.
     rejectionReason: text("rejection_reason"),
+    // The class a moderator gave it on review: "display" when it only changes
+    // what a player sees, which the builder writes into each package
+    // (`tgg mod build --class display`) so netplay leaves it out; else null.
+    class: text("class", { enum: ["display"] }),
     // The store listing, read from the source at `commitSha` when the release
     // is recorded, so review covers it: the README (markdown), this version's
     // CHANGELOG.md section, and the manifest's `tags` and `homepage`. Its

@@ -37,6 +37,8 @@ export type ReleaseToBuild = {
   commitSha: string;
   mod: string;
   version: string;
+  // The class its review gave it ("display"), which its packages record
+  class: "display" | null;
 };
 
 /**
@@ -55,6 +57,7 @@ export async function approvedReleasesWorthBuilding(db: Database): Promise<Relea
         commitSha: codeModReleases.commitSha,
         mod: codeMods.slug,
         version: codeModReleases.version,
+        class: codeModReleases.class,
         slippi: codeModReleases.slippi,
       })
       .from(codeModReleases)

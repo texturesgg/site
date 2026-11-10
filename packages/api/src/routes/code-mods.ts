@@ -254,6 +254,7 @@ const app = new Hono<HonoEnv>()
             status: release.status,
             error: release.error,
             rejectionReason: seeAll ? release.rejectionReason : null,
+            class: release.class,
             createdAt: release.createdAt,
             publishedAt: release.publishedAt,
             depends: dependencies

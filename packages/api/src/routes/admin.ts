@@ -32,6 +32,7 @@ import { z } from "zod";
 import { isModerator, requireAdmin, requireAuth, requireModerator } from "../lib/auth";
 import { packApprovedEmbed, sendDiscordWebhook, thumbnailUrl } from "../lib/discord";
 import { moderationResultHtml, sendNotification } from "../lib/email";
+import { displayBlocker } from "../lib/code-mod-class";
 import { requireCodeMods } from "../lib/feature-flags";
 import { deleteComment, dismissReportsOnDeletedTargets } from "../lib/moderation";
 import { releaseNetplay } from "../lib/queries";
@@ -413,11 +414,14 @@ const app = new Hono<HonoEnv>()
       : [];
     const tally = (userId: string, status: "approved" | "rejected") =>
       reviewed.find((row) => row.userId === userId && row.status === status)?.total ?? 0;
-    const items = rows.map(({ userId, trusted, ...row }) => ({
+    // Whether the "Display only" box can be ticked, and why not
+    const blockers = await Promise.all(rows.map((row) => displayBlocker(db, row.id)));
+    const items = rows.map(({ userId, trusted, ...row }, i) => ({
       ...row,
       trusted: trusted ?? false,
       approvedReleases: tally(userId, "approved"),
       rejectedReleases: tally(userId, "rejected"),
+      display: { allowed: blockers[i] === null, why: blockers[i] },
     }));
     return c.json({ items }, 200);
   })
@@ -427,10 +431,23 @@ const app = new Hono<HonoEnv>()
     requireAuth,
     requireModerator,
     requireCodeMods,
+    zValidator(
+      "json",
+      z.object({
+        // "display": it only changes what a player sees, so netplay leaves it out
+        class: z.enum(["display"]).optional(),
+      }),
+      validationHook
+    ),
     async (c) => {
       const user = c.get("user");
       const db = createDb(c.env.DB);
       const releaseId = c.req.param("id");
+      const { class: releaseClass } = c.req.valid("json");
+      if (releaseClass === "display") {
+        const blocker = await displayBlocker(db, releaseId);
+        if (blocker) return c.json({ error: `It can't be a display mod: ${blocker}` }, 400);
+      }
 
       logger.info({ userId: user.id, releaseId }, "Approving code mod release");
 
@@ -438,7 +455,12 @@ const app = new Hono<HonoEnv>()
       const approved = await transitionRelease(db, releaseId, {
         from: ["pending"],
         to: "approved",
-        set: { reviewedBy: user.id, reviewedAt: now, publishedAt: now },
+        set: {
+          reviewedBy: user.id,
+          reviewedAt: now,
+          publishedAt: now,
+          class: releaseClass ?? null,
+        },
       });
       if (!approved) {
         const [release] = await db

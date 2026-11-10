@@ -152,11 +152,18 @@ while IFS=$'\t' read -r layout version; do
     exit 1
   fi
 
-  while IFS=$'\t' read -r release mod mod_version; do
+  while IFS=$'\t' read -r release mod mod_version commit class; do
     [[ $release =~ ^[A-Za-z0-9_-]{1,64}$ ]] || {
       echo "external-build.sh: the registry named release $release" >&2
       exit 1
     }
+    # The package records the reviewed commit and the class review gave it
+    [[ $commit =~ ^[0-9a-f]{40}$ && $class =~ ^(display|-)$ ]] || {
+      echo "external-build.sh: the registry named commit $commit, class $class" >&2
+      exit 1
+    }
+    stamp=(--source-commit "$commit")
+    [ "$class" = display ] && stamp+=(--class display)
     [ "$built" -lt "$max_builds" ] || break 2
     built=$((built + 1))
     echo "external-build.sh: $mod $mod_version ($release) for $layout" >&2
@@ -169,7 +176,7 @@ while IFS=$'\t' read -r layout version; do
     fi
     form=(--form-string "builder=$builder")
     [ -n "${RUN_URL:-}" ] && form+=(--form-string "run=${RUN_URL:0:300}")
-    if build "$dir/mod" --source-zip "$dir/source.zip" --sdk "$sdk" \
+    if build "$dir/mod" --source-zip "$dir/source.zip" --sdk "$sdk" "${stamp[@]}" \
       -o "$dir/package.zip" --json >"$dir/report.json" 2>"$dir/build.log"; then
       form+=(--form-string status=succeeded -F "package=@$dir/package.zip"
         -F "report=@$dir/report.json")
@@ -188,7 +195,7 @@ while IFS=$'\t' read -r layout version; do
       problems=$((problems + 1))
     fi
   done < <(jq -r --arg l "$layout" \
-    '.layouts[] | select(.id == $l) | .releases[] | [.id, .mod, .version] | @tsv' \
+    '.layouts[] | select(.id == $l) | .releases[] | [.id, .mod, .version, .commit, (.class // "-")] | @tsv' \
     "$work/pending.json")
 done < <(jq -r '.layouts[] | select(.releases | length > 0) | [.id, .portVersion] | @tsv' \
   "$work/pending.json")

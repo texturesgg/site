@@ -294,7 +294,13 @@ const app = new Hono<HonoEnv>()
         .orderBy(codeModLayouts.id);
       const approved = layouts.length
         ? (await approvedReleasesWorthBuilding(db))
-            .map(({ releaseId, mod, version }) => ({ id: releaseId, mod, version }))
+            .map(({ releaseId, mod, version, commitSha, class: releaseClass }) => ({
+              id: releaseId,
+              mod,
+              version,
+              commit: commitSha,
+              class: releaseClass,
+            }))
             .sort((a, b) => a.mod.localeCompare(b.mod) || byVersionDescending(a.version, b.version))
         : [];
       const builds = approved.length
