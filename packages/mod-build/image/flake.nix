@@ -17,10 +17,10 @@
       # runs as on a mod maker's machine, so registry packages match theirs.
       tgg = pkgs.stdenvNoCC.mkDerivation rec {
         pname = "tgg";
-        version = "0.4.0";
+        version = "0.6.0";
         src = pkgs.fetchurl {
           url = "https://github.com/texturesgg/texturesgg/releases/download/cli-v${version}/tgg-${version}-x86_64-unknown-linux-musl.tar.gz";
-          hash = "sha256-9naZfkIVfR4AZS8L+XsUU/i76QqSnbhurq2Ci2nnB9g=";
+          hash = "sha256-yjHBpO7UFAJJlERDF+yQZAPWnAgT7Og7WSWmecvIPs8=";
         };
         installPhase = ''
           install -Dm755 tgg $out/bin/tgg

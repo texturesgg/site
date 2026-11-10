@@ -28,8 +28,8 @@ set -euo pipefail
 
 # The tgg release that packs: the one the builder image runs
 # (image/flake.nix), so every layout's packages come from the same packer.
-TGG_VERSION=0.4.0
-TGG_DARWIN_SHA256=67706df47e93b95be7fddf919d45f117da2fac7b9a6681756bd5b9ce4d8a0a6e
+TGG_VERSION=0.6.0
+TGG_DARWIN_SHA256=03cf031ba7fc3c2f4f977f7bdd73b48d67d99d180b40c53d16e06317319ddd2d
 
 usage() {
   echo "usage: external-build.sh pending|build TARGET" >&2
