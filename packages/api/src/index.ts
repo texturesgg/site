@@ -11,6 +11,7 @@ import {
   getTggMeleeReleases,
   getUserOpenGraphData,
 } from "./lib/public-catalog";
+import { verifyMeetTicket } from "./lib/meet-ticket";
 import { openApiRoutes } from "./lib/openapi";
 import { generalApiRateLimit, rateLimitByIp } from "./lib/rate-limit";
 import adminRoutes from "./routes/admin";
@@ -20,6 +21,7 @@ import editorRoutes from "./routes/editor";
 import externalBuildsRoutes from "./routes/external-builds";
 import filesRoutes from "./routes/files";
 import flagsRoutes from "./routes/flags";
+import meetRoutes from "./routes/meet";
 import gamesRoutes from "./routes/games";
 import packsRoutes from "./routes/packs";
 import registryRoutes from "./routes/registry";
@@ -62,7 +64,8 @@ const app = new Hono<HonoEnv>()
   .route("/api/code-mod-releases", codeModReleasesRoutes)
   .route("/api/registry", registryRoutes)
   .route("/api/external-builds", externalBuildsRoutes)
-  .route("/api/editor", editorRoutes);
+  .route("/api/editor", editorRoutes)
+  .route("/api/meet", meetRoutes);
 
 // The OpenAPI document and its reference page. Both answer 404 in production;
 // mounted off the chain so neither joins the hono/client AppType.
@@ -145,6 +148,18 @@ export class PublicCatalogEntrypoint extends WorkerEntrypoint<Env> {
 
   getTggMeleeReleases() {
     return getTggMeleeReleases(this.env);
+  }
+}
+
+/**
+ * The meeting point's view of a ticket (packages/meet), through a Service
+ * Binding: who it's for, or null when it's forged, expired or the account is
+ * banned.
+ */
+export class MeetEntrypoint extends WorkerEntrypoint<Env> {
+  verifyTicket(ticket: unknown) {
+    if (typeof ticket !== "string") return null;
+    return verifyMeetTicket(this.env, ticket);
   }
 }
 

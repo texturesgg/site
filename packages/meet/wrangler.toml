@@ -1,0 +1,105 @@
+# The meeting point: games open a WebSocket here with a ticket from the API
+# (packages/api's /api/meet/ticket) and meet through room codes. Every
+# connection is the account's Player DO; every room is a Room DO.
+#
+# The top-level configuration is for local development. Its name differs from
+# the deployed Workers so that `wrangler deploy` without `--env` cannot replace
+# one of them.
+name = "tgg-meet-dev"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+workers_dev = false
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Player", "Room"]
+
+[[durable_objects.bindings]]
+name = "PLAYER"
+class_name = "Player"
+
+[[durable_objects.bindings]]
+name = "ROOM"
+class_name = "Room"
+
+[[services]]
+binding = "API"
+service = "vgskins-api-dev"
+entrypoint = "MeetEntrypoint"
+
+# How each connection attempt between two games went, for deciding on a relay.
+[[analytics_engine_datasets]]
+binding = "MEET_EVENTS"
+dataset = "tgg_meet_dev"
+
+# New connections: 10 per 60s per IP
+[[ratelimits]]
+name = "RATE_LIMIT_CONNECT"
+namespace_id = "1101"
+[ratelimits.simple]
+limit = 10
+period = 60
+
+[vars]
+ENVIRONMENT = "development"
+
+[observability]
+enabled = true
+
+[env.production]
+name = "tgg-meet"
+vars = { ENVIRONMENT = "production" }
+routes = [{ pattern = "meet.textures.gg", custom_domain = true }]
+
+[[env.production.durable_objects.bindings]]
+name = "PLAYER"
+class_name = "Player"
+
+[[env.production.durable_objects.bindings]]
+name = "ROOM"
+class_name = "Room"
+
+[[env.production.services]]
+binding = "API"
+service = "vgskins-api"
+entrypoint = "MeetEntrypoint"
+
+[[env.production.analytics_engine_datasets]]
+binding = "MEET_EVENTS"
+dataset = "tgg_meet"
+
+[[env.production.ratelimits]]
+name = "RATE_LIMIT_CONNECT"
+namespace_id = "1101"
+[env.production.ratelimits.simple]
+limit = 10
+period = 60
+
+[env.preview]
+name = "tgg-meet-preview"
+vars = { ENVIRONMENT = "preview" }
+routes = [{ pattern = "meet-preview.textures.gg", custom_domain = true }]
+
+[[env.preview.durable_objects.bindings]]
+name = "PLAYER"
+class_name = "Player"
+
+[[env.preview.durable_objects.bindings]]
+name = "ROOM"
+class_name = "Room"
+
+[[env.preview.services]]
+binding = "API"
+service = "vgskins-api-preview"
+entrypoint = "MeetEntrypoint"
+
+[[env.preview.analytics_engine_datasets]]
+binding = "MEET_EVENTS"
+dataset = "tgg_meet_preview"
+
+[[env.preview.ratelimits]]
+name = "RATE_LIMIT_CONNECT"
+namespace_id = "2101"
+[env.preview.ratelimits.simple]
+limit = 10
+period = 60
