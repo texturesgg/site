@@ -1,0 +1,8 @@
+# Names of the secrets and variables the meet Worker reads (values in Cloudflare or
+# an ignored .dev.vars). The TURN key, from Realtime > TURN Server in the dashboard:
+TURN_KEY_ID=
+TURN_KEY_API_TOKEN=
+# Development only: a local TURN server (coturn) with static credentials
+TURN_DEV_SERVER=
+TURN_DEV_USER=
+TURN_DEV_PASS=

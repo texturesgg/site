@@ -101,6 +101,32 @@ export class Room extends DurableObject<MeetEnv> {
     });
   }
 
+  /** Whether `memberId` may ask for a relay: the host of a room that met. */
+  canRelay(memberId: string): boolean {
+    const room = this.state;
+    return room !== null && room.token !== null && room.seats[0]?.id === memberId;
+  }
+
+  /** The host's relay address, for the other games to say hello to. */
+  async relayPeer(memberId: string, addr: string): Promise<void> {
+    const room = this.state;
+    if (!room || room.seats[0]?.id !== memberId) return;
+    await Promise.all(
+      room.seats.slice(1).map((s) => this.send(s.id, { type: "relay.peer", addr }))
+    );
+  }
+
+  /** Bytes through the host's relay, for what the relay costs. */
+  relayBytes(memberId: string, bytes: number): void {
+    const room = this.state;
+    if (!room || room.seats[0]?.id !== memberId) return;
+    this.env.MEET_EVENTS.writeDataPoint({
+      blobs: ["relay-bytes", "relay", room.seats[0].nat, "", "1"],
+      doubles: [1, 0, bytes],
+      indexes: ["relay-bytes"],
+    });
+  }
+
   async alarm(): Promise<void> {
     await this.close("The room closed after 30 minutes.", null);
   }

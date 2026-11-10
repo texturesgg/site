@@ -12,16 +12,24 @@ export const MAX_MESSAGE_BYTES = 4096;
 export const MESSAGE_BUDGET = 20;
 export const MESSAGE_WINDOW_MS = 10_000;
 
-/** Room joins per account per minute, so codes can't be guessed. */
-export const JOIN_BUDGET = 10;
+/** Room joins per account per minute and per day, wrong codes included, so codes
+ * can't be guessed. */
+export const JOIN_BUDGET = 5;
 export const JOIN_WINDOW_MS = 60_000;
+export const JOIN_DAILY = 60;
+
+/** Relayed sessions per account per day: the hard cap on what the relay can cost. */
+export const RELAY_DAILY = 30;
+/** How long relay credentials work. */
+export const RELAY_TTL_S = 600;
 
 /** The most candidates a game may offer. */
 export const MAX_CANDIDATES = 8;
 
-/** Codes: no look-alikes (0/O, 1/I/L). */
-export const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-export const CODE_LENGTH = 6;
+/** Codes: letters only, so the game's own keyboard types them without its digits
+ * page, and no look-alikes (I, L, O). */
+export const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ";
+export const CODE_LENGTH = 4;
 
 /** A room nobody touched for this long closes. */
 export const ROOM_IDLE_MS = 30 * 60 * 1000;
@@ -30,7 +38,7 @@ const Candidate = z.object({
   /** "1.2.3.4:51000" or "[2001:db8::1]:51000" */
   addr: z.string().max(64),
   /** where it came from: local, tailscale, stun, stun6, mapped */
-  kind: z.enum(["local", "tailscale", "stun", "stun6", "mapped"]),
+  kind: z.enum(["local", "tailscale", "stun", "stun6", "mapped", "relay"]),
 });
 export type Candidate = z.infer<typeof Candidate>;
 
@@ -53,10 +61,16 @@ export const ClientMessage = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("connected"),
-    how: z.enum(["local", "tailscale", "stun", "stun6", "mapped", "other"]),
+    how: z.enum(["local", "tailscale", "stun", "stun6", "mapped", "relay", "other"]),
     ms: z.number().min(0).max(120_000),
   }),
   z.object({ type: z.literal("failed"), why: z.string().max(200) }),
+  // The host: direct punching hasn't got through, so it wants a relay.
+  z.object({ type: z.literal("relay.request") }),
+  // The host: its address on the relay, for the other games.
+  z.object({ type: z.literal("relay.ready"), addr: z.string().max(64) }),
+  // The host: bytes that went through its relay since its last report.
+  z.object({ type: z.literal("relay.bytes"), bytes: z.number().min(0).max(1e12) }),
 ]);
 export type ClientMessage = z.infer<typeof ClientMessage>;
 
@@ -72,6 +86,8 @@ export type ServerMessage =
       token: string;
       peers: { side: number; name: string; candidates: Candidate[]; nat: string }[];
     }
+  | { type: "relay"; server: string; username: string; credential: string }
+  | { type: "relay.peer"; addr: string }
   | { type: "closed"; why: string }
   | { type: "error"; message: string };
 
@@ -178,6 +194,7 @@ export function mayOffer(host: string, from: string): boolean {
 /** The candidates a game may offer, from what it sent. */
 export function checkCandidates(list: Candidate[], from: string): Candidate[] {
   return list.filter((c) => {
+    if (c.kind === "relay") return false; // only the meeting point hands those out
     const parts = splitAddr(c.addr);
     return parts !== null && mayOffer(parts.host, from);
   });
