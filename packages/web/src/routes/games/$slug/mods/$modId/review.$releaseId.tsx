@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { api, apiError } from "@/lib/api";
 import { requireFeatureFlag } from "@/lib/feature-flags";
 import { NETPLAY_LABELS } from "@/lib/format";
+import { DisplayOnly } from "@/ui/patterns/DisplayOnly";
 import { EmptyState } from "@/ui/patterns/EmptyState";
 import { layout } from "@/ui/patterns/layout";
 import { ModEyebrow } from "@/ui/patterns/ModHeader";
@@ -148,11 +149,15 @@ function ReviewPage() {
   const canReview =
     (user?.role === "moderator" || user?.role === "admin") && release.status === "pending";
   const [rejecting, setRejecting] = useState(false);
+  const [displayOnly, setDisplayOnly] = useState(false);
   const review = useMutation({
     mutationFn: async (decision: { approve: true } | { approve: false; reason: string }) => {
       const param = { id: release.id };
       const res = decision.approve
-        ? await api.admin["code-mods"].releases[":id"].approve.$post({ param, json: {} })
+        ? await api.admin["code-mods"].releases[":id"].approve.$post({
+            param,
+            json: displayOnly ? { class: "display" } : {},
+          })
         : await api.admin["code-mods"].releases[":id"].reject.$post({
             param,
             json: { reason: decision.reason || undefined },
@@ -196,6 +201,11 @@ function ReviewPage() {
           </ButtonLink>
           {canReview && (
             <>
+              <DisplayOnly
+                releaseId={release.id}
+                checked={displayOnly}
+                onCheckedChange={setDisplayOnly}
+              />
               <Button onClick={() => setRejecting(true)} disabled={review.isPending}>
                 Reject
               </Button>

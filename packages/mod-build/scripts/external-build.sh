@@ -28,8 +28,8 @@ set -euo pipefail
 
 # The tgg release that packs: the one the builder image runs
 # (image/flake.nix), so every layout's packages come from the same packer.
-TGG_VERSION=0.6.0
-TGG_DARWIN_SHA256=03cf031ba7fc3c2f4f977f7bdd73b48d67d99d180b40c53d16e06317319ddd2d
+TGG_VERSION=0.7.0
+TGG_DARWIN_SHA256=d4be7048b2629034c5cf60181c8d195aa9500cec229e1e3526cf0557fc74b000
 
 usage() {
   echo "usage: external-build.sh pending|build TARGET" >&2
@@ -157,8 +157,9 @@ while IFS=$'\t' read -r layout version; do
       echo "external-build.sh: the registry named release $release" >&2
       exit 1
     }
-    # The package records the reviewed commit and the class review gave it
-    [[ $commit =~ ^[0-9a-f]{40}$ && $class =~ ^(display|-)$ ]] || {
+    # The package records the reviewed commit and the class review gave it (an
+    # offline mod's class is in its own manifest, which tgg keeps)
+    [[ $commit =~ ^[0-9a-f]{40}$ && $class =~ ^(display|offline|-)$ ]] || {
       echo "external-build.sh: the registry named commit $commit, class $class" >&2
       exit 1
     }

@@ -33,7 +33,7 @@ export function buildCommand(
   layout: string,
   target: string,
   commit: string,
-  releaseClass: "display" | null = null
+  releaseClass: "display" | "offline" | null = null
 ): { args: string[]; env: Record<string, string> } {
   const args = [
     "tgg",
@@ -49,7 +49,8 @@ export function buildCommand(
     "--json",
     "--source-commit",
     commit,
-    ...(releaseClass ? ["--class", releaseClass] : []),
+    // tgg stamps only a review's class; an offline mod's is in its manifest
+    ...(releaseClass === "display" ? ["--class", "display"] : []),
   ];
   const cross = CROSS[target];
   if (!cross) return { args, env: BUILD_ENV };
@@ -77,7 +78,7 @@ export class Builder extends DurableObject<BuildEnv> {
     layout: string,
     target: string,
     commit: string,
-    releaseClass: "display" | null,
+    releaseClass: "display" | "offline" | null,
     source: Uint8Array<ArrayBuffer>
   ): Promise<BuildResult> {
     const container = this.ctx.container;

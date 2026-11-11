@@ -7,6 +7,7 @@ import {
   createDb,
   games,
 } from "@vgskins/db";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { beforeAll, expect, it, vi } from "vitest";
 import { signIn } from "../test/session";
@@ -241,4 +242,75 @@ it("marks a release display only when its library rewrites no input", async () =
   };
   expect(page.releases.find((release) => release.version === "2.1.0")?.class).toBe("display");
   expect(page.releases.find((release) => release.version === "2.0.0")).toBeUndefined();
+});
+
+it("sets an approved release's class without another review, and builds it again", async () => {
+  const admin = await signIn(db, "admin", "admin");
+  // An approved release whose library rewrites input, a pending one, and an
+  // approved one with nothing in the way
+  for (const [id, status, events] of [
+    ["3.0.0", "approved", ["pad_read"]],
+    ["3.1.0", "pending", ["hud_draw"]],
+    ["3.2.0", "approved", ["hud_draw"]],
+  ] as const) {
+    await db.insert(codeModReleases).values({
+      id,
+      codeModId: "mod-internal-id",
+      version: id,
+      tag: `v${id}`,
+      commitSha: "0".repeat(40),
+      status,
+      createdAt: NOW,
+      updatedAt: NOW,
+    });
+    await db.insert(codeModBuilds).values({
+      id: `${id}-build`,
+      releaseId: id,
+      layoutId: LAYOUT,
+      status: "succeeded",
+      manifest: { entry: "mod.so", events },
+      createdAt: NOW,
+    });
+  }
+  const flags = vi.spyOn(env.FLAGS, "getBooleanValue").mockResolvedValue(true);
+  const workflow = { create: vi.fn(async () => ({ id: "run" })) } as unknown as Workflow;
+  const setClass = (id: string, value: string | null, cookie = admin) =>
+    app.request(
+      `/api/admin/code-mods/releases/${id}/class`,
+      {
+        method: "PUT",
+        headers: { cookie, "content-type": "application/json" },
+        body: JSON.stringify({ class: value }),
+      },
+      { ...env, MOD_BUILD: workflow },
+      createExecutionContext()
+    );
+  const stored = async (id: string) =>
+    (
+      await db
+        .select({ class: codeModReleases.class })
+        .from(codeModReleases)
+        .where(eq(codeModReleases.id, id))
+    )[0]?.class;
+
+  // Admins only; a pending release's class is review's
+  expect((await setClass("3.2.0", "display", moderator)).status).toBe(403);
+  expect((await setClass("3.1.0", "display")).status).toBe(409);
+  // Display is checked as review checks it
+  const refused = await setClass("3.0.0", "display");
+  expect(refused.status).toBe(400);
+  expect(await refused.json()).toEqual({
+    error: "It can't be a display mod: it rewrites input (the pad_read event)",
+  });
+  expect(await stored("3.0.0")).toBeNull();
+  // Offline needs no check, and none clears it; each change starts its builds
+  const offline = await setClass("3.0.0", "offline");
+  expect(offline.status).toBe(200);
+  expect(await stored("3.0.0")).toBe("offline");
+  expect((await setClass("3.2.0", "display")).status).toBe(200);
+  expect(await stored("3.2.0")).toBe("display");
+  expect((await setClass("3.2.0", null)).status).toBe(200);
+  expect(await stored("3.2.0")).toBeNull();
+  expect(workflow.create).toHaveBeenCalledTimes(3);
+  flags.mockResolvedValue(false);
 });

@@ -39,6 +39,7 @@ export async function insertRelease(
     tag: release.tag,
     commitSha: release.commitSha,
     license: manifest.license,
+    class: manifest.offline ? "offline" : null,
     status,
     error,
     createdAt: now,
@@ -182,11 +183,15 @@ export async function layoutsAfterApproval(
     .where(and(eq(codeModBuilds.releaseId, releaseId), eq(codeModBuilds.status, "succeeded")));
   const { codeModId, commitSha } = worth;
   if (builds.some((build) => build.layoutId === null)) return { codeModId, commitSha, layouts: [] };
-  // A build counts when its package carries the class the review gave the
-  // release: the check build, made before review, is built again for a
-  // display mod
-  const fits = (build: (typeof builds)[number]) =>
-    ((build.manifest as { class?: string } | null)?.class ?? null) === wanted;
+  // A build counts when its package carries the release's class: the check
+  // build, made before review, is built again for a display mod, and one
+  // from before tgg kept an offline mod's class is built again for it. An
+  // offline package fits a release with no class too (its maker's manifest
+  // says so; tgg keeps it whatever the release records).
+  const fits = (build: (typeof builds)[number]) => {
+    const built = (build.manifest as { class?: string } | null)?.class ?? null;
+    return built === wanted || (wanted === null && built === "offline");
+  };
   const layouts = (await layoutsToBuild(db)).filter(
     (layout) => !builds.some((build) => build.layoutId === layout.id && fits(build))
   );

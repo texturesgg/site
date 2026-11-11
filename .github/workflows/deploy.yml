@@ -28,6 +28,10 @@ jobs:
     # WarpBuild runner: warp-ubuntu-latest-x64-4x
     runs-on: blacksmith-16vcpu-ubuntu-2404
     environment: production
+    permissions:
+      contents: read
+      # starts macos-mod-builds.yml once the new layouts are live
+      actions: write
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -106,3 +110,10 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # And on the Mac, whose layouts an external builder builds: start it now
+      # rather than wait for its schedule, which GitHub runs hours apart.
+      - name: Build releases for new layouts on the Mac
+        run: gh workflow run macos-mod-builds.yml --repo "$GITHUB_REPOSITORY" -f max_builds=50
+        env:
+          GH_TOKEN: ${{ github.token }}

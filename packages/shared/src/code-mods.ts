@@ -36,9 +36,18 @@ export type CreateCodeMod = z.infer<typeof createCodeModSchema>;
  * it from what the package holds: a library (`code`), a disc file that can
  * affect play (`files`), only fighter costumes, which the game checks for
  * changes beyond looks (`costumes`), or menu and trophy files and assets
- * alone (`data`, which is free).
+ * alone (`data`, which is free), or what its class makes it: `display` (a
+ * review found it only changes what a player sees) and `offline` (its maker
+ * says it, and the game turns it off for netplay), both free.
  */
-export const CODE_MOD_NETPLAY_CLASSES = ["code", "files", "costumes", "data"] as const;
+export const CODE_MOD_NETPLAY_CLASSES = [
+  "code",
+  "files",
+  "costumes",
+  "data",
+  "display",
+  "offline",
+] as const;
 export type CodeModNetplay = (typeof CODE_MOD_NETPLAY_CLASSES)[number];
 
 /**
@@ -75,3 +84,10 @@ export const putCodeModSetSchema = z.object({
 });
 
 export type PutCodeModSet = z.infer<typeof putCodeModSetSchema>;
+
+/**
+ * The registry's official account, by its user name: a code mod it creates is
+ * published as OFFICIAL_PUBLISHER and is official from the start.
+ */
+export const OFFICIAL_ACCOUNT = "tgg_admin";
+export const OFFICIAL_PUBLISHER = "textures.gg";

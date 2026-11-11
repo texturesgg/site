@@ -7,6 +7,7 @@ import { api, apiError } from "@/lib/api";
 import { API_BASE_URL } from "@/lib/config";
 import { NETPLAY_LABELS } from "@/lib/format";
 import { byVersionDescending } from "@vgskins/shared";
+import { DisplayOnly } from "@/ui/patterns/DisplayOnly";
 import { EmptyState } from "@/ui/patterns/EmptyState";
 import { RejectReleaseDialog } from "@/ui/patterns/RejectReleaseDialog";
 import { AnchorButton, Badge, Button } from "@/ui/primitives";
@@ -180,11 +181,15 @@ function ReleaseCard({
 }) {
   const router = useRouter();
   const [rejecting, setRejecting] = useState(false);
+  const [displayOnly, setDisplayOnly] = useState(false);
   const review = useMutation({
     mutationFn: async (decision: { approve: true } | { approve: false; reason: string }) => {
       const param = { id: release.id };
       const res = decision.approve
-        ? await api.admin["code-mods"].releases[":id"].approve.$post({ param, json: {} })
+        ? await api.admin["code-mods"].releases[":id"].approve.$post({
+            param,
+            json: displayOnly ? { class: "display" } : {},
+          })
         : await api.admin["code-mods"].releases[":id"].reject.$post({
             param,
             json: { reason: decision.reason || undefined },
@@ -228,6 +233,11 @@ function ReleaseCard({
         )}
         {canReview && release.status === "pending" && (
           <div {...stylex.props(styles.row)}>
+            <DisplayOnly
+              releaseId={release.id}
+              checked={displayOnly}
+              onCheckedChange={setDisplayOnly}
+            />
             <Button
               variant="primary"
               onClick={() => review.mutate({ approve: true })}

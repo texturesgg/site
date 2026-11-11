@@ -448,6 +448,11 @@ const app = new Hono<HonoEnv>()
         const blocker = await displayBlocker(db, releaseId);
         if (blocker) return c.json({ error: `It can't be a display mod: ${blocker}` }, 400);
       }
+      // An offline mod's class comes from its manifest and stays
+      const [current] = await db
+        .select({ class: codeModReleases.class })
+        .from(codeModReleases)
+        .where(eq(codeModReleases.id, releaseId));
 
       logger.info({ userId: user.id, releaseId }, "Approving code mod release");
 
@@ -459,7 +464,7 @@ const app = new Hono<HonoEnv>()
           reviewedBy: user.id,
           reviewedAt: now,
           publishedAt: now,
-          class: releaseClass ?? null,
+          class: current?.class === "offline" ? "offline" : (releaseClass ?? null),
         },
       });
       if (!approved) {
@@ -566,6 +571,71 @@ const app = new Hono<HonoEnv>()
         return c.json({ error: "The build could not start; try again" }, 503);
       }
       return c.json({ success: true, status: "processing" }, 200);
+    }
+  )
+  // Whether a release can be a display mod, and why not: the review's
+  // "Display only" box
+  .get(
+    "/code-mods/releases/:id/display",
+    requireAuth,
+    requireModerator,
+    requireCodeMods,
+    async (c) => {
+      const db = createDb(c.env.DB);
+      const releaseId = c.req.param("id");
+      const [release] = await db
+        .select({ class: codeModReleases.class })
+        .from(codeModReleases)
+        .where(eq(codeModReleases.id, releaseId));
+      if (!release) return c.json({ error: "Release not found" }, 404);
+      const why = await displayBlocker(db, releaseId);
+      return c.json({ class: release.class, allowed: why === null, why }, 200);
+    }
+  )
+  // Set an approved release's class without another review: "display" (checked
+  // as review checks it), "offline", or none. Its builds that don't carry the
+  // class are built again, so its packages record it.
+  .put(
+    "/code-mods/releases/:id/class",
+    requireAuth,
+    requireAdmin,
+    requireCodeMods,
+    zValidator(
+      "json",
+      z.object({ class: z.enum(["display", "offline"]).nullable() }),
+      validationHook
+    ),
+    async (c) => {
+      const user = c.get("user");
+      const db = createDb(c.env.DB);
+      const releaseId = c.req.param("id");
+      const { class: releaseClass } = c.req.valid("json");
+      const [release] = await db
+        .select({ status: codeModReleases.status })
+        .from(codeModReleases)
+        .innerJoin(codeMods, eq(codeMods.id, codeModReleases.codeModId))
+        .where(and(eq(codeModReleases.id, releaseId), isNull(codeMods.deletedAt)));
+      if (!release) return c.json({ error: "Release not found" }, 404);
+      if (release.status !== "approved") {
+        return c.json(
+          { error: "Review sets a pending release's class; this sets an approved one's" },
+          409
+        );
+      }
+      if (releaseClass === "display") {
+        const blocker = await displayBlocker(db, releaseId);
+        if (blocker) return c.json({ error: `It can't be a display mod: ${blocker}` }, 400);
+      }
+      await db
+        .update(codeModReleases)
+        .set({ class: releaseClass, updatedAt: new Date() })
+        .where(eq(codeModReleases.id, releaseId));
+      logger.info(
+        { userId: user.id, releaseId, class: releaseClass },
+        "Set a code mod release's class"
+      );
+      const buildStarted = await startModBuild(c.env, { type: "approved", release: releaseId });
+      return c.json({ success: true, class: releaseClass, buildStarted }, 200);
     }
   )
   // Set who the registry says publishes a code mod: a name in place of the
