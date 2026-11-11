@@ -88,9 +88,11 @@ export class Builder extends DurableObject<BuildEnv> {
     const container = this.ctx.container;
     if (!container) throw new Error("the Builder has no container");
     const image = container.images.builder;
-    if (!container.running) {
-      container.start({ image, enableInternet: false, instance: "lite" });
-    }
+    // A rebuild reaches the same Builder. If an earlier attempt ended before
+    // destroying its container, that container still holds its workspace,
+    // and tgg won't build into a directory that isn't empty.
+    if (container.running) await container.destroy();
+    container.start({ image, enableInternet: false, instance: "lite" });
     const command = buildCommand(layout, target, commit, releaseClass);
     try {
       const decoder = new TextDecoder();
