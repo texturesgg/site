@@ -37,8 +37,9 @@ export type ReleaseToBuild = {
   commitSha: string;
   mod: string;
   version: string;
-  // The class its review gave it ("display"), which its packages record
-  class: "display" | null;
+  // Its class: "display" from review, which its packages record, or
+  // "offline" from its manifest
+  class: "display" | "offline" | null;
 };
 
 /**

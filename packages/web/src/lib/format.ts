@@ -30,4 +30,6 @@ export const NETPLAY_LABELS: Record<CodeModNetplay, string> = {
   files: "Counts for netplay",
   costumes: "Counts for netplay unless its costumes only change looks",
   data: "Free for netplay",
+  display: "Free for netplay: only changes what you see",
+  offline: "Off during netplay",
 };

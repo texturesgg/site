@@ -9,7 +9,13 @@ import {
   users,
 } from "@vgskins/db";
 import { logger } from "@vgskins/logger";
-import { codeModSlugSchema, createCodeModSchema, generateId } from "@vgskins/shared";
+import {
+  codeModSlugSchema,
+  createCodeModSchema,
+  generateId,
+  OFFICIAL_ACCOUNT,
+  OFFICIAL_PUBLISHER,
+} from "@vgskins/shared";
 import { and, count, desc, eq, getTableColumns, inArray, isNull, or } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -181,6 +187,10 @@ const app = new Hono<HonoEnv>()
           name: input.name,
           description: input.description ?? null,
           sourceKind: "push",
+          // The official account's mods are textures.gg's, and official
+          ...(user.name === OFFICIAL_ACCOUNT
+            ? { publisherName: OFFICIAL_PUBLISHER, official: true }
+            : {}),
           createdAt: now,
           updatedAt: now,
         });

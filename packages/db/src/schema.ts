@@ -535,10 +535,12 @@ export const codeModReleases = sqliteTable(
     reviewedAt: integer("reviewed_at", { mode: "timestamp_ms" }),
     // Why a moderator rejected it, shown to the mod's owner and moderators.
     rejectionReason: text("rejection_reason"),
-    // The class a moderator gave it on review: "display" when it only changes
-    // what a player sees, which the builder writes into each package
-    // (`tgg mod build --class display`) so netplay leaves it out; else null.
-    class: text("class", { enum: ["display"] }),
+    // Its class, else null: "display" when a moderator's review says it only
+    // changes what a player sees, which the builder writes into each package
+    // (`tgg mod build --class display`) so netplay leaves it out; "offline"
+    // when its manifest says so (its maker may), which tgg keeps in the
+    // package and the game turns off for netplay.
+    class: text("class", { enum: ["display", "offline"] }),
     // The store listing, read from the source at `commitSha` when the release
     // is recorded, so review covers it: the README (markdown), this version's
     // CHANGELOG.md section, and the manifest's `tags` and `homepage`. Its
@@ -627,10 +629,12 @@ export const codeModBuilds = sqliteTable(
     // `code` (it has a library) and `files` (it ships a disc file that can
     // affect play) count; `costumes` (its only such files are fighter
     // costumes) counts unless the game finds its costumes change only looks;
-    // `data` (menu and trophy files, assets) is free. A mod a counted mod
-    // depends on counts too, which depends on the player's mods, not this
-    // package.
-    netplay: text("netplay", { enum: ["code", "files", "costumes", "data"] }),
+    // `data` (menu and trophy files, assets) is free, and so are `display` and
+    // `offline` (the package's class). A mod a counted mod depends on counts
+    // too, which depends on the player's mods, not this package.
+    netplay: text("netplay", {
+      enum: ["code", "files", "costumes", "data", "display", "offline"],
+    }),
     logKey: text("log_key"), // the compiler log in R2
     signature: text("signature"),
     error: text("error"),

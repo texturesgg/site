@@ -33,6 +33,9 @@ export type SourceManifest = {
   homepage: string | null;
   // The Slippi gecko codes it reproduces, for the registry's Slippi mapping.
   slippi: SlippiCodeDecl[];
+  // Its maker says it's an offline mod ("class": "offline"): the game turns it
+  // off for netplay, and it never counts.
+  offline: boolean;
   // Why the release fails without a build, or null when it can be built.
   refusal: string | null;
 };
@@ -68,6 +71,7 @@ export function parseManifest(text: string): { manifest: SourceManifest } | { er
       tags: listing.tags,
       homepage: listing.homepage,
       slippi: "decls" in slippi ? slippi.decls : [],
+      offline: json.class === "offline",
       // The game refuses the first two too; tgg refuses the listing's.
       refusal:
         "netplay" in json

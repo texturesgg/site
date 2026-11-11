@@ -15,7 +15,7 @@ import {
 import { eq } from "drizzle-orm";
 import { beforeAll, expect, it } from "vitest";
 import { buildCommand } from "./builder";
-import { insertRelease, layoutsToBuild, releasesToBuildFor } from "./release";
+import { insertRelease, layoutsAfterApproval, layoutsToBuild, releasesToBuildFor } from "./release";
 
 const db = createDb(env.DB);
 const NOW = new Date();
@@ -65,6 +65,7 @@ it("fails a release that depends on a mod the registry doesn't have", async () =
       tags: [],
       homepage: null,
       slippi: [],
+      offline: false,
       refusal: null,
     },
   });
@@ -204,4 +205,73 @@ it("a check run counts toward the author's day, failed and rejected releases too
   // Once the oldest runs age out, the author builds again.
   const later = new Date(NOW.getTime() + 120_000);
   expect(await claimCheckRun(db, { id: "counter-1", runId: "run-13" }, later)).toBe(true);
+});
+
+it("records an offline mod's class, and builds again what tgg packed without it", async () => {
+  await db.insert(codeMods).values({
+    id: "me.drill",
+    userId: "owner",
+    gameId: "melee",
+    slug: "me.drill",
+    name: "me.drill",
+    sourceKind: "push",
+    createdAt: NOW,
+    updatedAt: NOW,
+  });
+  await db.insert(codeModLayouts).values({
+    id: "drill-linux",
+    api: "tgg-melee/0",
+    port: "tgg-melee",
+    target: "x86_64-linux-gnu",
+    portVersion: "drill",
+    builder: "image",
+    active: true,
+    createdAt: NOW,
+  });
+  const release = await insertRelease(db, {
+    codeModId: "me.drill",
+    tag: "v1.0.0",
+    commitSha: "d".repeat(40),
+    manifest: {
+      id: "me.drill",
+      version: "1.0.0",
+      license: null,
+      depends: {},
+      icon: null,
+      screenshots: [],
+      tags: [],
+      homepage: null,
+      slippi: [],
+      offline: true,
+      refusal: null,
+    },
+  });
+  const [row] = await db.select().from(codeModReleases).where(eq(codeModReleases.id, release.id));
+  expect(row.class).toBe("offline");
+  await db
+    .update(codeModReleases)
+    .set({ status: "approved" })
+    .where(eq(codeModReleases.id, release.id));
+  const pending = async () =>
+    (await layoutsAfterApproval(db, release.id)).layouts.map((layout) => layout.id);
+
+  // Packed by a tgg that dropped the class: built again
+  await db.insert(codeModBuilds).values({
+    id: "drill-old",
+    releaseId: release.id,
+    layoutId: "drill-linux",
+    status: "succeeded",
+    manifest: { entry: "mod.so" },
+    createdAt: NOW,
+  });
+  expect(await pending()).toContain("drill-linux");
+  // Packed with it: done
+  await db
+    .update(codeModBuilds)
+    .set({ manifest: { entry: "mod.so", class: "offline" } })
+    .where(eq(codeModBuilds.id, "drill-old"));
+  expect(await pending()).not.toContain("drill-linux");
+  // An offline package fits a release that records no class too
+  await db.update(codeModReleases).set({ class: null }).where(eq(codeModReleases.id, release.id));
+  expect(await pending()).not.toContain("drill-linux");
 });

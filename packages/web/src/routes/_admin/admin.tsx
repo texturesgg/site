@@ -7,6 +7,7 @@ import { useState } from "react";
 import { api, apiError, getThumbnailUrl } from "@/lib/api";
 import { featureFlag } from "@/lib/feature-flags";
 import { NETPLAY_LABELS } from "@/lib/format";
+import { DisplayOnly } from "@/ui/patterns/DisplayOnly";
 import { EmptyState } from "@/ui/patterns/EmptyState";
 import { RejectReleaseDialog } from "@/ui/patterns/RejectReleaseDialog";
 import { Button } from "@/ui/primitives";
@@ -197,6 +198,8 @@ function CodeModReleaseQueue({ releases }: { releases: PendingRelease[] }) {
   const router = useRouter();
   const [rejecting, setRejecting] = useState<PendingRelease | null>(null);
   const queryClient = useQueryClient();
+  // Each release's "Display only" box
+  const [displayOnly, setDisplayOnly] = useState<Record<string, boolean>>({});
 
   const decide = useMutation({
     mutationFn: async ({
@@ -211,7 +214,10 @@ function CodeModReleaseQueue({ releases }: { releases: PendingRelease[] }) {
       const param = { id };
       const res =
         decision === "approve"
-          ? await api.admin["code-mods"].releases[":id"].approve.$post({ param, json: {} })
+          ? await api.admin["code-mods"].releases[":id"].approve.$post({
+              param,
+              json: displayOnly[id] ? { class: "display" } : {},
+            })
           : await api.admin["code-mods"].releases[":id"].reject.$post({
               param,
               json: { reason: reason || undefined },
@@ -253,6 +259,13 @@ function CodeModReleaseQueue({ releases }: { releases: PendingRelease[] }) {
                 {" · by "}
                 {release.userName ? displayName(release.userName) : "unknown"}
               </p>
+              <DisplayOnly
+                releaseId={release.id}
+                checked={displayOnly[release.id] ?? false}
+                onCheckedChange={(checked) =>
+                  setDisplayOnly((all) => ({ ...all, [release.id]: checked }))
+                }
+              />
               <div {...stylex.props(styles.actions)}>
                 <Button
                   variant="primary"
