@@ -11,6 +11,10 @@ const BUILD_ENV = {
   // Nix's linker wrapper would add store paths to each mod's RUNPATH, which
   // makes package bytes depend on the build machine.
   NIX_DONT_SET_RPATH_x86_64_unknown_linux_gnu: "1",
+  // One compile at a time: the lite container has 256 MiB and 1/16 of a
+  // vCPU, so parallel jobs only add memory. tgg.http's Mbed TLS takes up to
+  // 190 MB a file for Windows, so several at once don't fit.
+  CMAKE_BUILD_PARALLEL_LEVEL: "1",
 };
 
 // The targets the image cross-compiles for: the C compiler and the CMake
