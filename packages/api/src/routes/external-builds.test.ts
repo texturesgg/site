@@ -376,4 +376,29 @@ describe("uploads", () => {
       packageSha256: report.sha256,
     });
   });
+
+  it("takes a library package that tgg reports as its class: display or offline", async () => {
+    for (const [slug, kind] of [
+      ["tgg.upload-display", "display"],
+      ["tgg.upload-offline", "offline"],
+    ] as const) {
+      const release = await addRelease(slug, "1.0.0", "approved");
+      // Reported as the class without the manifest carrying it: refused
+      const bare = await macPackage(slug, "1.0.0");
+      const refused = await succeeded(release, bare.zip, { ...bare.report, netplay: kind });
+      expect(refused.status).toBe(400);
+      expect((await refused.json<{ error: string }>()).error).toBe(
+        `A package with a library counts as code, not ${kind}`
+      );
+      // Carried and reported: taken, and the build records the class
+      const { zip, report } = await macPackage(slug, "1.0.0", { class: kind });
+      const response = await succeeded(release, zip, { ...report, netplay: kind });
+      expect(response.status).toBe(200);
+      const [row] = await db
+        .select({ netplay: codeModBuilds.netplay })
+        .from(codeModBuilds)
+        .where(and(eq(codeModBuilds.releaseId, release), eq(codeModBuilds.layoutId, MACOS)));
+      expect(row.netplay).toBe(kind);
+    }
+  });
 });
