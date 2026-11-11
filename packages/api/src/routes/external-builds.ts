@@ -236,8 +236,14 @@ function checkPackage(
   if (!names.includes(packed.data.entry)) {
     return { error: `The package has no ${packed.data.entry}` };
   }
-  // A package with a library counts for netplay as code.
-  if (report.netplay !== "code") {
+  // A package with a library counts for netplay as code, unless its manifest
+  // carries a class: "display" (review gave it) or "offline" (its maker
+  // says so), which tgg reports instead
+  const packedClass = (manifest as { class?: unknown }).class;
+  const classed =
+    (report.netplay === "display" || report.netplay === "offline") &&
+    packedClass === report.netplay;
+  if (report.netplay !== "code" && !classed) {
     return { error: `A package with a library counts as code, not ${report.netplay}` };
   }
   return {
