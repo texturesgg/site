@@ -166,12 +166,31 @@ async function checkRelease(
   // The step's name changed with its result's shape, so a run that started
   // before a deploy doesn't read back the old one.
   const layouts = await step.do("layouts to check", () => checkLayouts(createDb(env.DB)));
-  const library = await step.do("has library", async () => {
-    using repo = await env.ARTIFACTS.get(repoName);
-    return await hasLibrary(repo, commit.tree);
+  // A script, or a package without a library, is the same for every layout,
+  // so it builds once, against any layout's SDK, and serves them all. The
+  // release's kind is recorded here for the others.
+  const script = await step.do("is script", async () => {
+    const [row] = await createDb(env.DB)
+      .select({ kind: codeModReleases.kind })
+      .from(codeModReleases)
+      .where(eq(codeModReleases.id, releaseId));
+    return row?.kind === "script";
   });
-  // A package without a library is the same for every layout, so it builds
-  // once, against any layout's SDK, and serves them all.
+  const library =
+    !script &&
+    (await step.do("has library", async () => {
+      using repo = await env.ARTIFACTS.get(repoName);
+      return await hasLibrary(repo, commit.tree);
+    }));
+  if (!script) {
+    await step.do("record kind", () =>
+      createDb(env.DB)
+        .update(codeModReleases)
+        .set({ kind: library ? "native" : "content" })
+        .where(eq(codeModReleases.id, releaseId))
+        .then(() => null)
+    );
+  }
   const targets: Target[] = library
     ? layouts.map(({ id, target }) => ({ layout: id, sdk: id, target }))
     : layouts.slice(0, 1).map(({ id, target }) => ({ layout: null, sdk: id, target }));

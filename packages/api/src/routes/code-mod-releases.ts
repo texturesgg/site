@@ -127,6 +127,10 @@ async function listings(db: Database, origin: string, releases: Release[]) {
     const build = builds.find((item) => item.releaseId === release.id);
     const manifest = build?.manifest ?? null;
     const state = (manifest as { state?: unknown } | null)?.state;
+    const strings = (key: "uses" | "sim_writes"): string[] => {
+      const value = (manifest as Record<string, unknown> | null)?.[key];
+      return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+    };
     return {
       id: release.id,
       version: release.version,
@@ -150,6 +154,10 @@ async function listings(db: Database, origin: string, releases: Release[]) {
       hooks: build?.canonicalHooks ?? null,
       files: shippedFiles(manifest),
       state: typeof state === "number" ? state : null,
+      kind: release.kind,
+      // A script's list and what of it changes a match, from its package
+      uses: strings("uses"),
+      simWrites: strings("sim_writes"),
     };
   });
 }
@@ -294,7 +302,7 @@ const app = new Hono<HonoEnv>()
       tags: ["Code mod releases"],
       summary: "Compare a release's listing with the previous approved one",
       description:
-        "`release` and `previous` (the mod's newest approved release recorded before it, or null), each `{id, version, status, commit, createdAt, publishedAt, name, description, readme, changelog, tags, homepage, license, icon, screenshots, depends, netplay, hooks, files, state}`. `name` and `description` are the packed manifest's, and `netplay`, `hooks` (`{before, after, replaces}`), `files` (`[{path, size}]`, the game files it ships) and `state` come from its first successful build: null (or empty) before one succeeds. `icon` and `screenshots` are `{url, width, height}`. Public for approved releases; the mod's owner and moderators for any.",
+        "`release` and `previous` (the mod's newest approved release recorded before it, or null), each `{id, version, status, commit, createdAt, publishedAt, name, description, readme, changelog, tags, homepage, license, icon, screenshots, depends, netplay, hooks, files, state, kind, uses, simWrites}`. `name` and `description` are the packed manifest's, and `netplay`, `hooks` (`{before, after, replaces}`), `files` (`[{path, size}]`, the game files it ships) and `state` come from its first successful build: null (or empty) before one succeeds. `kind` is `script`, `native` or `content` (null before its check), and for a script `uses` is its list and `simWrites` what of that changes a match. `icon` and `screenshots` are `{url, width, height}`. Public for approved releases; the mod's owner and moderators for any.",
       responses: {
         200: { description: "The two listings" },
         400: { description: "Invalid request" },

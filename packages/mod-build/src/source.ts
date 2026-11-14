@@ -4,14 +4,14 @@
 import { NonRetryableError } from "cloudflare:workflows";
 import { parseManifest, type SourceManifest } from "./manifest";
 
-// A mod's source is manifest.json, C under src/, headers it shares under
-// include/, and the files it ships under files/ and assets/; nothing else is
-// copied. Game files make a mod megabytes. The source, and the package that
+// A mod's source is manifest.json, C under src/ or a script mod's Luau under
+// scripts/, headers it shares under include/, and the files it ships under
+// files/ and assets/; nothing else is copied. Game files make a mod megabytes. The source, and the package that
 // comes back, pass through this Worker's memory, so the registry takes less
 // than tgg's own 256 MiB.
 const MAX_FILES = 2048;
 const MAX_SOURCE_BYTES = 64 * 1024 * 1024;
-const SOURCE_FOLDERS = new Set(["src", "include", "files", "assets"]);
+const SOURCE_FOLDERS = new Set(["src", "include", "files", "assets", "scripts"]);
 
 export type Commit = { id: string; tree: string };
 
@@ -43,7 +43,7 @@ export async function readManifest(repo: ArtifactsRepo, commit: string): Promise
 
 /**
  * Every file a build needs: manifest.json, and everything under src/,
- * include/, files/ and assets/ but names starting with "." (tgg leaves those
+ * include/, files/, assets/ and scripts/ but names starting with "." (tgg leaves those
  * out).
  */
 export async function readSource(

@@ -255,17 +255,20 @@ function CodeModReleaseQueue({ releases }: { releases: PendingRelease[] }) {
               </Link>
               <p {...stylex.props(styles.meta)}>
                 <span {...stylex.props(styles.mono)}>{release.version}</span>
+                {release.kind === "script" && " · Script"}
                 {release.netplay && ` · ${NETPLAY_LABELS[release.netplay]}`}
                 {" · by "}
                 {release.userName ? displayName(release.userName) : "unknown"}
               </p>
-              <DisplayOnly
-                releaseId={release.id}
-                checked={displayOnly[release.id] ?? false}
-                onCheckedChange={(checked) =>
-                  setDisplayOnly((all) => ({ ...all, [release.id]: checked }))
-                }
-              />
+              {release.kind !== "script" && (
+                <DisplayOnly
+                  releaseId={release.id}
+                  checked={displayOnly[release.id] ?? false}
+                  onCheckedChange={(checked) =>
+                    setDisplayOnly((all) => ({ ...all, [release.id]: checked }))
+                  }
+                />
+              )}
               <div {...stylex.props(styles.actions)}>
                 <Button
                   variant="primary"

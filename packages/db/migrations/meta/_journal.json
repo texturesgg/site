@@ -176,6 +176,13 @@
       "when": 1794284064301,
       "tag": "0024_release_class",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1794638131459,
+      "tag": "0025_release_kind",
+      "breakpoints": true
     }
   ]
 }

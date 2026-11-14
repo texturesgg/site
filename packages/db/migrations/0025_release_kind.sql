@@ -1,0 +1,1 @@
+ALTER TABLE `code_mod_releases` ADD `kind` text;

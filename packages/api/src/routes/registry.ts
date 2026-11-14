@@ -77,6 +77,9 @@ type ModSummary = {
   sets: string[];
   targets: CodeModSystem[];
   netplay: Netplay | null;
+  // "script" for a script mod (one package for every system), else what the
+  // release ships ("native", "content"), null before its check recorded it
+  kind: "content" | "script" | "native" | null;
 };
 
 // A listed mod: not deleted, with an approved release.
@@ -157,6 +160,7 @@ async function summarize(
       codeModId: codeModReleases.codeModId,
       version: codeModReleases.version,
       tags: codeModReleases.tags,
+      kind: codeModReleases.kind,
       createdAt: codeModReleases.createdAt,
       publishedAt: codeModReleases.publishedAt,
     })
@@ -244,6 +248,7 @@ async function summarize(
         sets: sets.filter((set) => set.mod === mod.slug).map((set) => set.setName),
         targets: CODE_MOD_SYSTEMS.filter((os) => systems.has(os)),
         netplay: built.find((build) => build.netplay)?.netplay ?? null,
+        kind: release.kind,
       },
     ];
   });
@@ -491,7 +496,7 @@ const app = new Hono<HonoEnv>()
       tags: ["Registry"],
       summary: "List mods",
       description:
-        "Every mod with an approved release, paginated (`page`, `pageSize` up to 100, default 50), in `sort` order: `official` (the default) lists official mods first, then most installed; `installs` is most installed alone. Each is described by its newest approved release: `{id, name, description, author, publisher: {name, official}, icon: {url, width, height} | null, tags, installs, version, updatedAt, sets, targets, netplay}`. `publisher.name` is the name an admin set for the mod (first-party mods say textures.gg) or else the author's account name; `official` marks mods admins vouch for. `author` is the author's account name. `targets` are the systems (`linux`, `windows`, `macos`) that release has builds for on `port`, the newest tgg-melee release with active layouts. `installs` counts first installs: package downloads with `for=install`.",
+        "Every mod with an approved release, paginated (`page`, `pageSize` up to 100, default 50), in `sort` order: `official` (the default) lists official mods first, then most installed; `installs` is most installed alone. Each is described by its newest approved release: `{id, name, description, author, publisher: {name, official}, icon: {url, width, height} | null, tags, installs, version, updatedAt, sets, targets, netplay, kind}`. `publisher.name` is the name an admin set for the mod (first-party mods say textures.gg) or else the author's account name; `official` marks mods admins vouch for. `author` is the author's account name. `targets` are the systems (`linux`, `windows`, `macos`) that release has builds for on `port`, the newest tgg-melee release with active layouts. `kind` is `script`, `native` or `content` (null for a release checked before kinds were recorded). `installs` counts first installs: package downloads with `for=install`.",
       responses: {
         200: { description: "A page of mods" },
         400: { description: "Invalid request" },
