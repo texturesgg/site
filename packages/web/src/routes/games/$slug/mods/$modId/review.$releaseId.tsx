@@ -150,6 +150,8 @@ function ReviewPage() {
     (user?.role === "moderator" || user?.role === "admin") && release.status === "pending";
   const [rejecting, setRejecting] = useState(false);
   const [displayOnly, setDisplayOnly] = useState(false);
+  // A script's class comes from its scripts, so there's no box to tick
+  const script = listings.release.kind === "script";
   const review = useMutation({
     mutationFn: async (decision: { approve: true } | { approve: false; reason: string }) => {
       const param = { id: release.id };
@@ -201,11 +203,13 @@ function ReviewPage() {
           </ButtonLink>
           {canReview && (
             <>
-              <DisplayOnly
-                releaseId={release.id}
-                checked={displayOnly}
-                onCheckedChange={setDisplayOnly}
-              />
+              {!script && (
+                <DisplayOnly
+                  releaseId={release.id}
+                  checked={displayOnly}
+                  onCheckedChange={setDisplayOnly}
+                />
+              )}
               <Button onClick={() => setRejecting(true)} disabled={review.isPending}>
                 Reject
               </Button>
@@ -281,6 +285,12 @@ const show = (value: unknown): string => {
   return String(value);
 };
 
+const KIND_LABELS: Record<NonNullable<Listing["kind"]>, string> = {
+  script: "Script",
+  native: "Native C",
+  content: "Files only",
+};
+
 const hooks = (value: Listing["hooks"]) =>
   value
     ? [
@@ -297,7 +307,9 @@ const hooks = (value: Listing["hooks"]) =>
  * the store listing and how the mod runs. A first release lists everything.
  */
 function ListingChanges({ release, previous }: { release: Listing; previous: Listing | null }) {
+  const script = release.kind === "script";
   const rows: { label: string; value: (listing: Listing) => string }[] = [
+    { label: "Kind", value: (l) => (l.kind ? KIND_LABELS[l.kind] : "none") },
     { label: "Name", value: (l) => show(l.name) },
     { label: "Description", value: (l) => show(l.description) },
     { label: "Tags", value: (l) => show(l.tags) },
@@ -305,9 +317,23 @@ function ListingChanges({ release, previous }: { release: Listing; previous: Lis
     { label: "Homepage", value: (l) => show(l.homepage) },
     { label: "Needs", value: (l) => show(l.depends.map((d) => `${d.id} ${d.range}`)) },
     { label: "Netplay", value: (l) => (l.netplay ? NETPLAY_LABELS[l.netplay] : "none") },
-    { label: "Hooks", value: (l) => hooks(l.hooks) },
+    ...(script
+      ? [
+          {
+            label: "Class",
+            value: (l: Listing) =>
+              l.simWrites.length ? `gameplay: ${l.simWrites.join(", ")}` : "display",
+          },
+          { label: "Uses", value: (l: Listing) => show(l.uses) },
+        ]
+      : [
+          { label: "Hooks", value: (l: Listing) => hooks(l.hooks) },
+          {
+            label: "Keeps state",
+            value: (l: Listing) => (l.state !== null ? `${l.state} bytes` : "no"),
+          },
+        ]),
     { label: "Game files", value: (l) => show(l.files.map((f) => f.path)) },
-    { label: "Keeps state", value: (l) => (l.state !== null ? `${l.state} bytes` : "no") },
     { label: "Icon", value: (l) => (l.icon ? l.icon.url.split("/").pop()!.slice(0, 12) : "none") },
     { label: "Screenshots", value: (l) => String(l.screenshots.length) },
     {

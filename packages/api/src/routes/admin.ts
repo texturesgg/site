@@ -382,6 +382,7 @@ const app = new Hono<HonoEnv>()
       .select({
         id: codeModReleases.id,
         version: codeModReleases.version,
+        kind: codeModReleases.kind,
         netplay: releaseNetplay(db),
         createdAt: codeModReleases.createdAt,
         slug: codeMods.slug,

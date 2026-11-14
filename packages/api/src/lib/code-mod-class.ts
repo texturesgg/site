@@ -19,6 +19,9 @@ export async function displayBlocker(db: Database, releaseId: string): Promise<s
     | { entry?: unknown; hooks?: { replaces?: unknown }; events?: unknown }
     | undefined;
   if (!manifest) return "it has no successful build to check";
+  if ((manifest as { script?: unknown }).script === true) {
+    return "a script's class comes from its scripts";
+  }
   if (typeof manifest.entry !== "string") return "it has no code, so it never counts anyway";
   const replaces = Array.isArray(manifest.hooks?.replaces) ? manifest.hooks.replaces : [];
   if (replaces.length > 0) return `it replaces a game function (${String(replaces[0])})`;

@@ -66,6 +66,7 @@ it("fails a release that depends on a mod the registry doesn't have", async () =
       homepage: null,
       slippi: [],
       offline: false,
+      script: false,
       refusal: null,
     },
   });
@@ -243,6 +244,7 @@ it("records an offline mod's class, and builds again what tgg packed without it"
       homepage: null,
       slippi: [],
       offline: true,
+      script: false,
       refusal: null,
     },
   });
@@ -274,4 +276,51 @@ it("records an offline mod's class, and builds again what tgg packed without it"
   // An offline package fits a release that records no class too
   await db.update(codeModReleases).set({ class: null }).where(eq(codeModReleases.id, release.id));
   expect(await pending()).not.toContain("drill-linux");
+});
+
+it("records a script release's kind, and its one build serves every layout", async () => {
+  await db.insert(codeMods).values({
+    id: "me.rule",
+    userId: "owner",
+    gameId: "melee",
+    slug: "me.rule",
+    name: "me.rule",
+    sourceKind: "push",
+    createdAt: NOW,
+    updatedAt: NOW,
+  });
+  const release = await insertRelease(db, {
+    codeModId: "me.rule",
+    tag: "v1.0.0",
+    commitSha: "e".repeat(40),
+    manifest: {
+      id: "me.rule",
+      version: "1.0.0",
+      license: null,
+      depends: {},
+      icon: null,
+      screenshots: [],
+      tags: [],
+      homepage: null,
+      slippi: [],
+      offline: false,
+      script: true,
+      refusal: null,
+    },
+  });
+  const [row] = await db.select().from(codeModReleases).where(eq(codeModReleases.id, release.id));
+  expect(row.kind).toBe("script");
+  await db
+    .update(codeModReleases)
+    .set({ status: "approved" })
+    .where(eq(codeModReleases.id, release.id));
+  await db.insert(codeModBuilds).values({
+    id: "rule-every",
+    releaseId: release.id,
+    layoutId: null,
+    status: "succeeded",
+    manifest: { script: true, class: "display" },
+    createdAt: NOW,
+  });
+  expect((await layoutsAfterApproval(db, release.id)).layouts).toEqual([]);
 });

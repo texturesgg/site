@@ -541,6 +541,11 @@ export const codeModReleases = sqliteTable(
     // when its manifest says so (its maker may), which tgg keeps in the
     // package and the game turns off for netplay.
     class: text("class", { enum: ["display", "offline"] }),
+    // What the release ships, from its source when it is checked: "script"
+    // (Luau under scripts/, one package for every platform and layout, its
+    // class from its scripts), "native" (C, built per layout) or "content"
+    // (files and assets alone). Null until then.
+    kind: text("kind", { enum: ["content", "script", "native"] }),
     // The store listing, read from the source at `commitSha` when the release
     // is recorded, so review covers it: the README (markdown), this version's
     // CHANGELOG.md section, and the manifest's `tags` and `homepage`. Its

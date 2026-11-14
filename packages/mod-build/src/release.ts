@@ -40,6 +40,7 @@ export async function insertRelease(
     commitSha: release.commitSha,
     license: manifest.license,
     class: manifest.offline ? "offline" : null,
+    kind: manifest.script ? "script" : null,
     status,
     error,
     createdAt: now,

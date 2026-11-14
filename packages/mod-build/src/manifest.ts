@@ -36,6 +36,9 @@ export type SourceManifest = {
   // Its maker says it's an offline mod ("class": "offline"): the game turns it
   // off for netplay, and it never counts.
   offline: boolean;
+  // A script mod ("script": true): Luau under scripts/, no library, one
+  // package for every platform and layout.
+  script: boolean;
   // Why the release fails without a build, or null when it can be built.
   refusal: string | null;
 };
@@ -72,6 +75,7 @@ export function parseManifest(text: string): { manifest: SourceManifest } | { er
       homepage: listing.homepage,
       slippi: "decls" in slippi ? slippi.decls : [],
       offline: json.class === "offline",
+      script: json.script === true,
       // The game refuses the first two too; tgg refuses the listing's.
       refusal:
         "netplay" in json

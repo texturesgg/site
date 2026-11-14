@@ -261,6 +261,7 @@ function Facts({
         <span {...stylex.props(styles.mono)}>{listing.version}</span> ·{" "}
         {formatDate(listing.updatedAt)}
       </Fact>
+      {listing.kind === "script" && <Fact term="Kind">Script</Fact>}
       <Fact term="Works on">
         {listing.targets.length
           ? listing.targets.map((target) => SYSTEM_NAMES[target]).join(", ")
