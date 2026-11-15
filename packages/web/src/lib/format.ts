@@ -26,10 +26,10 @@ export const REPORT_REASON_LABELS: Record<ReportReason, string> = {
 
 /** What a code mod's package counts as for netplay, as tgg works it out. */
 export const NETPLAY_LABELS: Record<CodeModNetplay, string> = {
-  code: "Counts for netplay",
-  files: "Counts for netplay",
-  costumes: "Counts for netplay unless its costumes only change looks",
-  data: "Free for netplay",
-  display: "Free for netplay: only changes what you see",
+  code: "Has to match in netplay",
+  files: "Has to match in netplay",
+  costumes: "Has to match in netplay, unless its costumes only change looks",
+  data: "Doesn't have to match in netplay",
+  display: "Doesn't have to match in netplay. It only changes what you see.",
   offline: "Off during netplay",
 };
