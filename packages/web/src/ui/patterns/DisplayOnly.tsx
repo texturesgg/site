@@ -34,7 +34,7 @@ export function DisplayOnly({
     },
   });
   if (display.data?.class === "offline") {
-    return <p {...stylex.props(styles.why)}>An offline mod: off during netplay</p>;
+    return <p {...stylex.props(styles.why)}>Offline mod, so it's off during netplay</p>;
   }
   const allowed = display.data?.allowed ?? false;
   return (
@@ -46,7 +46,7 @@ export function DisplayOnly({
         onCheckedChange={(value) => onCheckedChange(value === true)}
       />
       {display.data && !allowed && display.data.why && (
-        <p {...stylex.props(styles.why)}>Can't be: {display.data.why}</p>
+        <p {...stylex.props(styles.why)}>Can't be display only: {display.data.why}</p>
       )}
     </div>
   );

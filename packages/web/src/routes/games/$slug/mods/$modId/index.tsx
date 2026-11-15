@@ -265,7 +265,7 @@ function Facts({
       <Fact term="Works on">
         {listing.targets.length
           ? listing.targets.map((target) => SYSTEM_NAMES[target]).join(", ")
-          : "Not built for the current game yet"}
+          : "Not built for the latest tgg-melee yet"}
       </Fact>
       {listing.netplay && <Fact term="Netplay">{NETPLAY_LABELS[listing.netplay]}</Fact>}
       <Fact term="Installs">

@@ -188,7 +188,7 @@ function ReviewPage() {
                 Changes since <span {...stylex.props(styles.mono)}>{diff.base.version}</span>
               </>
             ) : (
-              "First release: all of its source is new"
+              "First release, so all of it is new"
             )}{" "}
             · by {mod.owner}
           </p>
