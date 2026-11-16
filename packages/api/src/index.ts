@@ -11,6 +11,7 @@ import {
   getTggMeleeReleases,
   getUserOpenGraphData,
 } from "./lib/public-catalog";
+import { queueLabel } from "./lib/meet-queue-label";
 import { verifyMeetTicket } from "./lib/meet-ticket";
 import { openApiRoutes } from "./lib/openapi";
 import { generalApiRateLimit, rateLimitByIp } from "./lib/rate-limit";
@@ -160,6 +161,13 @@ export class MeetEntrypoint extends WorkerEntrypoint<Env> {
   verifyTicket(ticket: unknown) {
     if (typeof ticket !== "string") return null;
     return verifyMeetTicket(this.env, ticket);
+  }
+
+  /** A name for a matchmaking queue from its mods ("id version, ..."): the
+   * registry set they make up, or their names. */
+  queueLabel(names: unknown) {
+    if (typeof names !== "string") return "These mods";
+    return queueLabel(this.env, names.slice(0, 2000));
   }
 }
 

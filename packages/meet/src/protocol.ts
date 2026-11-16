@@ -23,6 +23,12 @@ export const RELAY_DAILY = 30;
 /** How long relay credentials work. */
 export const RELAY_TTL_S = 600;
 
+/** The longest list of mods a hello may carry. */
+export const MAX_NAMES = 2000;
+
+/** A queue's mode: "vs" (VS Mode, 1 on 1) or a mod's menu entry ("main/first-to-3"). */
+export const MODE_PATTERN = /^[a-z0-9][a-z0-9/_.-]{0,63}$/;
+
 /** The most candidates a game may offer. */
 export const MAX_CANDIDATES = 8;
 
@@ -50,10 +56,22 @@ export const ClientMessage = z.discriminatedUnion("type", [
     game: z.string().max(64),
     target: z.string().max(64),
     versions: z.string().max(64),
+    // For queues: the game's version as players on any platform compare it,
+    // tgg_mod_set_all, whether this game asks every mod to match, and the
+    // counted mods ("id version, ...", tgg_mod_set_names) to name the queue.
+    version: z.string().max(64).default(""),
+    all: z.string().max(64).default(""),
+    strict: z.boolean().default(false),
+    names: z.string().max(MAX_NAMES).default(""),
   }),
   z.object({ type: z.literal("room.make"), games: z.number().int().min(2).max(2).default(2) }),
   z.object({ type: z.literal("room.join"), code: z.string().max(16) }),
   z.object({ type: z.literal("room.leave") }),
+  // Find a match: wait in the queue for `mode` and this game's mods.
+  z.object({ type: z.literal("search"), mode: z.string().regex(MODE_PATTERN) }),
+  z.object({ type: z.literal("search.stop") }),
+  // How many are searching in the queue for `mode` and this game's mods.
+  z.object({ type: z.literal("counts"), mode: z.string().regex(MODE_PATTERN) }),
   z.object({
     type: z.literal("candidates"),
     list: z.array(Candidate).max(MAX_CANDIDATES),
@@ -85,9 +103,14 @@ export type ServerMessage =
       side: number;
       token: string;
       peers: { side: number; name: string; candidates: Candidate[]; nat: string }[];
+      /** A queue's match: the mode, and whether the games go straight to the relay. */
+      queue?: { mode: string; relay: boolean };
     }
   | { type: "relay"; server: string; username: string; credential: string }
   | { type: "relay.peer"; addr: string }
+  | { type: "searching"; mode: string; label: string; searching: number }
+  | { type: "search.ended"; why: string }
+  | { type: "counts"; mode: string; label: string; searching: number }
   | { type: "closed"; why: string }
   | { type: "error"; message: string };
 

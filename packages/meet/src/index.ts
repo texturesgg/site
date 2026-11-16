@@ -6,6 +6,37 @@
  */
 export { Player } from "./player";
 export { Room } from "./room";
+export { Queue } from "./queue";
+export { Directory } from "./directory";
+
+/** How long the queue list is cached at the edge. */
+const QUEUES_CACHE_S = 10;
+
+/**
+ * GET /v1/queues: the busiest queues and how many are searching in each, for
+ * an app's Find a match screen. `?limit=` up to 50. Cached for
+ * QUEUES_CACHE_S, so asking often costs the Directory nothing.
+ */
+async function queues(request: Request, env: MeetEnv, ctx: ExecutionContext): Promise<Response> {
+  const url = new URL(request.url);
+  const limit = Math.max(1, Math.min(50, Number(url.searchParams.get("limit")) || 20));
+  const cacheKey = new Request(`${url.origin}/v1/queues?limit=${limit}`);
+  const cache = await caches.open("queues");
+  const hit = await cache.match(cacheKey);
+  if (hit) return hit;
+  const directory = env.DIRECTORY.get(env.DIRECTORY.idFromName("all"));
+  const response = Response.json(
+    { queues: await directory.list(limit) },
+    {
+      headers: {
+        "Cache-Control": `public, max-age=${QUEUES_CACHE_S}`,
+        "Access-Control-Allow-Origin": "*",
+      },
+    }
+  );
+  ctx.waitUntil(cache.put(cacheKey, response.clone()));
+  return response;
+}
 
 /** In development, `?ticket=dev:<name>` stands for a signed-in player. */
 async function playerFor(env: MeetEnv, ticket: string) {
@@ -17,10 +48,13 @@ async function playerFor(env: MeetEnv, ticket: string) {
 }
 
 export default {
-  async fetch(request: Request, env: MeetEnv): Promise<Response> {
+  async fetch(request: Request, env: MeetEnv, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname === "/") {
       return Response.json({ status: "ok", service: "tgg-meet" });
+    }
+    if (url.pathname === "/v1/queues" && request.method === "GET") {
+      return queues(request, env, ctx);
     }
     if (url.pathname !== "/v1") {
       return Response.json({ error: "Not found" }, { status: 404 });
@@ -53,6 +87,10 @@ export default {
     headers.set("x-meet-user", player.id);
     headers.set("x-meet-name", player.name);
     headers.set("x-meet-ip", ip);
+    // Where Cloudflare places the connection, for pairing nearby players
+    const cf = request.cf as { latitude?: string; longitude?: string } | undefined;
+    headers.set("x-meet-lat", cf?.latitude ?? "");
+    headers.set("x-meet-lon", cf?.longitude ?? "");
     const stub = env.PLAYER.get(env.PLAYER.idFromName(player.id));
     return stub.fetch(new Request(request.url, { headers }));
   },
