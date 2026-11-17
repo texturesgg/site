@@ -6,7 +6,7 @@ import { requireFeatureFlag } from "@/lib/feature-flags";
 import { Article, ArticleSection, BulletList, Step, Steps } from "@/ui/patterns/Article";
 import { layout } from "@/ui/patterns/layout";
 import { PageHeader } from "@/ui/patterns/PageHeader";
-import { TextLink } from "@/ui/primitives";
+import { TextAnchor, TextLink } from "@/ui/primitives";
 import { color, font, radius, space, text } from "@/ui/tokens.stylex";
 
 // The December 2026 mod competition. A shell behind the code-mods flag: what
@@ -134,8 +134,9 @@ function Competition() {
               </Step>
               <Step number={3}>
                 <p>
-                  Post the link on X and tag <ToConfirm>account</ToConfirm>. That post is your
-                  entry.
+                  Post the link on X and tag{" "}
+                  <TextAnchor href="https://x.com/texturesgg">@texturesgg</TextAnchor>. That post is
+                  your entry.
                 </p>
               </Step>
             </Steps>
