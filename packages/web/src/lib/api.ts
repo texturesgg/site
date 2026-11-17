@@ -1,5 +1,7 @@
 import type { AppType } from "@vgskins/api";
+import { twoFactorRefusalSchema } from "@vgskins/shared";
 import { DetailedError, hc } from "hono/client";
+import { z } from "zod";
 import { API_BASE_URL, ASSETS_URL } from "./config";
 
 // hono/client for typed API calls
@@ -40,6 +42,18 @@ export async function apiError(response: {
       ? body.error
       : `Request failed with status ${response.status}`;
   return new DetailedError(message, { statusCode: response.status });
+}
+
+const TwoFactorRefused = z.object({ data: twoFactorRefusalSchema });
+
+/** Whether a moderator request failed because this session hasn't proved
+ * two-factor sign-in. */
+export function isTwoFactorRequired(error: unknown): boolean {
+  return (
+    error instanceof DetailedError &&
+    error.statusCode === 403 &&
+    TwoFactorRefused.safeParse(error.detail).success
+  );
 }
 
 /** Whether a request failed because nobody is signed in. */

@@ -2,7 +2,7 @@ import { createDb, schema } from "@vgskins/db";
 import { ac, roles, type UserRole } from "@vgskins/shared/permissions";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { admin, bearer, deviceAuthorization } from "better-auth/plugins";
+import { admin, bearer, deviceAuthorization, twoFactor } from "better-auth/plugins";
 import { and, eq, gt, like } from "drizzle-orm";
 import { createMiddleware } from "hono/factory";
 import type { Env, HonoEnv } from "../types";
@@ -13,6 +13,12 @@ import {
   setPasswordEmailHtml,
   verificationEmailHtml,
 } from "./email";
+import {
+  markTwoFactorSession,
+  TWO_FACTOR_REQUIRED,
+  twoFactorRequired,
+  twoFactorVerified,
+} from "./two-factor";
 import { uniqueUsername } from "./username";
 
 /** The site origins the API trusts for CORS and auth; localhost only in development. */
@@ -44,6 +50,7 @@ function createAuth(env: Env) {
         session: schema.sessions,
         verification: schema.verifications,
         deviceCode: schema.deviceCodes,
+        twoFactor: schema.twoFactors,
       },
     }),
 
@@ -153,7 +160,7 @@ function createAuth(env: Env) {
       },
     },
 
-    hooks: { before: authPolicy(db) },
+    hooks: { before: authPolicy(db, env), after: markTwoFactorSession(db) },
 
     databaseHooks: {
       user: {
@@ -192,10 +199,19 @@ function createAuth(env: Env) {
         validateClient: (clientId) => clientId === CLI_CLIENT_ID,
       }),
       bearer(),
+      // Two-factor sign-in, which moderators and admins need (two-factor.ts).
+      // Accounts that sign in with Discord have no password to give.
+      twoFactor({
+        issuer: "textures.gg",
+        allowPasswordless: true,
+      }),
     ],
 
     session: {
       expiresIn: 60 * 60 * 24 * 7, // 7 days
+      additionalFields: {
+        twoFactorAt: { type: "date", required: false, input: false },
+      },
       updateAge: 60 * 60 * 24, // Update session every day
     },
   });
@@ -242,7 +258,7 @@ export const authHandler = createMiddleware<HonoEnv>(async (c) => {
 // Handlers after requireAuth see a non-null user.
 type AuthenticatedEnv = {
   Bindings: HonoEnv["Bindings"];
-  Variables: { user: AuthUser; session: unknown };
+  Variables: { user: AuthUser; session: unknown; twoFactor: boolean };
 };
 
 // better-auth refuses a banned user only when a session is created, so a
@@ -256,7 +272,11 @@ async function signedIn(env: Env, headers: Headers) {
     ...session.user,
     role: (session.user.role as UserRole) || "user",
   };
-  return { user, session: session.session };
+  return {
+    user,
+    session: session.session,
+    twoFactor: twoFactorVerified(session.user, session.session),
+  };
 }
 
 // Required auth middleware - returns 401 if not authenticated
@@ -267,6 +287,7 @@ export const requireAuth = createMiddleware<AuthenticatedEnv>(async (c, next) =>
   }
   c.set("user", current.user);
   c.set("session", current.session);
+  c.set("twoFactor", current.twoFactor);
   await next();
 });
 
@@ -281,18 +302,26 @@ export const optionalAuth = createMiddleware<HonoEnv>(async (c, next) => {
 // Role Guards (middleware - use after requireAuth)
 // ============================================================================
 
-/** Returns 403 unless the signed-in user is a moderator or admin. */
+/** Returns 403 unless the signed-in user is a moderator or admin whose session
+ * proved two-factor sign-in (two-factor.ts). */
 export const requireModerator = createMiddleware<AuthenticatedEnv>(async (c, next) => {
   if (!isModerator(c.get("user"))) {
     return c.json({ error: "Moderator access required" }, 403);
   }
+  if (twoFactorRequired(c.env) && !c.get("twoFactor")) {
+    return c.json(TWO_FACTOR_REQUIRED, 403);
+  }
   await next();
 });
 
-/** Returns 403 unless the signed-in user is an admin. */
+/** Returns 403 unless the signed-in user is an admin whose session proved
+ * two-factor sign-in. */
 export const requireAdmin = createMiddleware<AuthenticatedEnv>(async (c, next) => {
   if (!isAdmin(c.get("user"))) {
     return c.json({ error: "Admin access required" }, 403);
+  }
+  if (twoFactorRequired(c.env) && !c.get("twoFactor")) {
+    return c.json(TWO_FACTOR_REQUIRED, 403);
   }
   await next();
 });

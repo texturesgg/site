@@ -28,6 +28,9 @@ export const users = sqliteTable("users", {
   banned: integer("banned", { mode: "boolean" }).default(false),
   banReason: text("ban_reason"),
   banExpires: integer("ban_expires", { mode: "timestamp_ms" }),
+  // Two-factor sign-in (better-auth's twoFactor plugin): moderators and admins
+  // need it, and a session verified with it, to act (lib/auth.ts)
+  twoFactorEnabled: integer("two_factor_enabled", { mode: "boolean" }).default(false),
   // Creator profile fields
   bio: text("bio"),
   pronouns: text("pronouns"),
@@ -90,6 +93,9 @@ export const sessions = sqliteTable(
     expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
+    // When this session last proved the second factor (a TOTP or backup code);
+    // null for one that never did, like a Discord or `tgg login` session
+    twoFactorAt: integer("two_factor_at", { mode: "timestamp_ms" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },
@@ -107,6 +113,27 @@ export const verifications = sqliteTable(
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },
   (table) => [index("verification_identifier_idx").on(table.identifier)]
+);
+
+// A user's authenticator secret and backup codes (better-auth's twoFactor
+// plugin), both encrypted with the auth secret
+export const twoFactors = sqliteTable(
+  "two_factors",
+  {
+    id: text("id").primaryKey(),
+    secret: text("secret").notNull(),
+    backupCodes: text("backup_codes").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    verified: integer("verified", { mode: "boolean" }).default(true),
+    failedVerificationCount: integer("failed_verification_count").default(0),
+    lockedUntil: integer("locked_until", { mode: "timestamp_ms" }),
+  },
+  (table) => [
+    index("two_factor_secret_idx").on(table.secret),
+    index("two_factor_user_idx").on(table.userId),
+  ]
 );
 
 // A pending sign-in from the `tgg` command line (better-auth's device

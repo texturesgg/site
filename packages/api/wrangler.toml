@@ -118,12 +118,15 @@ ASSETS_BASE_URL = "http://localhost:8787/api/files"
 # only it may take ids starting with tgg. (shared OFFICIAL_CODE_MOD_ID_PREFIXES).
 # Empty: no account is official.
 OFFICIAL_ACCOUNT_ID = "official"
+# "required": moderator and admin actions need a session that proved two-factor
+# sign-in (src/lib/two-factor.ts). Every deploy requires it.
+MODERATOR_TWO_FACTOR = "off"
 
 # Production environment - deploy with: wrangler deploy --env production
 [env.production]
 name = "vgskins-api"
 # OFFICIAL_ACCOUNT_ID is tgg_admin's account id
-vars = { ENVIRONMENT = "production", API_BASE_URL = "https://api.textures.gg", SITE_BASE_URL = "https://textures.gg", ASSETS_BASE_URL = "https://assets.textures.gg", OFFICIAL_ACCOUNT_ID = "7RQ8Sjro6mfcPVljhwofkYlneSTlZgnr" }
+vars = { ENVIRONMENT = "production", API_BASE_URL = "https://api.textures.gg", SITE_BASE_URL = "https://textures.gg", ASSETS_BASE_URL = "https://assets.textures.gg", OFFICIAL_ACCOUNT_ID = "7RQ8Sjro6mfcPVljhwofkYlneSTlZgnr", MODERATOR_TWO_FACTOR = "required" }
 
 [[env.production.artifacts]]
 binding = "MOD_SOURCES"
@@ -205,7 +208,7 @@ period = 60
 [env.preview]
 name = "vgskins-api-preview"
 routes = [{ pattern = "api-preview.textures.gg", custom_domain = true }]
-vars = { ENVIRONMENT = "preview", API_BASE_URL = "https://api-preview.textures.gg", SITE_BASE_URL = "https://preview.textures.gg", ASSETS_BASE_URL = "https://assets.textures.gg", OFFICIAL_ACCOUNT_ID = "" }
+vars = { ENVIRONMENT = "preview", API_BASE_URL = "https://api-preview.textures.gg", SITE_BASE_URL = "https://preview.textures.gg", ASSETS_BASE_URL = "https://assets.textures.gg", OFFICIAL_ACCOUNT_ID = "", MODERATOR_TWO_FACTOR = "required" }
 
 [[env.preview.artifacts]]
 binding = "MOD_SOURCES"

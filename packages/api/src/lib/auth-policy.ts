@@ -2,6 +2,14 @@ import { type Database, users } from "@vgskins/db";
 import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { eq } from "drizzle-orm";
 import { isModerator } from "./auth";
+import type { Env } from "../types";
+import {
+  TWO_FACTOR_REQUIRED,
+  TWO_FACTOR_VERIFY_PATHS,
+  TwoFactorSession,
+  twoFactorRequired,
+  twoFactorVerified,
+} from "./two-factor";
 import { usernameError } from "./username";
 
 // Admin plugin endpoints the product does not use. Impersonation writes a
@@ -15,10 +23,27 @@ const BAN_ENDPOINTS = new Set(["/admin/ban-user", "/admin/unban-user"]);
  * better-auth serves itself. A refusal is an APIError, which better-auth
  * answers as `{ message }` with its status.
  */
-export function authPolicy(db: Database) {
+export function authPolicy(db: Database, env: Pick<Env, "MODERATOR_TWO_FACTOR">) {
   return createAuthMiddleware(async (ctx) => {
     if (DISABLED_ENDPOINTS.has(ctx.path)) {
       throw new APIError("NOT_FOUND");
+    }
+
+    // better-auth's own admin endpoints (roles, bans) need a verified session,
+    // as admin.ts's routes do. Once an account has two-factor sign-in, so do
+    // its settings (turning it off, a new secret, new backup codes), so a
+    // stolen session can't swap in its own authenticator.
+    const admin = ctx.path.startsWith("/admin/");
+    const twoFactorSettings =
+      ctx.path.startsWith("/two-factor/") && !TWO_FACTOR_VERIFY_PATHS.has(ctx.path);
+    if ((admin || twoFactorSettings) && twoFactorRequired(env)) {
+      const found = await getSessionFromCtx(ctx);
+      const session = found && TwoFactorSession.parse(found);
+      if (session && !twoFactorVerified(session.user, session.session)) {
+        if (admin || session.user.twoFactorEnabled === true) {
+          throw new APIError("FORBIDDEN", { message: TWO_FACTOR_REQUIRED.error });
+        }
+      }
     }
 
     if (ctx.path === "/update-user") {
