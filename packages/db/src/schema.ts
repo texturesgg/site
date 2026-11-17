@@ -763,6 +763,9 @@ export const codeModSets = sqliteTable("code_mod_sets", {
   title: text("title").notNull(),
   description: text("description").default("").notNull(),
   version: integer("version").notNull(),
+  // Whether matchmaking lists it as a standing queue (Competitive), shown
+  // even when nobody is searching in it.
+  queue: integer("queue", { mode: "boolean" }).default(false).notNull(),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
 });

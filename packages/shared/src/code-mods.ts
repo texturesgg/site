@@ -82,6 +82,8 @@ export const codeModSetNameSchema = z
 export const putCodeModSetSchema = z.object({
   title: z.string().trim().min(1, "A title is required").max(80),
   description: z.string().trim().max(2000).default(""),
+  /** A standing matchmaking queue. Left out, a saved set keeps what it had. */
+  queue: z.boolean().optional(),
   mods: z
     .array(z.object({ id: codeModSlugSchema, range: codeModRangeSchema }))
     .max(200)

@@ -8,7 +8,7 @@ import { api, apiError } from "@/lib/api";
 import { featureFlag } from "@/lib/feature-flags";
 import { CloseIcon } from "@/ui/icons";
 import { EmptyState } from "@/ui/patterns/EmptyState";
-import { Button, IconButton, Select, TextArea, TextField } from "@/ui/primitives";
+import { Button, IconButton, Select, Switch, TextArea, TextField } from "@/ui/primitives";
 import { color, font, radius, space, text } from "@/ui/tokens.stylex";
 
 type RegistrySet = InferResponseType<typeof api.registry.sets.$get, 200>[number];
@@ -116,14 +116,19 @@ function SetEditor({
   const [title, setTitle] = useState(set?.title ?? "");
   const [description, setDescription] = useState(set?.description ?? "");
   const [list, setList] = useState<SetMod[]>(set?.mods ?? []);
+  const [queue, setQueue] = useState(set?.queue ?? false);
   const [adding, setAdding] = useState("");
 
   const nameError =
     !set && name ? codeModSetNameSchema.safeParse(name).error?.issues[0]?.message : undefined;
-  const parsed = putCodeModSetSchema.safeParse({ title, description, mods: list });
+  const parsed = putCodeModSetSchema.safeParse({ title, description, queue, mods: list });
   const listChanged = !set || key(list) !== key(set.mods);
   const dirty =
-    !set || title !== set.title || description !== (set.description ?? "") || listChanged;
+    !set ||
+    title !== set.title ||
+    description !== (set.description ?? "") ||
+    queue !== set.queue ||
+    listChanged;
   const nextVersion = set ? set.version + (listChanged ? 1 : 0) : 1;
 
   const save = useMutation({
@@ -191,6 +196,8 @@ function SetEditor({
         maxLength={2000}
         onChange={(event) => setDescription(event.currentTarget.value)}
       />
+
+      <Switch label="Matchmaking queue" checked={queue} onCheckedChange={setQueue} />
 
       <ul aria-label="Mods" {...stylex.props(styles.mods)}>
         {list.map((entry, index) => {
@@ -283,7 +290,7 @@ function SetEditor({
         {onDone && <Button onClick={onDone}>Cancel</Button>}
         {dirty && set && (
           <span {...stylex.props(styles.meta)}>
-            {listChanged ? `Saves as version ${nextVersion}` : "Same version, new wording"}
+            {listChanged ? `Saves as version ${nextVersion}` : "Same version"}
           </span>
         )}
       </div>

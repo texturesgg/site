@@ -870,12 +870,19 @@ const app = new Hono<HonoEnv>()
           title: input.title,
           description: input.description,
           version,
+          queue: input.queue ?? false,
           createdAt: now,
           updatedAt: now,
         })
         .onConflictDoUpdate({
           target: codeModSets.name,
-          set: { title: input.title, description: input.description, version, updatedAt: now },
+          set: {
+            title: input.title,
+            description: input.description,
+            version,
+            ...(input.queue === undefined ? {} : { queue: input.queue }),
+            updatedAt: now,
+          },
         });
       const clear = db.delete(codeModSetMods).where(eq(codeModSetMods.setName, name));
       const rows = input.mods.map((mod, position) => ({
@@ -897,6 +904,7 @@ const app = new Hono<HonoEnv>()
           title: input.title,
           description: input.description,
           version,
+          queue: input.queue ?? existing?.queue ?? false,
           mods: input.mods,
         },
         existing ? 200 : 201

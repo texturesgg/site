@@ -9,9 +9,15 @@ export { Room } from "./room";
 export { Queue } from "./queue";
 export { Directory } from "./directory";
 
-import { MeetQueuesQuery, MeetQueuesResponse } from "@vgskins/shared/meet";
+import {
+  MEET_QUEUES_MAX,
+  MeetQueuesQuery,
+  MeetQueuesResponse,
+  MeetStandingQueues,
+} from "@vgskins/shared/meet";
 import { z } from "zod";
 import { Member } from "./protocol";
+import { listQueues } from "./queue-list";
 
 /** How long the queue list is cached at the edge. */
 const QUEUES_CACHE_S = 10;
@@ -27,9 +33,10 @@ const TicketPlayer = Member.extend({
 }).nullable();
 
 /**
- * GET /v1/queues: the busiest queues and how many are searching in each, for
- * an app's Find a match screen (MeetQueuesQuery, MeetQueuesResponse). Cached for
- * QUEUES_CACHE_S, so asking often costs the Directory nothing.
+ * GET /v1/queues: the standing queues (registry sets marked as queues) and the
+ * busiest others, with how many are searching in each, for an app's Find a
+ * match screen (MeetQueuesQuery, MeetQueuesResponse). Cached for
+ * QUEUES_CACHE_S, so asking often costs the Directory and the API nothing.
  */
 async function queues(request: Request, env: MeetEnv, ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url);
@@ -43,8 +50,12 @@ async function queues(request: Request, env: MeetEnv, ctx: ExecutionContext): Pr
   const hit = await cache.match(cacheKey);
   if (hit) return hit;
   const directory = env.DIRECTORY.get(env.DIRECTORY.idFromName("all"));
+  const [standing, rows] = await Promise.all([
+    standingQueues(env),
+    directory.list(MEET_QUEUES_MAX),
+  ]);
   const body: MeetQueuesResponse = MeetQueuesResponse.parse({
-    queues: await directory.list(limit),
+    queues: listQueues(standing, rows, limit),
   });
   const response = Response.json(body, {
     headers: {
@@ -54,6 +65,18 @@ async function queues(request: Request, env: MeetEnv, ctx: ExecutionContext): Pr
   });
   ctx.waitUntil(cache.put(cacheKey, response.clone()));
   return response;
+}
+
+/** The registry's standing queues; none when the API can't say, so the list still answers. */
+async function standingQueues(env: MeetEnv) {
+  try {
+    const standing = MeetStandingQueues.safeParse(await env.API.standingQueues());
+    if (!standing.success) console.error("standing queues", standing.error.issues[0]);
+    return standing.success ? standing.data : [];
+  } catch (error) {
+    console.error("standing queues", error);
+    return [];
+  }
 }
 
 /** In development, `?ticket=dev:<name>` stands for a signed-in player. */

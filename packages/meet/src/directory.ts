@@ -1,5 +1,11 @@
 import { DurableObject } from "cloudflare:workers";
-import { MEET_QUEUES_MAX, MeetQueueSummary } from "@vgskins/shared/meet";
+import {
+  MEET_QUEUES_MAX,
+  MeetMode,
+  MeetQueueLabel,
+  MeetQueueMods,
+  MeetQueueSet,
+} from "@vgskins/shared/meet";
 import { z } from "zod";
 import { DELETE_BATCH, QueueKey } from "./queue";
 
@@ -20,12 +26,23 @@ export const STALE_MS = 10 * 60 * 1000;
 /** An empty queue's row goes after this long. */
 export const EMPTY_MS = 60_000;
 
-/** Queue -> Directory: a queue's count. */
-export const QueueUpdate = MeetQueueSummary.extend({ key: QueueKey });
+/** Queue -> Directory: a queue's count, and its set and mods once named. */
+export const QueueUpdate = z.object({
+  key: QueueKey,
+  mode: MeetMode,
+  label: MeetQueueLabel,
+  searching: z.number().int().min(0),
+  set: MeetQueueSet.nullable().default(null),
+  mods: MeetQueueMods.default([]),
+});
 export type QueueUpdate = z.infer<typeof QueueUpdate>;
 
 const QueueRow = QueueUpdate.extend({ updated: z.number() });
 type QueueRow = z.infer<typeof QueueRow>;
+
+/** Directory -> the Worker: a queue in the list. */
+export const QueueListing = QueueUpdate.omit({ key: true });
+export type QueueListing = z.infer<typeof QueueListing>;
 
 const ListLimit = z.number().int().min(1).max(MEET_QUEUES_MAX);
 
@@ -59,15 +76,15 @@ export class Directory extends DurableObject<MeetEnv> {
     await this.ctx.storage.put(`q:${row.key}`, row);
   }
 
-  /** The busiest queues first, up to `limit`. */
-  async list(input: number): Promise<MeetQueueSummary[]> {
+  /** The busiest queues with someone searching, up to `limit`. */
+  async list(input: number): Promise<QueueListing[]> {
     const limit = ListLimit.parse(input);
     await this.prune(Date.now());
     return [...this.rows.values()]
       .filter((r) => r.searching > 0)
       .sort((a, b) => b.searching - a.searching || a.label.localeCompare(b.label))
       .slice(0, limit)
-      .map(({ mode, label, searching }) => ({ mode, label, searching }));
+      .map(({ mode, label, searching, set, mods }) => ({ mode, label, searching, set, mods }));
   }
 
   /** Counts one more relayed session today: false once `cap` is reached. */

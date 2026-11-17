@@ -108,7 +108,7 @@ const app = new Hono<HonoEnv>()
       tags: ["Registry"],
       summary: "List mod sets",
       description:
-        "Every set: `{name, title, description, version, mods: [{id, range}]}`, ranges in the game's `depends` syntax. `version` goes up whenever the list or a range changes.",
+        "Every set: `{name, title, description, version, queue, mods: [{id, range}]}`, ranges in the game's `depends` syntax. `version` goes up whenever the list or a range changes. `queue` is whether matchmaking lists the set as a standing queue.",
       responses: { 200: { description: "Every set" } },
     }),
     async (c) => {
@@ -127,6 +127,7 @@ const app = new Hono<HonoEnv>()
           title: set.title,
           description: set.description,
           version: set.version,
+          queue: set.queue,
           mods: mods
             .filter((mod) => mod.setName === set.name)
             .map((mod) => ({ id: mod.mod, range: mod.range })),

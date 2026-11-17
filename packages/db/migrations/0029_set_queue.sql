@@ -1,0 +1,1 @@
+ALTER TABLE `code_mod_sets` ADD `queue` integer DEFAULT false NOT NULL;
