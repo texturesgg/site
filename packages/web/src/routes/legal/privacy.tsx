@@ -26,8 +26,12 @@ function Privacy() {
       <ArticleSection title="Your account">
         <BulletList>
           <li>
-            Your email, username, and profile picture. With Discord or GitHub sign-in these come
-            from that account.
+            Your email, username, and profile picture. With Discord, Google, GitHub, or X sign-in
+            these come from that account.
+          </li>
+          <li>
+            When you sign in with X or link it, the handle X reports for that account, which can
+            differ from the one on your profile.
           </li>
           <li>Your password, stored only as a hash, if you sign in with email.</li>
           <li>
@@ -75,6 +79,25 @@ function Privacy() {
         </p>
       </ArticleSection>
 
+      <ArticleSection title="Competition voting">
+        <p>When you vote in the mod competition, each vote records:</p>
+        <BulletList>
+          <li>your account, the mod you voted for, and when</li>
+          <li>how old your account was then and how you sign in</li>
+          <li>your linked X account and the handle X reports for it, if you linked one</li>
+          <li>
+            your IP address in a scrambled form that can&apos;t be turned back into the address, and
+            your country from Cloudflare
+          </li>
+          <li>whether you said you follow @texturesgg. We don&apos;t check this with X.</li>
+        </BulletList>
+        <p>
+          Vote counts are public. Who voted for what is seen only by admins, to keep the results
+          fair and catch fake accounts. All of it is deleted 90 days after the winners are
+          announced.
+        </p>
+      </ArticleSection>
+
       <ArticleSection title="Email">
         <p>
           We send sign-in emails (verifying your address, resetting your password) from
@@ -96,7 +119,7 @@ function Privacy() {
             Cloudflare runs the site, the database, file storage, email, Turnstile, matchmaking, and
             the relay. Its request logs include IP addresses.
           </li>
-          <li>Discord and GitHub, when you sign in with them.</li>
+          <li>Discord, Google, GitHub, and X, when you sign in with them or link them.</li>
         </BulletList>
       </ArticleSection>
 

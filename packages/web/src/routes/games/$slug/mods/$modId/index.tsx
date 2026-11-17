@@ -10,6 +10,7 @@ import { supportLinkLabel } from "@/lib/support-links";
 import { CONTACT_EMAIL } from "@/lib/config";
 import { requireFeatureFlag } from "@/lib/feature-flags";
 import { NETPLAY_LABELS } from "@/lib/format";
+import { CompetitionModBox } from "@/ui/patterns/CompetitionVote";
 import { InstallActions } from "@/ui/patterns/InstallActions";
 import { layout } from "@/ui/patterns/layout";
 import { Markdown } from "@/ui/patterns/Markdown";
@@ -218,6 +219,7 @@ function ModPage() {
             </p>
           )}
         </ModHeader>
+        {listing && <CompetitionModBox mod={listing.id} />}
         {listing && <Facts listing={listing} game={game.slug} sets={sets} />}
         {(listing || maker) && (
           <a
