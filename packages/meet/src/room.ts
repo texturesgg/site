@@ -1,23 +1,41 @@
 import { DurableObject } from "cloudflare:workers";
+import { z } from "zod";
 import {
-  type Candidate,
-  type Member,
+  Candidate,
+  Candidates,
+  CODE_LENGTH,
+  Member,
+  Nat,
+  ROOM_GAMES,
+  RoomGames,
   randomToken,
   ROOM_IDLE_MS,
   type ServerMessage,
 } from "./protocol";
 
 /** One member of a room, as the room keeps it. */
-export type Seat = Member & { candidates: Candidate[] | null; nat: string };
+export const Seat = Member.extend({ candidates: Candidates.nullable(), nat: Nat });
+export type Seat = z.infer<typeof Seat>;
 
-type RoomState = {
-  code: string;
-  games: number;
+const RoomCode = z.string().length(CODE_LENGTH);
+const MemberId = Member.shape.id;
+const RelayAddr = Candidate.shape.addr;
+const RelayBytes = z.number().min(0);
+const Report = z.object({
+  outcome: z.enum(["connected", "failed"]),
+  how: z.string().max(16),
+  ms: z.number().min(0),
+});
+
+const RoomState = z.object({
+  code: RoomCode,
+  games: RoomGames,
   /** In side order: the host first. */
-  seats: Seat[];
+  seats: z.array(Seat).max(ROOM_GAMES),
   /** The session token of the last `meet`, or null before one. */
-  token: string | null;
-};
+  token: z.string().nullable(),
+});
+type RoomState = z.infer<typeof RoomState>;
 
 /**
  * A room, named by its code: up to `games` members, the host first. Once the
@@ -34,7 +52,8 @@ export class Room extends DurableObject<MeetEnv> {
   constructor(ctx: DurableObjectState, env: MeetEnv) {
     super(ctx, env);
     ctx.blockConcurrencyWhile(async () => {
-      this.state = (await ctx.storage.get<RoomState>("room")) ?? null;
+      const stored = RoomState.safeParse(await ctx.storage.get("room"));
+      this.state = stored.success ? stored.data : null;
     });
   }
 
@@ -42,9 +61,9 @@ export class Room extends DurableObject<MeetEnv> {
   async create(code: string, host: Seat, games: number): Promise<boolean> {
     if (this.state) return false;
     this.state = {
-      code,
-      games,
-      seats: [{ ...host }],
+      code: RoomCode.parse(code),
+      games: RoomGames.parse(games),
+      seats: [Seat.parse(host)],
       token: null,
     };
     await this.changed();
@@ -52,7 +71,8 @@ export class Room extends DurableObject<MeetEnv> {
   }
 
   /** Adds a member; an error for the player, or null. */
-  async join(member: Seat): Promise<string | null> {
+  async join(input: Seat): Promise<string | null> {
+    const member = Seat.parse(input);
     const room = this.state;
     if (!room) return "There's no room with that code.";
     if (room.seats.some((s) => s.id === member.id)) {
@@ -60,13 +80,14 @@ export class Room extends DurableObject<MeetEnv> {
       return null;
     }
     if (room.seats.length >= room.games) return "That room is full.";
-    room.seats.push({ ...member });
+    room.seats.push(member);
     room.token = null;
     await this.changed();
     return null;
   }
 
-  async leave(memberId: string): Promise<void> {
+  async leave(input: string): Promise<void> {
+    const memberId = MemberId.parse(input);
     const room = this.state;
     if (!room) return;
     const index = room.seats.findIndex((s) => s.id === memberId);
@@ -80,16 +101,17 @@ export class Room extends DurableObject<MeetEnv> {
     await this.changed();
   }
 
-  async candidates(memberId: string, list: Candidate[], nat: string): Promise<void> {
-    const seat = this.state?.seats.find((s) => s.id === memberId);
+  async candidates(memberId: string, list: Seat["candidates"], nat: Nat): Promise<void> {
+    const seat = this.state?.seats.find((s) => s.id === MemberId.parse(memberId));
     if (!seat) return;
-    seat.candidates = list;
-    seat.nat = nat;
+    seat.candidates = Candidates.parse(list);
+    seat.nat = Nat.parse(nat);
     await this.changed();
   }
 
   /** How a member's connection attempt went, for deciding on a relay. */
-  report(memberId: string, outcome: "connected" | "failed", how: string, ms: number): void {
+  report(memberId: string, input: z.input<typeof Report>): void {
+    const { outcome, how, ms } = Report.parse(input);
     const room = this.state;
     const seat = room?.seats.find((s) => s.id === memberId);
     if (!room || !seat) return;
@@ -108,7 +130,8 @@ export class Room extends DurableObject<MeetEnv> {
   }
 
   /** The host's relay address, for the other games to say hello to. */
-  async relayPeer(memberId: string, addr: string): Promise<void> {
+  async relayPeer(memberId: string, input: string): Promise<void> {
+    const addr = RelayAddr.parse(input);
     const room = this.state;
     if (!room || room.seats[0]?.id !== memberId) return;
     await Promise.all(
@@ -117,7 +140,8 @@ export class Room extends DurableObject<MeetEnv> {
   }
 
   /** Bytes through the host's relay, for what the relay costs. */
-  relayBytes(memberId: string, bytes: number): void {
+  relayBytes(memberId: string, input: number): void {
+    const bytes = RelayBytes.parse(input);
     const room = this.state;
     if (!room || room.seats[0]?.id !== memberId) return;
     this.env.MEET_EVENTS.writeDataPoint({
@@ -137,8 +161,8 @@ export class Room extends DurableObject<MeetEnv> {
     if (!room) return;
     const ready =
       room.seats.length === room.games && room.seats.every((s) => s.candidates !== null);
-    const meeting = ready && room.token === null;
-    if (meeting) room.token = randomToken();
+    const token = ready && room.token === null ? randomToken() : null;
+    if (token !== null) room.token = token;
     await this.ctx.storage.put("room", room);
     await this.ctx.storage.setAlarm(Date.now() + ROOM_IDLE_MS);
 
@@ -150,14 +174,14 @@ export class Room extends DurableObject<MeetEnv> {
       games: room.games,
     };
     await Promise.all(room.seats.map((s) => this.send(s.id, roster)));
-    if (!meeting) return;
+    if (token === null) return;
     await Promise.all(
       room.seats.map((seat, side) =>
         this.send(seat.id, {
           type: "meet",
           code: room.code,
           side,
-          token: room.token!,
+          token,
           peers: room.seats
             .map((other, otherSide) => ({ other, otherSide }))
             .filter(({ otherSide }) => otherSide !== side)

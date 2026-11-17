@@ -1,6 +1,8 @@
 # The meeting point: games open a WebSocket here with a ticket from the API
 # (packages/api's /api/meet/ticket) and meet through room codes. Every
-# connection is the account's Player DO; every room is a Room DO.
+# connection is the account's Player DO; every room is a Room DO; every
+# queue (a mode and a set of gameplay mods) is a Queue DO; the Directory DO
+# lists their counts.
 #
 # The top-level configuration is for local development. Its name differs from
 # the deployed Workers so that `wrangler deploy` without `--env` cannot replace
@@ -14,6 +16,11 @@ workers_dev = false
 tag = "v1"
 new_sqlite_classes = ["Player", "Room"]
 
+# Queues for Find a match, and the list of their counts
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["Queue", "Directory"]
+
 [[durable_objects.bindings]]
 name = "PLAYER"
 class_name = "Player"
@@ -21,6 +28,14 @@ class_name = "Player"
 [[durable_objects.bindings]]
 name = "ROOM"
 class_name = "Room"
+
+[[durable_objects.bindings]]
+name = "QUEUE"
+class_name = "Queue"
+
+[[durable_objects.bindings]]
+name = "DIRECTORY"
+class_name = "Directory"
 
 [[services]]
 binding = "API"
@@ -59,6 +74,14 @@ class_name = "Player"
 name = "ROOM"
 class_name = "Room"
 
+[[env.production.durable_objects.bindings]]
+name = "QUEUE"
+class_name = "Queue"
+
+[[env.production.durable_objects.bindings]]
+name = "DIRECTORY"
+class_name = "Directory"
+
 [[env.production.services]]
 binding = "API"
 service = "vgskins-api"
@@ -87,6 +110,14 @@ class_name = "Player"
 [[env.preview.durable_objects.bindings]]
 name = "ROOM"
 class_name = "Room"
+
+[[env.preview.durable_objects.bindings]]
+name = "QUEUE"
+class_name = "Queue"
+
+[[env.preview.durable_objects.bindings]]
+name = "DIRECTORY"
+class_name = "Directory"
 
 [[env.preview.services]]
 binding = "API"

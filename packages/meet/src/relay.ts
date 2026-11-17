@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { RELAY_TTL_S } from "./protocol";
 
 /**
@@ -12,7 +13,15 @@ import { RELAY_TTL_S } from "./protocol";
 
 export type RelayCredentials = { server: string; username: string; credential: string };
 
-type IceServers = { urls?: string | string[]; username?: string; credential?: string };
+/** Cloudflare's answer: one ICE server or a list, each with one URL or a list. */
+const IceServer = z.object({
+  urls: z.union([z.string(), z.array(z.string())]).optional(),
+  username: z.string().optional(),
+  credential: z.string().optional(),
+});
+const IceServersResponse = z.object({
+  iceServers: z.union([IceServer, z.array(IceServer)]).optional(),
+});
 
 /** "turn:turn.cloudflare.com:3478?transport=udp" → "turn.cloudflare.com:3478" */
 export function udpServer(urls: string[]): string | null {
@@ -49,7 +58,12 @@ export async function relayCredentials(env: MeetEnv): Promise<RelayCredentials |
     console.error("TURN credentials refused", res.status);
     return null;
   }
-  const body = (await res.json()) as { iceServers?: IceServers | IceServers[] };
+  const parsed = IceServersResponse.safeParse(await res.json());
+  if (!parsed.success) {
+    console.error("TURN credentials in an unknown shape");
+    return null;
+  }
+  const body = parsed.data;
   const servers = Array.isArray(body.iceServers) ? body.iceServers : [body.iceServers ?? {}];
   for (const s of servers) {
     const urls = Array.isArray(s.urls) ? s.urls : s.urls ? [s.urls] : [];
