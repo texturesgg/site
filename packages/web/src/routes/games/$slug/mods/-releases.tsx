@@ -10,6 +10,8 @@ import { byVersionDescending } from "@vgskins/shared";
 import { DisplayOnly } from "@/ui/patterns/DisplayOnly";
 import { EmptyState } from "@/ui/patterns/EmptyState";
 import { RejectReleaseDialog } from "@/ui/patterns/RejectReleaseDialog";
+import { WithdrawDialog } from "@/ui/patterns/WithdrawDialog";
+import type { CodeModWithdrawMode } from "@vgskins/shared";
 import { AnchorButton, Badge, Button } from "@/ui/primitives";
 import { color, font, radius, space, text } from "@/ui/tokens.stylex";
 
@@ -26,6 +28,7 @@ const RELEASE_STATUS: Record<string, string> = {
   approved: "Approved",
   rejected: "Rejected",
   failed: "Failed",
+  withdrawn: "Withdrawn",
 };
 
 const SYSTEM_NAMES: Record<string, string> = { linux: "Linux", windows: "Windows", macos: "macOS" };
@@ -124,7 +127,10 @@ export function MakerReleases({
   const broken = brokenBuilds(mod);
   return (
     <section {...stylex.props(styles.section)}>
-      <h2 {...stylex.props(styles.heading)}>Releases</h2>
+      <div {...stylex.props(styles.row, styles.spread)}>
+        <h2 {...stylex.props(styles.heading)}>Releases</h2>
+        {canReview && <WithdrawMod mod={mod} />}
+      </div>
       {broken && (
         <div {...stylex.props(styles.card, styles.warning)}>
           <p {...stylex.props(styles.warningTitle)}>
@@ -151,6 +157,58 @@ export function MakerReleases({
         ))
       )}
     </section>
+  );
+}
+
+/**
+ * A moderator's switch for a whole mod: withdraw every approved release, or
+ * restore what the last withdrawal took.
+ */
+function WithdrawMod({ mod }: { mod: MakerMod }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const approved = mod.releases.some((release) => release.status === "approved");
+  const withdrawn = mod.releases.some((release) => release.status === "withdrawn");
+  const change = useMutation({
+    mutationFn: async (
+      input: { withdraw: true; reason: string; mode: CodeModWithdrawMode } | { withdraw: false }
+    ) => {
+      const param = { id: mod.id };
+      const res = input.withdraw
+        ? await api.admin["code-mods"][":id"].withdraw.$post({
+            param,
+            json: { reason: input.reason, mode: input.mode },
+          })
+        : await api.admin["code-mods"][":id"].restore.$post({ param });
+      if (!res.ok) throw await apiError(res);
+    },
+    onSuccess: async () => {
+      setOpen(false);
+      await router.invalidate();
+    },
+  });
+  return (
+    <div {...stylex.props(styles.row)}>
+      {approved && (
+        <Button onClick={() => setOpen(true)} disabled={change.isPending}>
+          Withdraw mod
+        </Button>
+      )}
+      {!approved && withdrawn && (
+        <Button onClick={() => change.mutate({ withdraw: false })} disabled={change.isPending}>
+          Restore mod
+        </Button>
+      )}
+      {change.error && !open && <p {...stylex.props(styles.error)}>{change.error.message}</p>}
+      <WithdrawDialog
+        open={open}
+        onOpenChange={setOpen}
+        what={`every version of ${mod.name}`}
+        pending={change.isPending}
+        error={change.error?.message}
+        onWithdraw={(input) => change.mutate({ withdraw: true, ...input })}
+      />
+    </div>
   );
 }
 
@@ -211,6 +269,26 @@ function ReleaseCard({
     },
     onSuccess: () => router.invalidate(),
   });
+  // A moderator pulls an approved release, or puts a withdrawn one back.
+  const [withdrawing, setWithdrawing] = useState(false);
+  const withdraw = useMutation({
+    mutationFn: async (
+      input: { withdraw: true; reason: string; mode: CodeModWithdrawMode } | { withdraw: false }
+    ) => {
+      const param = { id: release.id };
+      const res = input.withdraw
+        ? await api.admin["code-mods"].releases[":id"].withdraw.$post({
+            param,
+            json: { reason: input.reason, mode: input.mode },
+          })
+        : await api.admin["code-mods"].releases[":id"].restore.$post({ param });
+      if (!res.ok) throw await apiError(res);
+    },
+    onSuccess: async () => {
+      setWithdrawing(false);
+      await router.invalidate();
+    },
+  });
   const rebuildable =
     release.status === "failed" ||
     (release.status === "approved" && release.builds.some((build) => build.status === "failed"));
@@ -229,6 +307,19 @@ function ReleaseCard({
         {canRebuild && rebuildable && (
           <Button onClick={() => rebuild.mutate()} disabled={rebuild.isPending}>
             {rebuild.isPending ? "Rebuilding…" : "Rebuild"}
+          </Button>
+        )}
+        {canReview && release.status === "approved" && (
+          <Button onClick={() => setWithdrawing(true)} disabled={withdraw.isPending}>
+            Withdraw
+          </Button>
+        )}
+        {canReview && release.status === "withdrawn" && (
+          <Button
+            onClick={() => withdraw.mutate({ withdraw: false })}
+            disabled={withdraw.isPending}
+          >
+            Restore
           </Button>
         )}
         {canReview && release.status === "pending" && (
@@ -297,6 +388,15 @@ function ReleaseCard({
       {release.status === "rejected" && release.rejectionReason && (
         <p {...stylex.props(styles.error)}>Rejected: {release.rejectionReason}</p>
       )}
+      {release.withdrawn && (
+        <p {...stylex.props(styles.error)}>
+          Withdrawn ({release.withdrawn.mode === "off" ? "turned off" : "warning only"}):{" "}
+          {release.withdrawn.reason}
+        </p>
+      )}
+      {withdraw.error && !withdrawing && (
+        <p {...stylex.props(styles.error)}>{withdraw.error.message}</p>
+      )}
       {review.error && !rejecting && <p {...stylex.props(styles.error)}>{review.error.message}</p>}
       {rebuild.error && <p {...stylex.props(styles.error)}>{rebuild.error.message}</p>}
       {[...release.builds].sort(byGame).map((build: Build) => (
@@ -309,6 +409,14 @@ function ReleaseCard({
         pending={review.isPending}
         error={review.error?.message}
         onReject={(reason) => review.mutate({ approve: false, reason })}
+      />
+      <WithdrawDialog
+        open={withdrawing}
+        onOpenChange={setWithdrawing}
+        what={release.version}
+        pending={withdraw.isPending}
+        error={withdraw.error?.message}
+        onWithdraw={(input) => withdraw.mutate({ withdraw: true, ...input })}
       />
     </article>
   );

@@ -13,7 +13,13 @@ import {
   type Database,
 } from "@vgskins/db";
 import { logger } from "@vgskins/logger";
-import { buildSlippiMapping, byVersionDescending, codeModSlugSchema } from "@vgskins/shared";
+import {
+  buildSlippiMapping,
+  byVersionDescending,
+  CODE_MOD_WITHDRAW_MODES,
+  type CodeModWithdrawMode,
+  codeModSlugSchema,
+} from "@vgskins/shared";
 import { and, asc, count, desc, eq, exists, inArray, isNull, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { describeRoute } from "hono-openapi";
@@ -53,6 +59,50 @@ function packageUrl(origin: string, sha256: string): string {
 /** The URL a listing's image is served at, by its SHA-256. */
 function imageUrl(origin: string, sha256: string): string {
   return `${origin}/api/registry/images/${sha256}.png`;
+}
+
+// A package of a withdrawn release as read back from the database: a
+// withdrawn release always has its reason and mode, and a succeeded build
+// its hash.
+const WithdrawnPackageRow = z.object({
+  releaseId: z.string(),
+  id: codeModSlugSchema,
+  version: z.string(),
+  reason: z.string(),
+  mode: z.enum(CODE_MOD_WITHDRAW_MODES),
+  sha256: z.string().regex(/^[0-9a-f]{64}$/),
+});
+
+/**
+ * The catalog's `withdrawn` list: one entry per withdrawn release with every
+ * package hash it had, sorted by id and version. A row that doesn't parse
+ * (which the writers never leave) is logged and left out.
+ */
+function withdrawnList(rows: unknown[]): {
+  id: string;
+  version: string;
+  reason: string;
+  mode: CodeModWithdrawMode;
+  sha256: string[];
+}[] {
+  const releases = new Map<
+    string,
+    { id: string; version: string; reason: string; mode: CodeModWithdrawMode; sha256: string[] }
+  >();
+  for (const raw of rows) {
+    const parsed = WithdrawnPackageRow.safeParse(raw);
+    if (!parsed.success) {
+      logger.warn({ error: parsed.error.message }, "A withdrawn package row didn't read");
+      continue;
+    }
+    const { releaseId, sha256, ...entry } = parsed.data;
+    const release = releases.get(releaseId) ?? { ...entry, sha256: [] };
+    release.sha256.push(sha256);
+    releases.set(releaseId, release);
+  }
+  return [...releases.values()]
+    .map((release) => ({ ...release, sha256: release.sha256.sort() }))
+    .sort((a, b) => a.id.localeCompare(b.id) || byVersionDescending(a.version, b.version));
 }
 
 type Image = { url: string; width: number; height: number };
@@ -332,7 +382,7 @@ const app = new Hono<HonoEnv>()
       tags: ["Registry"],
       summary: "Get the mod catalog for a game layout",
       description:
-        "tgg-mod's catalog (schema 1) for `layout`, a port's game layout id: every approved release with a successful build for it, newest first per mod. Each entry is the packed manifest with `netplay`, `publisher: {name, official}` (as the mods list gives it) and `package: {url, sha256, size}`; package URLs are content-addressed and immutable. `ids` is every mod id with an approved release, built for this layout or not. `snapshot` names this state of the catalog. An unknown layout has no mods.",
+        "tgg-mod's catalog (schema 1) for `layout`, a port's game layout id: every approved release with a successful build for it, newest first per mod. Each entry is the packed manifest with `netplay`, `publisher: {name, official}` (as the mods list gives it) and `package: {url, sha256, size}`; package URLs are content-addressed and immutable. `ids` is every mod id with an approved release, built for this layout or not. `withdrawn` lists releases a moderator pulled after approval, for every layout: `{id, version, reason, mode, sha256: [...]}`, where `mode` is `off` (tgg turns an installed copy off) or `warn` (tgg says why and leaves it on). `snapshot` names this state of the catalog. An unknown layout has no mods.",
       parameters: [{ name: "layout", in: "query", required: true, schema: { type: "string" } }],
       responses: {
         200: { description: "The catalog" },
@@ -390,6 +440,30 @@ const app = new Hono<HonoEnv>()
         .map((mod) => mod.slug)
         .sort();
 
+      // Every package of a withdrawn release, for every layout (a player's
+      // installed copy may be from an older port), so tgg can act on copies
+      // it installed before the withdrawal.
+      const withdrawnRows = await db
+        .select({
+          releaseId: codeModReleases.id,
+          id: codeMods.slug,
+          version: codeModReleases.version,
+          reason: codeModReleases.withdrawReason,
+          mode: codeModReleases.withdrawMode,
+          sha256: codeModBuilds.packageSha256,
+        })
+        .from(codeModBuilds)
+        .innerJoin(codeModReleases, eq(codeModReleases.id, codeModBuilds.releaseId))
+        .innerJoin(codeMods, eq(codeMods.id, codeModReleases.codeModId))
+        .where(
+          and(
+            eq(codeModBuilds.status, "succeeded"),
+            eq(codeModReleases.status, "withdrawn"),
+            isNull(codeMods.deletedAt)
+          )
+        );
+      const withdrawn = withdrawnList(withdrawnRows);
+
       const usable = rows.flatMap((row) =>
         row.manifest && row.sha256 && row.size !== null && row.netplay
           ? [
@@ -439,11 +513,15 @@ const app = new Hono<HonoEnv>()
                 `${row.id} ${row.version} ${row.sha256} ${row.publisherName ?? row.author} ${row.official}`
             ),
             `ids ${ids.join(" ")}`,
+            ...withdrawn.map(
+              (entry) =>
+                `withdrawn ${entry.id} ${entry.version} ${entry.mode} ${entry.sha256.join(",")} ${entry.reason}`
+            ),
           ].join("\n")
         )
       ).slice(0, 32);
       c.header("Cache-Control", LISTING_CACHE);
-      return c.json({ schema: CATALOG_SCHEMA, snapshot, mods, ids }, 200);
+      return c.json({ schema: CATALOG_SCHEMA, snapshot, mods, ids, withdrawn }, 200);
     }
   )
 

@@ -25,6 +25,7 @@ import {
   putCodeModSetSchema,
   REPORT_STATUSES,
   USER_ROLES,
+  withdrawCodeModSchema,
 } from "@vgskins/shared";
 import { and, asc, count, desc, eq, gte, inArray, isNull, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
@@ -528,6 +529,158 @@ const app = new Hono<HonoEnv>()
 
       logger.info({ releaseId }, "Code mod release rejected");
       return c.json({ success: true, status: "rejected", reason }, 200);
+    }
+  )
+  // Withdraw an approved release: it leaves the catalog, its packages stop
+  // downloading, and the catalog's `withdrawn` list tells tgg to turn
+  // installed copies off (or, with mode "warn", to say why and leave them on)
+  .post(
+    "/code-mods/releases/:id/withdraw",
+    requireAuth,
+    requireModerator,
+    requireCodeMods,
+    zValidator("param", z.object({ id: z.string().min(1) }), validationHook),
+    zValidator("json", withdrawCodeModSchema, validationHook),
+    async (c) => {
+      const user = c.get("user");
+      const db = createDb(c.env.DB);
+      const { id: releaseId } = c.req.valid("param");
+      const { reason, mode } = c.req.valid("json");
+      const withdrawn = await transitionRelease(db, releaseId, {
+        from: ["approved"],
+        to: "withdrawn",
+        set: {
+          withdrawReason: reason,
+          withdrawMode: mode,
+          withdrawnBy: user.id,
+          withdrawnAt: new Date(),
+        },
+      });
+      if (!withdrawn) {
+        const [release] = await db
+          .select({ id: codeModReleases.id })
+          .from(codeModReleases)
+          .where(eq(codeModReleases.id, releaseId));
+        return release
+          ? c.json({ error: "Only an approved release can be withdrawn" }, 409)
+          : c.json({ error: "Release not found" }, 404);
+      }
+      logger.info({ userId: user.id, releaseId, mode }, "Code mod release withdrawn");
+      return c.json({ success: true, status: "withdrawn" }, 200);
+    }
+  )
+  // Restore a withdrawn release to approved: it is listed again, and tgg
+  // turns back on the installed copies it turned off
+  .post(
+    "/code-mods/releases/:id/restore",
+    requireAuth,
+    requireModerator,
+    requireCodeMods,
+    zValidator("param", z.object({ id: z.string().min(1) }), validationHook),
+    async (c) => {
+      const user = c.get("user");
+      const db = createDb(c.env.DB);
+      const { id: releaseId } = c.req.valid("param");
+      const restored = await transitionRelease(db, releaseId, {
+        from: ["withdrawn"],
+        to: "approved",
+      });
+      if (!restored) {
+        const [release] = await db
+          .select({ id: codeModReleases.id })
+          .from(codeModReleases)
+          .where(eq(codeModReleases.id, releaseId));
+        return release
+          ? c.json({ error: "Only a withdrawn release can be restored" }, 409)
+          : c.json({ error: "Release not found" }, 404);
+      }
+      logger.info({ userId: user.id, releaseId }, "Code mod release restored");
+      return c.json({ success: true, status: "approved" }, 200);
+    }
+  )
+  // Withdraw a whole mod: every approved release, with one reason and one
+  // time, so the mod leaves every list (a mod is listed while it has an
+  // approved release)
+  .post(
+    "/code-mods/:id/withdraw",
+    requireAuth,
+    requireModerator,
+    requireCodeMods,
+    zValidator("param", z.object({ id: z.string().min(1) }), validationHook),
+    zValidator("json", withdrawCodeModSchema, validationHook),
+    async (c) => {
+      const user = c.get("user");
+      const db = createDb(c.env.DB);
+      const { id: codeModId } = c.req.valid("param");
+      const { reason, mode } = c.req.valid("json");
+      const approved = await db
+        .select({ id: codeModReleases.id })
+        .from(codeModReleases)
+        .innerJoin(codeMods, eq(codeMods.id, codeModReleases.codeModId))
+        .where(
+          and(
+            eq(codeModReleases.codeModId, codeModId),
+            eq(codeModReleases.status, "approved"),
+            isNull(codeMods.deletedAt)
+          )
+        );
+      if (approved.length === 0) {
+        return c.json({ error: "The mod has no approved release to withdraw" }, 409);
+      }
+      const now = new Date();
+      const moved = await Promise.all(
+        approved.map((release) =>
+          transitionRelease(db, release.id, {
+            from: ["approved"],
+            to: "withdrawn",
+            set: {
+              withdrawReason: reason,
+              withdrawMode: mode,
+              withdrawnBy: user.id,
+              withdrawnAt: now,
+            },
+          })
+        )
+      );
+      const withdrawn = moved.filter(Boolean).length;
+      logger.info({ userId: user.id, codeModId, withdrawn, mode }, "Code mod withdrawn");
+      return c.json({ success: true, withdrawn }, 200);
+    }
+  )
+  // Restore a withdrawn mod: the releases its last withdrawal took (those
+  // withdrawn at the newest time), not ones withdrawn on their own before
+  .post(
+    "/code-mods/:id/restore",
+    requireAuth,
+    requireModerator,
+    requireCodeMods,
+    zValidator("param", z.object({ id: z.string().min(1) }), validationHook),
+    async (c) => {
+      const user = c.get("user");
+      const db = createDb(c.env.DB);
+      const { id: codeModId } = c.req.valid("param");
+      const withdrawn = await db
+        .select({ id: codeModReleases.id, at: codeModReleases.withdrawnAt })
+        .from(codeModReleases)
+        .innerJoin(codeMods, eq(codeMods.id, codeModReleases.codeModId))
+        .where(
+          and(
+            eq(codeModReleases.codeModId, codeModId),
+            eq(codeModReleases.status, "withdrawn"),
+            isNull(codeMods.deletedAt)
+          )
+        );
+      const newest = Math.max(...withdrawn.map((release) => release.at?.getTime() ?? 0));
+      const last = withdrawn.filter((release) => (release.at?.getTime() ?? 0) === newest);
+      if (last.length === 0) return c.json({ error: "The mod has no withdrawn release" }, 409);
+      const moved = await Promise.all(
+        last.map((release) =>
+          transitionRelease(db, release.id, { from: ["withdrawn"], to: "approved" })
+        )
+      );
+      const restored = moved.filter(Boolean).length;
+      logger.info({ userId: user.id, codeModId, restored }, "Code mod restored");
+      return c.json({ success: true, restored }, 200);
     }
   )
   // Rebuild a code mod release: a failed one is checked again (without the
