@@ -287,6 +287,21 @@ describe("uploads", () => {
     ).toBe(409);
   });
 
+  it("takes packages without entry: a stable library, and a game-tier one", async () => {
+    // From API 1.0 the library is always mod.so here, and a stable-tier one
+    // names no layout.
+    const packages: [string, Record<string, unknown>][] = [
+      ["tgg.stable", { entry: undefined, game_abi: undefined, tier: "stable" }],
+      ["tgg.game", { entry: undefined, tier: "game" }],
+    ];
+    for (const [slug, change] of packages) {
+      const release = await addRelease(slug, "1.0.0", "approved");
+      const { zip, report } = await macPackage(slug, "1.0.0", change);
+      const response = await succeeded(release, zip, report);
+      expect(response.status).toBe(200);
+    }
+  });
+
   it("refuses a package that isn't the release's for the layout", async () => {
     const release = await addRelease("tgg.mismatch", "2.0.0", "approved");
     const cases: [Record<string, unknown>, string][] = [
@@ -294,7 +309,8 @@ describe("uploads", () => {
       [{ version: "2.0.1" }, "version"],
       [{ game_abi: LINUX }, "game_abi"],
       [{ target: "x86_64-linux-gnu" }, "target"],
-      [{ entry: undefined }, "no library"],
+      [{ target: undefined }, "no library"],
+      [{ game_abi: undefined }, "isn't stable tier"],
     ];
     for (const [change, message] of cases) {
       const { zip, report } = await macPackage("tgg.mismatch", "2.0.0", change);

@@ -1,5 +1,23 @@
 import { codeModBuilds, type Database } from "@vgskins/db";
 import { and, eq } from "drizzle-orm";
+import { z } from "zod";
+
+/**
+ * What the display check reads of a packed manifest. A package has a library
+ * when its manifest names the target it was built for (or, in packages from
+ * before API 1.0, the library itself in `entry`); a script or a files-only
+ * package has neither.
+ */
+const CheckedManifest = z.object({
+  script: z.boolean().optional().catch(undefined),
+  entry: z.string().optional().catch(undefined),
+  target: z.string().optional().catch(undefined),
+  hooks: z
+    .object({ replaces: z.array(z.string()).catch([]) })
+    .optional()
+    .catch(undefined),
+  events: z.array(z.string()).catch([]).optional(),
+});
 
 /**
  * Why a release can't be a display mod, or null when it can: the same check
@@ -15,17 +33,15 @@ export async function displayBlocker(db: Database, releaseId: string): Promise<s
     .select({ manifest: codeModBuilds.manifest })
     .from(codeModBuilds)
     .where(and(eq(codeModBuilds.releaseId, releaseId), eq(codeModBuilds.status, "succeeded")));
-  const manifest = builds.find((build) => build.manifest != null)?.manifest as
-    | { entry?: unknown; hooks?: { replaces?: unknown }; events?: unknown }
-    | undefined;
-  if (!manifest) return "it has no successful build to check";
-  if ((manifest as { script?: unknown }).script === true) {
-    return "a script's class comes from its scripts";
+  const found = builds.find((build) => build.manifest != null)?.manifest;
+  if (!found) return "it has no successful build to check";
+  const manifest = CheckedManifest.parse(found);
+  if (manifest.script === true) return "a script's class comes from its scripts";
+  if (manifest.entry === undefined && manifest.target === undefined) {
+    return "it has no code, so it never counts anyway";
   }
-  if (typeof manifest.entry !== "string") return "it has no code, so it never counts anyway";
-  const replaces = Array.isArray(manifest.hooks?.replaces) ? manifest.hooks.replaces : [];
-  if (replaces.length > 0) return `it replaces a game function (${String(replaces[0])})`;
-  const events = Array.isArray(manifest.events) ? manifest.events : [];
-  if (events.includes("pad_read")) return "it rewrites input (the pad_read event)";
+  const replaces = manifest.hooks?.replaces ?? [];
+  if (replaces.length > 0) return `it replaces a game function (${replaces[0]})`;
+  if (manifest.events?.includes("pad_read")) return "it rewrites input (the pad_read event)";
   return null;
 }

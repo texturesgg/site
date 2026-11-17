@@ -223,7 +223,8 @@ it("keeps ids starting with tgg. for the official account, by id not name", asyn
 });
 
 it("marks a release display only when its library rewrites no input", async () => {
-  // A pending release whose check build subscribes to pad_read, and one that doesn't
+  // A pending release whose check build subscribes to pad_read, and one that
+  // doesn't, packed as API 1.0 packs a library (no entry, a target)
   for (const [id, events] of [
     ["2.0.0", ["pad_read", "hud_draw"]],
     ["2.1.0", ["hud_draw"]],
@@ -243,7 +244,10 @@ it("marks a release display only when its library rewrites no input", async () =
       releaseId: id,
       layoutId: LAYOUT,
       status: "succeeded",
-      manifest: { entry: "mod.so", events },
+      manifest:
+        id === "2.0.0"
+          ? { entry: "mod.so", events }
+          : { tier: "stable", target: "x86_64-linux-gnu", events },
       createdAt: NOW,
     });
   }

@@ -100,15 +100,28 @@ const BuildReport = z.object({
   }),
   netplay: z.enum(NETPLAY_CLASSES),
 });
-// The packed manifest fields that tie a package to its release and layout.
+// The packed manifest fields that tie a package to its release and layout. A
+// game-tier library names its layout (`game_abi`); a stable-tier one has none.
+// Packages from before API 1.0 name their library in `entry`; later ones are
+// always mod.dll on Windows and mod.so elsewhere.
 const PackedManifest = z.object({
   api: z.string(),
   id: z.string(),
   version: z.string(),
-  entry: z.string().regex(/^[A-Za-z0-9._-]{1,64}$/),
-  game_abi: z.string(),
+  entry: z
+    .string()
+    .regex(/^[A-Za-z0-9._-]{1,64}$/)
+    .optional(),
+  tier: z.enum(["stable", "game"]).optional(),
+  game_abi: z.string().optional(),
   target: z.string(),
+  class: z.unknown().optional(),
 });
+
+/** The library a packed manifest's package carries. */
+function libraryName(packed: z.infer<typeof PackedManifest>): string {
+  return packed.entry ?? (packed.target.includes("-windows") ? "mod.dll" : "mod.so");
+}
 
 const text = (max: number) => z.string().trim().min(1).max(max);
 const UploadForm = z.discriminatedUnion("status", [
@@ -220,26 +233,30 @@ function checkPackage(
   }
   const packed = PackedManifest.safeParse(manifest);
   if (!packed.success) {
-    return { error: "The package's manifest has no library (entry, game_abi and target)" };
+    return { error: "The package's manifest has no library (no target)" };
   }
-  const expected = {
-    id: release.slug,
-    version: release.version,
-    api: layout.api,
-    game_abi: layout.id,
-    target: layout.target,
-  };
-  for (const [field, want] of Object.entries(expected)) {
-    const got = packed.data[field as keyof typeof expected];
+  const expected = [
+    ["id", packed.data.id, release.slug],
+    ["version", packed.data.version, release.version],
+    ["api", packed.data.api, layout.api],
+    ["target", packed.data.target, layout.target],
+  ];
+  for (const [field, got, want] of expected) {
     if (got !== want) return { error: `The package's ${field} is ${got}, not ${want}` };
   }
-  if (!names.includes(packed.data.entry)) {
-    return { error: `The package has no ${packed.data.entry}` };
+  if (packed.data.game_abi === undefined) {
+    if (packed.data.tier !== "stable") {
+      return { error: "The package's library names no game layout and isn't stable tier" };
+    }
+  } else if (packed.data.game_abi !== layout.id) {
+    return { error: `The package's game_abi is ${packed.data.game_abi}, not ${layout.id}` };
   }
+  const library = libraryName(packed.data);
+  if (!names.includes(library)) return { error: `The package has no ${library}` };
   // A package with a library counts for netplay as code, unless its manifest
   // carries a class: "display" (review gave it) or "offline" (its maker
   // says so), which tgg reports instead
-  const packedClass = (manifest as { class?: unknown }).class;
+  const packedClass = packed.data.class;
   const classed =
     (report.netplay === "display" || report.netplay === "offline") &&
     packedClass === report.netplay;
@@ -247,7 +264,7 @@ function checkPackage(
     return { error: `A package with a library counts as code, not ${report.netplay}` };
   }
   return {
-    manifest: manifest as Record<string, unknown>,
+    manifest: report.manifest,
     canonicalHooks: report.canonical_hooks,
     netplay: report.netplay,
   };
