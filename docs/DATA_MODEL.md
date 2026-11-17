@@ -508,7 +508,14 @@ layout (`active` false) gets no new builds, and its packages stay downloadable. 
 layout id their port executable reports, through the registry's per-layout
 catalog (`GET /api/registry/catalog?layout=`): every approved release with a
 succeeded build for that layout, with packages served by SHA-256 at
-`/api/registry/packages/<sha256>.zip`. The catalog's `ids` names every mod with an
+`/api/registry/packages/<sha256>.zip`. A stable-tier library (the packed
+manifest says `tier: "stable"`) has no layout, only a target and the API it was
+built against (`api_version`), so the catalog also serves it to every layout with
+that target whose port loads it: `codeModLayouts.apiVersion` (from the SDK) has
+the same major and, from 1.0, the same or a newer minor, or before 1.0 or when
+the manifest says `experimental`, the same minor. A layout synced before its API
+version was recorded gets only its own builds. A release's own build for the
+layout wins, then one without a library, then a borrowed stable one. The catalog's `ids` names every mod with an
 approved release, built for the layout or not, so a client can tell a mod that
 doesn't exist from one not built for its game yet. `GET /api/registry/layouts`
 lists every layout with its system (from `target`), port version and whether
@@ -563,7 +570,9 @@ declares it when the mod's newest release does, else exactly the newest release
 that does (so `tgg.ucf` 0.8.0 reproduces UCF 0.8 and 0.84.0 UCF 0.84). Before
 them come gameplay codes nothing reproduces yet that matter on one stage; then
 `minor`, gameplay codes nothing reproduces yet that rarely change a replay; and
-`ignore`, the codes that don't change gameplay. What the registry says itself
+`ignore`, the codes that don't change gameplay or that the port already does. A
+stage-only or minor code a mod declares is the mod's: the registry's own entry
+for it is left out. What the registry says itself
 lives in `packages/shared/src/slippi-mapping.json`, each entry with why, and
 changes by pull request.
 

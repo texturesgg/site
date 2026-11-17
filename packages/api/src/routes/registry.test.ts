@@ -607,19 +607,28 @@ describe("slippi", () => {
       { ...SPAWNS, id: "me.spawns", range: ">=1.0.0" },
       { code: "frozen-stadium", name: "", versions: "<3.18", id: "tgg.spawns", range: ">=0.1.10" },
     ]);
-    // The registry's stage-only codes come first.
-    expect(codes[0]).toEqual(
-      expect.objectContaining({ code: "0x800165AC", versions: ">=3.19", stages: [3] })
-    );
-    expect(codes.indexOf(declared[0])).toBeGreaterThan(0);
     expect(ignore).toContainEqual(expect.objectContaining({ code: "ucf-off" }));
     expect(ignore).toContainEqual(expect.objectContaining({ code: "0x801A4DE4", versions: "*" }));
+    // The port does what these do: Nana's determinism, and Stadium's
+    // transformations loaded synchronously.
+    expect(ignore).toContainEqual(expect.objectContaining({ code: "0x800AC5B8" }));
+    expect(ignore).toContainEqual(
+      expect.objectContaining({ code: "0x801C65C8", versions: ">=3.19" })
+    );
     expect(minor).toContainEqual(expect.objectContaining({ code: "0x801239A8", versions: "*" }));
     expect([...codes, ...minor, ...ignore].every((entry) => !("why" in entry))).toBe(true);
-    // A gameplay code that matters on one stage, which nothing reproduces yet.
-    expect(codes).toContainEqual(
-      expect.objectContaining({ code: "0x801C65C8", versions: ">=3.19", stages: [3] })
-    );
+  });
+
+  it("gives a minor code of the registry's to the mod that declares it", async () => {
+    // tgg.freeze-glitch-fix reproduces Slippi's freeze glitch fix.
+    const freeze = { code: "0x801239A8", name: "Prevent freeze glitch", versions: "*" };
+    await addMod("tgg.freeze-glitch-fix", [
+      { version: "1.0.0", status: "approved", layout: LINUX },
+    ]);
+    await declare("tgg.freeze-glitch-fix@1.0.0", [freeze]);
+    const { codes, minor } = await mapping();
+    expect(minor.map((entry) => entry.code)).not.toContain(freeze.code);
+    expect(codes).toContainEqual({ ...freeze, id: "tgg.freeze-glitch-fix", range: ">=1.0.0" });
   });
 
   it("maps a code only an older release declares to that release", async () => {

@@ -197,6 +197,13 @@
       "when": 1794881471055,
       "tag": "0027_two_factor",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "6",
+      "when": 1794893230735,
+      "tag": "0028_layout_api_version",
+      "breakpoints": true
     }
   ]
 }

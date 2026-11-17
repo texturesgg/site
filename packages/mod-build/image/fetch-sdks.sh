@@ -76,7 +76,8 @@ while IFS=$'\t' read -r version target want; do
   who=$(builder "$target")
   layouts=$(jq -c --slurpfile sdk "$sdk/tgg-game-sdk.json" --arg builder "$who" \
     '. + [{id: $sdk[0].game_abi, api: $sdk[0].api, port: $sdk[0].name,
-           target: $sdk[0].target, portVersion: $sdk[0].version, builder: $builder}]' \
+           target: $sdk[0].target, portVersion: $sdk[0].version, apiVersion: $sdk[0].api_version,
+           builder: $builder}]' \
     <<<"$layouts")
   if [ "$who" = image ]; then
     mv "$sdk" "$root/opt/tgg/sdks/$abi"

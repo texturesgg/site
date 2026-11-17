@@ -16,11 +16,12 @@ now=$(($(date +%s) * 1000))
 # Ids, ports and targets come from the SDKs' tgg-game-sdk.json; quote them anyway.
 sql=$(jq -r --arg now "$now" '
   def q: "'"'"'" + (tostring | gsub("'"'"'"; "'"'"''"'"'")) + "'"'"'";
+  def qn: if . == null then "NULL" else q end;
   (map(
-    "INSERT INTO code_mod_layouts (id, api, port, target, port_version, builder, active, created_at) VALUES ("
-    + ([.id, .api, .port, .target, .portVersion,
-        (if .builder == "image" then "image" else "external" end)] | map(q) | join(", "))
-    + ", 1, " + $now + ") ON CONFLICT(id) DO UPDATE SET active = 1, port_version = excluded.port_version, builder = excluded.builder;"
+    "INSERT INTO code_mod_layouts (id, api, api_version, port, target, port_version, builder, active, created_at) VALUES ("
+    + ([(.id | q), (.api | q), (.apiVersion | qn), (.port | q), (.target | q), (.portVersion | q),
+        ((if .builder == "image" then "image" else "external" end) | q)] | join(", "))
+    + ", 1, " + $now + ") ON CONFLICT(id) DO UPDATE SET active = 1, api_version = excluded.api_version, port_version = excluded.port_version, builder = excluded.builder;"
   ) | join("\n")),
   "UPDATE code_mod_layouts SET active = 0 WHERE id NOT IN ("
     + (map(.id | q) | if length == 0 then ["'"'"''"'"'"] else . end | join(", ")) + ");"

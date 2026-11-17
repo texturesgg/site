@@ -616,6 +616,10 @@ export const codeModLayouts = sqliteTable("code_mod_layouts", {
   // 16 hex digits, as the port executable's `tgg_port` section reports it.
   id: text("id").primaryKey(),
   api: text("api").notNull(), // e.g. "tgg-melee/0"
+  // The mod API `major.minor` the port offers, e.g. "1.2", from the SDK's
+  // tgg-game-sdk.json. Null for a layout synced before it was recorded: such
+  // a layout gets only the packages built for it.
+  apiVersion: text("api_version"),
   port: text("port").notNull(), // the port's name, "tgg-melee"
   target: text("target").notNull(), // the target triple, e.g. "x86_64-linux-gnu"
   portVersion: text("port_version").notNull(), // the tgg-melee release the SDK came from
