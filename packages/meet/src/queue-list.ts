@@ -1,5 +1,13 @@
-import { type MeetQueueEntry, type MeetStandingQueue, meetModeLabel } from "@vgskins/shared/meet";
+import {
+  type MeetPlayers,
+  type MeetQueueEntry,
+  type MeetStandingQueue,
+  meetModeLabel,
+} from "@vgskins/shared/meet";
 import type { QueueListing } from "./directory";
+
+/** A queue's match is two games: its pairing makes pairs. */
+export const QUEUE_PLAYERS: MeetPlayers = { min: 2, max: 2 };
 
 /** The mode a standing queue plays: a set's mods in VS Mode. */
 export const STANDING_MODE = "vs";
@@ -23,6 +31,7 @@ export function listQueues(
     kind: "standing",
     mode: STANDING_MODE,
     mode_label: meetModeLabel(STANDING_MODE),
+    players: QUEUE_PLAYERS,
     label: queue.label,
     searching: rows
       .filter((row) => folds(row) && row.set === queue.set)
@@ -36,6 +45,7 @@ export function listQueues(
       kind: "player",
       mode: row.mode,
       mode_label: meetModeLabel(row.mode),
+      players: QUEUE_PLAYERS,
       label: row.label,
       searching: row.searching,
       mods: row.mods,

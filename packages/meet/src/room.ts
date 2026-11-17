@@ -1,4 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
+import { MEET_MAX_GAMES } from "@vgskins/shared/meet";
 import { z } from "zod";
 import {
   Candidate,
@@ -6,10 +7,10 @@ import {
   CODE_LENGTH,
   Member,
   Nat,
-  ROOM_GAMES,
   RoomGames,
   randomToken,
   ROOM_IDLE_MS,
+  ROOM_MAX_MS,
   type ServerMessage,
 } from "./protocol";
 
@@ -29,22 +30,38 @@ const Report = z.object({
 
 const RoomState = z.object({
   code: RoomCode,
+  /** The most games the room takes. */
   games: RoomGames,
-  /** In side order: the host first. */
-  seats: z.array(Seat).max(ROOM_GAMES),
-  /** The session token of the last `meet`, or null before one. */
+  /** In order of joining: the host first. */
+  seats: z.array(Seat).max(MEET_MAX_GAMES),
+  /** The host's session token, or null before the host and a joiner have
+   * both sent candidates. A new one with each of the host's sessions. */
   token: z.string().nullable(),
+  /** The joiners `meet` went to with this token. */
+  met: z.array(MemberId).max(MEET_MAX_GAMES).default([]),
+  /** The host started playing: nobody new joins until its next session. */
+  locked: z.boolean().default(false),
+  /** The host's relay address in this session, for joiners met after it. */
+  relay: RelayAddr.nullable().default(null),
+  /** When it was made (0: made before rooms kept it), for ROOM_MAX_MS. */
+  made: z.number().default(0),
 });
 type RoomState = z.infer<typeof RoomState>;
 
 /**
- * A room, named by its code: up to `games` members, the host first. Once the
- * room is full and every member has sent its candidates, every member gets
- * `meet` at once, and their games punch through to each other. It closes when
- * the host leaves or after ROOM_IDLE_MS without anything happening.
+ * A room, named by its code: up to `games` members, the host first. Netplay
+ * is a star through the host, so each joiner meets only the host: once the
+ * host and a joiner have both sent candidates, the two of them get `meet`
+ * with the host's session token, and their games punch through. A joiner who
+ * arrives later meets the host the same way, until the host locks the room
+ * by starting to play. New candidates from the host mean a new session (a
+ * drop ended the old one), so every joiner meets it again; new ones from a
+ * joiner meet just that joiner again. It closes when the host leaves, after
+ * ROOM_IDLE_MS without anything happening unless the host is still in it
+ * (playing, say), and after ROOM_MAX_MS whatever happens.
  *
- * A room sends to its members' Player DOs: at most `games` (2) calls per
- * change, never in a loop of its own.
+ * A room sends to its members' Player DOs: at most two calls per member
+ * per change (16 at MEET_MAX_GAMES), never in a loop of its own.
  */
 export class Room extends DurableObject<MeetEnv> {
   private state: RoomState | null = null;
@@ -65,6 +82,10 @@ export class Room extends DurableObject<MeetEnv> {
       games: RoomGames.parse(games),
       seats: [Seat.parse(host)],
       token: null,
+      met: [],
+      locked: false,
+      relay: null,
+      made: Date.now(),
     };
     await this.changed();
     return true;
@@ -79,9 +100,9 @@ export class Room extends DurableObject<MeetEnv> {
       await this.changed();
       return null;
     }
+    if (room.locked) return "That room is already playing.";
     if (room.seats.length >= room.games) return "That room is full.";
     room.seats.push(member);
-    room.token = null;
     await this.changed();
     return null;
   }
@@ -97,15 +118,34 @@ export class Room extends DurableObject<MeetEnv> {
       return;
     }
     room.seats.splice(index, 1);
-    room.token = null;
+    room.met = room.met.filter((id) => id !== memberId);
     await this.changed();
   }
 
   async candidates(memberId: string, list: Seat["candidates"], nat: Nat): Promise<void> {
-    const seat = this.state?.seats.find((s) => s.id === MemberId.parse(memberId));
-    if (!seat) return;
+    const room = this.state;
+    const id = MemberId.parse(memberId);
+    const seat = room?.seats.find((s) => s.id === id);
+    if (!room || !seat) return;
     seat.candidates = Candidates.parse(list);
     seat.nat = Nat.parse(nat);
+    if (room.seats[0].id === id) {
+      // The host's new session: everyone meets it again, and it takes joiners again
+      room.token = null;
+      room.met = [];
+      room.locked = false;
+      room.relay = null;
+    } else {
+      room.met = room.met.filter((m) => m !== id);
+    }
+    await this.changed();
+  }
+
+  /** The host started playing: nobody new joins until its next session. */
+  async lock(memberId: string): Promise<void> {
+    const room = this.state;
+    if (!room || room.seats[0].id !== MemberId.parse(memberId) || room.locked) return;
+    room.locked = true;
     await this.changed();
   }
 
@@ -129,11 +169,13 @@ export class Room extends DurableObject<MeetEnv> {
     return room !== null && room.token !== null && room.seats[0]?.id === memberId;
   }
 
-  /** The host's relay address, for the other games to say hello to. */
+  /** The host's relay address, for the joiners to say hello to, now and later. */
   async relayPeer(memberId: string, input: string): Promise<void> {
     const addr = RelayAddr.parse(input);
     const room = this.state;
     if (!room || room.seats[0]?.id !== memberId) return;
+    room.relay = addr;
+    await this.ctx.storage.put("room", room);
     await Promise.all(
       room.seats.slice(1).map((s) => this.send(s.id, { type: "relay.peer", addr }))
     );
@@ -151,48 +193,66 @@ export class Room extends DurableObject<MeetEnv> {
     });
   }
 
+  /** Idle for ROOM_IDLE_MS: closes unless the host is still in it, and in any
+   * case once it's ROOM_MAX_MS old. One call to the host's Player DO each
+   * ROOM_IDLE_MS, so at most 24 in a room's life. */
   async alarm(): Promise<void> {
+    const room = this.state;
+    if (!room) return;
+    const now = Date.now();
+    const end = (room.made || now) + ROOM_MAX_MS;
+    if (now >= end) {
+      await this.close("The room closed after 12 hours.", null);
+      return;
+    }
+    const host = this.env.PLAYER.get(this.env.PLAYER.idFromName(room.seats[0].id));
+    if (z.boolean().parse(await host.inRoom(room.code))) {
+      await this.ctx.storage.setAlarm(Math.min(now + ROOM_IDLE_MS, end));
+      return;
+    }
     await this.close("The room closed after 30 minutes.", null);
   }
 
-  /** Saves, tells everyone, and sends `meet` once the room is ready. */
+  /** Saves, tells everyone, and sends `meet` to the host and each joiner
+   * ready to meet it. */
   private async changed(): Promise<void> {
     const room = this.state;
     if (!room) return;
-    const ready =
-      room.seats.length === room.games && room.seats.every((s) => s.candidates !== null);
-    const token = ready && room.token === null ? randomToken() : null;
-    if (token !== null) room.token = token;
+    const host = room.seats[0];
+    const due =
+      host.candidates === null || room.locked
+        ? []
+        : room.seats
+            .map((seat, side) => ({ seat, side }))
+            .filter(
+              ({ seat, side }) =>
+                side > 0 && seat.candidates !== null && !room.met.includes(seat.id)
+            );
+    if (due.length > 0 && room.token === null) room.token = randomToken();
+    const token = room.token;
+    room.met = [...room.met, ...due.map(({ seat }) => seat.id)];
     await this.ctx.storage.put("room", room);
-    await this.ctx.storage.setAlarm(Date.now() + ROOM_IDLE_MS);
+    const now = Date.now();
+    await this.ctx.storage.setAlarm(Math.min(now + ROOM_IDLE_MS, (room.made || now) + ROOM_MAX_MS));
 
     const roster: ServerMessage = {
       type: "room",
       code: room.code,
-      host: room.seats[0].name,
+      host: host.name,
       members: room.seats.map((s) => s.name),
       games: room.games,
+      locked: room.locked,
     };
     await Promise.all(room.seats.map((s) => this.send(s.id, roster)));
-    if (token === null) return;
+    if (token === null || due.length === 0) return;
+    const relay = room.relay;
     await Promise.all(
-      room.seats.map((seat, side) =>
-        this.send(seat.id, {
-          type: "meet",
-          code: room.code,
-          side,
-          token,
-          peers: room.seats
-            .map((other, otherSide) => ({ other, otherSide }))
-            .filter(({ otherSide }) => otherSide !== side)
-            .map(({ other, otherSide }) => ({
-              side: otherSide,
-              name: other.name,
-              candidates: other.candidates ?? [],
-              nat: other.nat,
-            })),
-        })
-      )
+      due.flatMap(({ seat, side }) => [
+        this.send(host.id, meet(room.code, 0, token, seat, side)),
+        this.send(seat.id, meet(room.code, side, token, host, 0)).then(() =>
+          relay === null ? undefined : this.send(seat.id, { type: "relay.peer", addr: relay })
+        ),
+      ])
     );
   }
 
@@ -213,4 +273,28 @@ export class Room extends DurableObject<MeetEnv> {
     const player = this.env.PLAYER.get(this.env.PLAYER.idFromName(memberId));
     return player.deliver(message, leftRoom ?? null);
   }
+}
+
+/** `meet` for the game on `side`: the other game is `other`, on `otherSide`. */
+function meet(
+  code: string,
+  side: number,
+  token: string,
+  other: Seat,
+  otherSide: number
+): ServerMessage {
+  return {
+    type: "meet",
+    code,
+    side,
+    token,
+    peers: [
+      {
+        side: otherSide,
+        name: other.name,
+        candidates: other.candidates ?? [],
+        nat: other.nat,
+      },
+    ],
+  };
 }

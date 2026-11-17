@@ -1,5 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import {
+  MEET_MAX_GAMES,
   MeetMode,
   MeetModNames,
   MeetQueueInfo,
@@ -80,16 +81,24 @@ export const JoinResult = z.discriminatedUnion("ok", [
 ]);
 export type JoinResult = z.infer<typeof JoinResult>;
 
-/** Queue -> Player DO: its player is paired. */
+/** Queue -> Player DO: its player is in a match, with these other games. */
 export const Matched = z.object({
   key: QueueKey,
   mode: MeetMode,
   token: z.string(),
-  side: z.number().int().min(0).max(1),
+  /** This game's place: 0 hosts. */
+  side: z
+    .number()
+    .int()
+    .min(0)
+    .max(MEET_MAX_GAMES - 1),
   relay: z.boolean(),
   /** When this player started searching, for going back to the front. */
   since: z.number(),
-  opponent: Member.extend({ candidates: Candidates, nat: Nat }),
+  peers: z
+    .array(Member.extend({ side: z.number().int().min(0), candidates: Candidates, nat: Nat }))
+    .min(1)
+    .max(MEET_MAX_GAMES - 1),
 });
 export type Matched = z.infer<typeof Matched>;
 
@@ -230,19 +239,27 @@ export class Queue extends DurableObject<MeetEnv> {
       this.entries.delete(joiner.id);
       if (!a || !b) continue;
       const token = randomToken();
-      const tell = (me: Entry, side: number, other: Entry): Matched => ({
+      // A queue match is two games: the host and its joiner
+      const games = [a, b];
+      const tell = (side: number): Matched => ({
         key: meta.key,
         mode: meta.mode,
         token,
         side,
         relay,
-        since: me.since,
-        opponent: { id: other.id, name: other.name, candidates: other.candidates, nat: other.nat },
+        since: games[side].since,
+        peers: games
+          .map((g, s) => ({ g, s }))
+          .filter(({ s }) => s !== side)
+          .map(({ g, s }) => ({
+            id: g.id,
+            name: g.name,
+            side: s,
+            candidates: g.candidates,
+            nat: g.nat,
+          })),
       });
-      tellAll.push(
-        () => this.player(a.id).matched(tell(a, 0, b)),
-        () => this.player(b.id).matched(tell(b, 1, a))
-      );
+      tellAll.push(...games.map((g, side) => () => this.player(g.id).matched(tell(side))));
     }
     await this.deleteEntries(pairs.flatMap((p) => [p.host.id, p.joiner.id]));
     await Promise.all(tellAll.map((t) => t()));
