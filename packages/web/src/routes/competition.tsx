@@ -159,7 +159,6 @@ function Competition() {
                 </div>
               ))}
             </div>
-            <p>$500 in total, paid by Saavylab LLC, the company behind textures.gg.</p>
           </ArticleSection>
 
           <ArticleSection title="Judging">
