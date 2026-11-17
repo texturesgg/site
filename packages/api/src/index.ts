@@ -11,7 +11,6 @@ import {
   getPublicSitemapData,
   getSetShareData,
   getShareIcon,
-  getTggMeleeReleases,
   getUserOpenGraphData,
 } from "./lib/public-catalog";
 import { MeetQueueLabelRequest, type MeetQueueLabelResult } from "@vgskins/shared";
@@ -27,6 +26,7 @@ import externalBuildsRoutes from "./routes/external-builds";
 import filesRoutes from "./routes/files";
 import flagsRoutes from "./routes/flags";
 import meetRoutes from "./routes/meet";
+import modDocsRoutes from "./routes/mod-docs";
 import gamesRoutes from "./routes/games";
 import packsRoutes from "./routes/packs";
 import registryRoutes from "./routes/registry";
@@ -70,7 +70,8 @@ const app = new Hono<HonoEnv>()
   .route("/api/registry", registryRoutes)
   .route("/api/external-builds", externalBuildsRoutes)
   .route("/api/editor", editorRoutes)
-  .route("/api/meet", meetRoutes);
+  .route("/api/meet", meetRoutes)
+  .route("/api/docs/mods", modDocsRoutes);
 
 // The OpenAPI document and its reference page. Both answer 404 in production;
 // mounted off the chain so neither joins the hono/client AppType.
@@ -161,10 +162,6 @@ export class PublicCatalogEntrypoint extends WorkerEntrypoint<Env> {
 
   getShareIcon(sha256: string) {
     return getShareIcon(this.env, sha256);
-  }
-
-  getTggMeleeReleases() {
-    return getTggMeleeReleases(this.env);
   }
 }
 
