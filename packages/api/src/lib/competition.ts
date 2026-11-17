@@ -18,7 +18,7 @@ import {
   entryIneligible,
   voterIneligible,
 } from "@vgskins/shared";
-import { and, count, desc, eq, inArray, isNull, min, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNotNull, isNull, min, sql } from "drizzle-orm";
 import { currentPort, listedMods, MOD_COLUMNS, summarize } from "./registry-listing";
 
 /**
@@ -48,11 +48,21 @@ async function voteCounts(db: Database): Promise<Map<string, number>> {
 export async function listEntries(db: Database, origin: string): Promise<CompetitionEntry[]> {
   const [rows, counts, port] = await Promise.all([
     db
-      .select({ ...MOD_COLUMNS, enteredAt: competitionEntries.enteredAt })
+      .select({
+        ...MOD_COLUMNS,
+        enteredAt: competitionEntries.enteredAt,
+        postUrl: competitionEntries.postUrl,
+      })
       .from(competitionEntries)
       .innerJoin(codeMods, eq(codeMods.id, competitionEntries.codeModId))
       .innerJoin(users, eq(users.id, codeMods.userId))
-      .where(and(eq(competitionEntries.competition, ID), listedMods(db))),
+      .where(
+        and(
+          eq(competitionEntries.competition, ID),
+          isNotNull(competitionEntries.postUrl),
+          listedMods(db)
+        )
+      ),
     voteCounts(db),
     currentPort(db),
   ]);
@@ -60,14 +70,21 @@ export async function listEntries(db: Database, origin: string): Promise<Competi
     (await summarize(db, origin, rows, port)).map((summary) => [summary.id, summary])
   );
   return rows
-    .map((row) => ({
-      id: row.slug,
-      name: row.name,
-      author: row.author,
-      icon: summaries.get(row.slug)?.icon?.url ?? null,
-      votes: counts.get(row.id) ?? 0,
-      entered_at: row.enteredAt.toISOString(),
-    }))
+    .flatMap(({ postUrl, ...row }) =>
+      postUrl === null
+        ? []
+        : [
+            {
+              id: row.slug,
+              name: row.name,
+              author: row.author,
+              icon: summaries.get(row.slug)?.icon?.url ?? null,
+              votes: counts.get(row.id) ?? 0,
+              entered_at: row.enteredAt.toISOString(),
+              post_url: postUrl,
+            },
+          ]
+    )
     .sort((a, b) => b.votes - a.votes || a.entered_at.localeCompare(b.entered_at));
 }
 
@@ -83,10 +100,14 @@ export async function ownMods(db: Database, userId: string, modId?: string) {
       deletedAt: codeMods.deletedAt,
       firstReleaseAt: min(codeModReleases.createdAt),
       approved: sql<number>`sum(${codeModReleases.status} = 'approved')`,
-      entered: sql<number>`exists (select 1 from ${competitionEntries} where ${competitionEntries.competition} = ${ID} and ${competitionEntries.codeModId} = ${codeMods.id})`,
+      postUrl: competitionEntries.postUrl,
     })
     .from(codeMods)
     .leftJoin(codeModReleases, eq(codeModReleases.codeModId, codeMods.id))
+    .leftJoin(
+      competitionEntries,
+      and(eq(competitionEntries.competition, ID), eq(competitionEntries.codeModId, codeMods.id))
+    )
     .where(and(eq(codeMods.userId, userId), modId ? eq(codeMods.id, modId) : undefined))
     .groupBy(codeMods.id);
   return rows
@@ -95,7 +116,8 @@ export async function ownMods(db: Database, userId: string, modId?: string) {
       id: row.id,
       slug: row.slug,
       name: row.name,
-      entered: Boolean(row.entered),
+      entered: row.postUrl !== null,
+      post_url: row.postUrl,
       why: entryIneligible({
         official: row.official,
         deleted: row.deletedAt !== null,
@@ -169,6 +191,7 @@ export async function me(db: Database, userId: string, now: number): Promise<Com
       id: mod.slug,
       name: mod.name,
       entered: mod.entered,
+      post_url: mod.post_url,
       why: mod.why ?? (mod.entered ? null : closed),
     })),
   };
@@ -180,7 +203,14 @@ export async function entryBySlug(db: Database, slug: string) {
     .select({ id: codeMods.id, userId: codeMods.userId })
     .from(competitionEntries)
     .innerJoin(codeMods, eq(codeMods.id, competitionEntries.codeModId))
-    .where(and(eq(competitionEntries.competition, ID), eq(codeMods.slug, slug), listedMods(db)));
+    .where(
+      and(
+        eq(competitionEntries.competition, ID),
+        eq(codeMods.slug, slug),
+        isNotNull(competitionEntries.postUrl),
+        listedMods(db)
+      )
+    );
   return row ?? null;
 }
 

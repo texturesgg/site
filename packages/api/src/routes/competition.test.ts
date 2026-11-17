@@ -19,6 +19,8 @@ const app = new Hono<HonoEnv>()
   .route("/api/admin/competition", adminCompetitionRoutes);
 const OPENS = Date.parse(COMPETITION.opens);
 const DAY = 24 * 60 * 60 * 1000;
+/** The post on X that shares an entry. */
+const POST = { post_url: "https://twitter.com/maker/status/1863000000000000000?s=20" };
 
 async function call(path: string, cookie: string, method = "GET", body?: unknown) {
   const ctx = createExecutionContext();
@@ -121,24 +123,40 @@ afterAll(() => {
 });
 
 describe("the competition", () => {
+  it("enters a mod only with a link to its post on X", async () => {
+    const notX = await call("/api/competition/entries/maker.new", maker, "PUT", {
+      post_url: "https://example.com/maker/status/1",
+    });
+    expect(notX.status).toBe(400);
+    expect((await call("/api/competition/entries/maker.new", maker, "PUT")).status).toBe(400);
+    expect((await state(voter)).entries).toEqual([]);
+  });
+
   it("takes mods first released from Dec 1, never official ones or someone else's", async () => {
-    expect((await call("/api/competition/entries/maker.new", maker, "PUT")).status).toBe(200);
-    const old = await call("/api/competition/entries/maker.old", maker, "PUT");
+    expect((await call("/api/competition/entries/maker.new", maker, "PUT", POST)).status).toBe(200);
+    const old = await call("/api/competition/entries/maker.old", maker, "PUT", POST);
     expect(old.status).toBe(409);
     expect(await old.json()).toEqual({
       error: "Only mods first released on or after Dec 1 can enter.",
     });
-    expect((await call("/api/competition/entries/tgg.rules", admin, "PUT")).status).toBe(409);
-    expect((await call("/api/competition/entries/rival.new", maker, "PUT")).status).toBe(403);
-    expect((await call("/api/competition/entries/rival.new", rival, "PUT")).status).toBe(200);
+    expect((await call("/api/competition/entries/tgg.rules", admin, "PUT", POST)).status).toBe(409);
+    expect((await call("/api/competition/entries/rival.new", maker, "PUT", POST)).status).toBe(403);
+    expect((await call("/api/competition/entries/rival.new", rival, "PUT", POST)).status).toBe(200);
 
     const mine = (await state(maker)).me?.mods;
     expect(mine).toEqual([
-      { id: "maker.new", name: "maker.new", entered: true, why: null },
+      {
+        id: "maker.new",
+        name: "maker.new",
+        entered: true,
+        post_url: "https://x.com/maker/status/1863000000000000000",
+        why: null,
+      },
       {
         id: "maker.old",
         name: "maker.old",
         entered: false,
+        post_url: null,
         why: "Only mods first released on or after Dec 1 can enter.",
       },
     ]);

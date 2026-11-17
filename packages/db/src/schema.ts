@@ -813,6 +813,8 @@ export const competitionEntries = sqliteTable(
       .references(() => codeMods.id, { onDelete: "cascade" }),
     enteredBy: text("entered_by").references(() => users.id, { onDelete: "set null" }),
     enteredAt: integer("entered_at", { mode: "timestamp_ms" }).notNull(),
+    /** The post on X that shares it; an entry without one isn't listed. */
+    postUrl: text("post_url"),
     finalVotes: integer("final_votes"),
   },
   (table) => [primaryKey({ columns: [table.competition, table.codeModId] })]

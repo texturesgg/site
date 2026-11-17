@@ -12,7 +12,7 @@ import { useState } from "react";
 import { api, apiError } from "@/lib/api";
 import { featureFlag } from "@/lib/feature-flags";
 import { EmptyState } from "@/ui/patterns/EmptyState";
-import { Badge, Button, ConfirmDialog, TextField } from "@/ui/primitives";
+import { Badge, Button, ConfirmDialog, TextAnchor, TextField } from "@/ui/primitives";
 import { color, font, radius, space, text } from "@/ui/tokens.stylex";
 
 // The competition audit: every entry's voters with what each vote recorded,
@@ -215,6 +215,12 @@ function EntryVoters({
           by {entry.author} · {entry.votes} {entry.votes === 1 ? "vote" : "votes"}
         </span>
       </div>
+      <p {...stylex.props(styles.note)}>
+        Post:{" "}
+        <TextAnchor href={entry.post_url} target="_blank" rel="noreferrer">
+          {entry.post_url.replace("https://", "")}
+        </TextAnchor>
+      </p>
       {entry.voters.length === 0 ? (
         <p {...stylex.props(styles.note)}>No votes yet.</p>
       ) : (

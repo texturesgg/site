@@ -225,6 +225,13 @@
       "when": 1794900648608,
       "tag": "0031_competition_voting",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1794902353914,
+      "tag": "0032_competition_entry_post",
+      "breakpoints": true
     }
   ]
 }

@@ -130,6 +130,45 @@ export function competitionAuditFlags(votes: readonly AuditVote[]): Map<string, 
 }
 
 // ---------------------------------------------------------------------------
+// Entering: the post on X
+// ---------------------------------------------------------------------------
+
+const X_HOSTS = new Set([
+  "x.com",
+  "www.x.com",
+  "mobile.x.com",
+  "twitter.com",
+  "www.twitter.com",
+  "mobile.twitter.com",
+]);
+const X_STATUS_PATH = /^\/(?:([A-Za-z0-9_]{1,15})|i\/web)\/status\/(\d{1,25})\/?$/;
+
+/**
+ * A link to a post on X (or twitter.com), as https://x.com/<handle>/status/<id>.
+ * Nothing is fetched from X: an admin opens it to check it links the mod and
+ * tags the account.
+ */
+export const competitionPostUrlSchema = z
+  .string()
+  .trim()
+  .max(300)
+  .transform((value, ctx) => {
+    const href = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+    const url = URL.canParse(href) ? new URL(href) : null;
+    const match = url && X_HOSTS.has(url.hostname) ? X_STATUS_PATH.exec(url.pathname) : null;
+    if (!match) {
+      ctx.addIssue({ code: "custom", message: "Paste the link to your post on X." });
+      return z.NEVER;
+    }
+    const [, handle, id] = match;
+    return `https://x.com/${handle ?? "i/web"}/status/${id}`;
+  });
+
+/** Entering a mod: the post on X that shares it. */
+export const enterCompetitionSchema = z.object({ post_url: competitionPostUrlSchema });
+export type EnterCompetition = z.input<typeof enterCompetitionSchema>;
+
+// ---------------------------------------------------------------------------
 // GET /api/competition
 // ---------------------------------------------------------------------------
 
@@ -142,6 +181,8 @@ export const competitionEntrySchema = z.object({
   icon: z.string().nullable(),
   votes: z.number().int().min(0),
   entered_at: z.string(),
+  /** The post on X that shares it. */
+  post_url: z.string(),
 });
 export type CompetitionEntry = z.infer<typeof competitionEntrySchema>;
 
@@ -150,6 +191,8 @@ export const competitionOwnModSchema = z.object({
   id: z.string(),
   name: z.string(),
   entered: z.boolean(),
+  /** Its post on X, when entered. */
+  post_url: z.string().nullable(),
   /** Why it can't be entered, or null. */
   why: z.string().nullable(),
 });
