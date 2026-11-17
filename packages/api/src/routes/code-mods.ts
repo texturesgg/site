@@ -13,8 +13,8 @@ import {
   codeModSlugSchema,
   createCodeModSchema,
   generateId,
-  OFFICIAL_ACCOUNT,
   OFFICIAL_PUBLISHER,
+  officialCodeModIdPrefix,
 } from "@vgskins/shared";
 import { and, count, desc, eq, getTableColumns, inArray, isNull, or } from "drizzle-orm";
 import { Hono } from "hono";
@@ -166,6 +166,16 @@ const app = new Hono<HonoEnv>()
       const user = c.get("user");
       const input = c.req.valid("json");
 
+      // The official account is named by its id, which never changes hands.
+      const official = c.env.OFFICIAL_ACCOUNT_ID !== "" && user.id === c.env.OFFICIAL_ACCOUNT_ID;
+      const reserved = officialCodeModIdPrefix(input.slug);
+      if (reserved && !official) {
+        return c.json(
+          { error: `Ids starting with ${reserved} are kept for textures.gg's own mods` },
+          400
+        );
+      }
+
       const [taken] = await db
         .select({ id: codeMods.id })
         .from(codeMods)
@@ -188,9 +198,7 @@ const app = new Hono<HonoEnv>()
           description: input.description ?? null,
           sourceKind: "push",
           // The official account's mods are textures.gg's, and official
-          ...(user.name === OFFICIAL_ACCOUNT
-            ? { publisherName: OFFICIAL_PUBLISHER, official: true }
-            : {}),
+          ...(official ? { publisherName: OFFICIAL_PUBLISHER, official: true } : {}),
           createdAt: now,
           updatedAt: now,
         });

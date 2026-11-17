@@ -6,6 +6,7 @@ import {
   codeMods,
   createDb,
   games,
+  users,
 } from "@vgskins/db";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
@@ -189,6 +190,36 @@ it("keeps ids starting with skin. for skins", async () => {
   expect(response.status).toBe(400);
   expect(await response.json()).toEqual({ error: "Ids starting with skin. are kept for skins" });
   expect(create).not.toHaveBeenCalled();
+});
+
+it("keeps ids starting with tgg. for the official account, by id not name", async () => {
+  const flags = vi.spyOn(env.FLAGS, "getBooleanValue").mockResolvedValue(true);
+  // An account that took the official account's old user name isn't it.
+  const impostor = await signIn(db, "impostor");
+  await db.update(users).set({ name: "tgg_admin" }).where(eq(users.id, "impostor"));
+  const official = await signIn(db, env.OFFICIAL_ACCOUNT_ID);
+  const create = vi
+    .spyOn(env.MOD_SOURCES, "create")
+    .mockRejectedValue(new Error("no repos in this test"));
+  const post = (cookie: string) =>
+    request("", {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ slug: "tgg.netplay-fix", name: "Netplay fix" }),
+    });
+  for (const cookie of [stranger, impostor]) {
+    const response = await post(cookie);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "Ids starting with tgg. are kept for textures.gg's own mods",
+    });
+  }
+  expect(create).not.toHaveBeenCalled();
+  // The official account gets past the check to making its source repo.
+  expect((await post(official)).status).not.toBe(400);
+  expect(create).toHaveBeenCalledOnce();
+  create.mockRestore();
+  flags.mockResolvedValue(false);
 });
 
 it("marks a release display only when its library rewrites no input", async () => {

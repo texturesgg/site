@@ -114,11 +114,16 @@ ENVIRONMENT = "development"
 API_BASE_URL = "http://localhost:8787"
 SITE_BASE_URL = "http://localhost:5174"
 ASSETS_BASE_URL = "http://localhost:8787/api/files"
+# The registry's official account, by account id: its mods are official and
+# only it may take ids starting with tgg. (shared OFFICIAL_CODE_MOD_ID_PREFIXES).
+# Empty: no account is official.
+OFFICIAL_ACCOUNT_ID = "official"
 
 # Production environment - deploy with: wrangler deploy --env production
 [env.production]
 name = "vgskins-api"
-vars = { ENVIRONMENT = "production", API_BASE_URL = "https://api.textures.gg", SITE_BASE_URL = "https://textures.gg", ASSETS_BASE_URL = "https://assets.textures.gg" }
+# OFFICIAL_ACCOUNT_ID is tgg_admin's account id
+vars = { ENVIRONMENT = "production", API_BASE_URL = "https://api.textures.gg", SITE_BASE_URL = "https://textures.gg", ASSETS_BASE_URL = "https://assets.textures.gg", OFFICIAL_ACCOUNT_ID = "7RQ8Sjro6mfcPVljhwofkYlneSTlZgnr" }
 
 [[env.production.artifacts]]
 binding = "MOD_SOURCES"
@@ -200,7 +205,7 @@ period = 60
 [env.preview]
 name = "vgskins-api-preview"
 routes = [{ pattern = "api-preview.textures.gg", custom_domain = true }]
-vars = { ENVIRONMENT = "preview", API_BASE_URL = "https://api-preview.textures.gg", SITE_BASE_URL = "https://preview.textures.gg", ASSETS_BASE_URL = "https://assets.textures.gg" }
+vars = { ENVIRONMENT = "preview", API_BASE_URL = "https://api-preview.textures.gg", SITE_BASE_URL = "https://preview.textures.gg", ASSETS_BASE_URL = "https://assets.textures.gg", OFFICIAL_ACCOUNT_ID = "" }
 
 [[env.preview.artifacts]]
 binding = "MOD_SOURCES"
