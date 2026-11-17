@@ -135,6 +135,7 @@ function AdminLayout() {
               </NavTab>
             )}
             {isAdmin && codeMods && <NavTab to="/sets">Sets</NavTab>}
+            {isAdmin && codeMods && <NavTab to="/competition-audit">Competition</NavTab>}
             {isAdmin && <NavTab to="/analytics">Analytics</NavTab>}
           </NavTabs>
           <Outlet />
