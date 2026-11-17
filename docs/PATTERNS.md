@@ -625,9 +625,11 @@ in their own query.
 ### Code Mod Visibility
 
 Code mods follow the same rule through `lib/queries.ts`. A code mod is visible
-when it is not deleted and has an approved release, or the requester owns it
-or moderates; its unapproved releases and builds are only for its owner and
-moderators (`canViewUnapprovedReleases`). Routes load a single mod with
+when it is not deleted and has an approved or withdrawn release, or the
+requester owns it or moderates; a withdrawn release stays readable so its
+mod's page says why it was pulled, but only approved ones download or list.
+Its other releases and builds are only for its owner and moderators
+(`canViewUnapprovedReleases`). Routes load a single mod with
 `loadCodeMod`, a release (for its source, listing or diff) with
 `loadCodeModRelease`, and a build (for its log or package) with
 `loadCodeModBuild`, lists filter with `visibleCodeMods`, and anything hidden

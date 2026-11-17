@@ -322,7 +322,7 @@ function ListingChanges({ release, previous }: { release: Listing; previous: Lis
           {
             label: "Class",
             value: (l: Listing) =>
-              l.simWrites.length ? `gameplay: ${l.simWrites.join(", ")}` : "display",
+              l.simWrites.length ? `Gameplay. Changes ${l.simWrites.join(", ")}` : "Display only",
           },
           { label: "Uses", value: (l: Listing) => show(l.uses) },
         ]

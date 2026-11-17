@@ -8,3 +8,6 @@ export const DISCORD_URL = "https://discord.gg/RzFFFg3J4g";
 
 /** The GitHub organization with the site, the app, and its crates. */
 export const GITHUB_URL = "https://github.com/texturesgg";
+
+/** Where reports and takedowns go. */
+export const CONTACT_EMAIL = "contact@textures.gg";

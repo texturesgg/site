@@ -23,6 +23,9 @@ const styles = stylex.create({
     lineHeight: 0.98,
     overflowWrap: "anywhere",
   },
+  // A word too long for the side column at display size ("transformations")
+  // keeps the smaller size rather than breaking mid-word.
+  longTitle: { fontSize: text.h1 },
   byline: { margin: 0, fontSize: text.lg, color: color.muted },
 });
 
@@ -40,6 +43,12 @@ function EyebrowAnchor({ ref, children, ...props }: AnchorProps) {
 
 /** The line above a mod's title: where it lives, as a link back there. */
 export const ModEyebrow = createLink(EyebrowAnchor);
+
+const LONG_WORD = 12;
+
+function hasLongWord(title: ReactNode): boolean {
+  return typeof title === "string" && title.split(/\s+/).some((word) => word.length > LONG_WORD);
+}
 
 /**
  * The top of a mod's page, for texture packs and code mods alike: where it
@@ -59,7 +68,7 @@ export function ModHeader({
   return (
     <header {...stylex.props(styles.head)}>
       {eyebrow}
-      <h1 {...stylex.props(styles.title)}>{title}</h1>
+      <h1 {...stylex.props(styles.title, hasLongWord(title) && styles.longTitle)}>{title}</h1>
       {byline && <p {...stylex.props(styles.byline)}>{byline}</p>}
       {children}
     </header>

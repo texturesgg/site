@@ -13,6 +13,7 @@ import { z } from "zod";
 import { signIn } from "../test/session";
 import type { HonoEnv } from "../types";
 import adminRoutes from "./admin";
+import codeModsRoutes from "./code-mods";
 import registryRoutes from "./registry";
 
 // Pulling a release: a moderator withdraws it (or a whole mod), it leaves the
@@ -22,7 +23,8 @@ import registryRoutes from "./registry";
 const db = createDb(env.DB);
 const app = new Hono<HonoEnv>()
   .route("/api/registry", registryRoutes)
-  .route("/api/admin", adminRoutes);
+  .route("/api/admin", adminRoutes)
+  .route("/api/code-mods", codeModsRoutes);
 const NOW = new Date();
 const LINUX = "1111111111111111";
 const WINDOWS = "2222222222222222";
@@ -213,6 +215,19 @@ it("withdraws a whole mod and restores only what that took", async () => {
   ]);
   // A mod with no approved release is off every list.
   expect((await request("/api/registry/mods/me.mod")).status).toBe(404);
+  // Its page still says, to anyone, that it was withdrawn and why.
+  const page = z
+    .object({
+      releases: z.array(
+        z.object({ version: z.string(), withdrawn: z.object({ reason: z.string() }).nullable() })
+      ),
+    })
+    .parse(await (await request("/api/code-mods/me.mod")).json());
+  const reasons = page.releases.map((release) => [release.version, release.withdrawn?.reason]);
+  expect(reasons.sort()).toEqual([
+    ["1.0.0", "slow menus"],
+    ["1.1.0", "steals tokens"],
+  ]);
 
   expect((await post("/api/admin/code-mods/mod/restore", {})).status).toBe(200);
   const restored = await catalog();

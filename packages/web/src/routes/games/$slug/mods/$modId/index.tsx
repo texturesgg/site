@@ -1,12 +1,13 @@
 import * as stylex from "@stylexjs/stylex";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { PRIMARY_GAME_SLUG } from "@vgskins/shared";
+import { byVersionDescending, type CodeModKind, PRIMARY_GAME_SLUG } from "@vgskins/shared";
 import { type InferResponseType, parseResponse } from "hono/client";
 import type { ReactNode } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { appLinks } from "@/lib/app-links";
 import { api } from "@/lib/api";
 import { supportLinkLabel } from "@/lib/support-links";
+import { CONTACT_EMAIL } from "@/lib/config";
 import { requireFeatureFlag } from "@/lib/feature-flags";
 import { NETPLAY_LABELS } from "@/lib/format";
 import { InstallActions } from "@/ui/patterns/InstallActions";
@@ -66,6 +67,13 @@ export const Route = createFileRoute("/games/$slug/mods/$modId/")({
 const WIDE = "@media (min-width: 1024px)";
 
 const SYSTEM_NAMES = { linux: "Linux", windows: "Windows", macos: "macOS" } as const;
+
+/** What each kind of mod is, in a line. */
+const KIND_LINES: Record<CodeModKind, string> = {
+  script: "Script. One package that runs the same on every system.",
+  native: "Native. Compiled code, built for each system.",
+  content: "Files only, no code.",
+};
 
 const styles = stylex.create({
   // The pack page's frame: on wide screens the work on the left and the
@@ -132,6 +140,23 @@ const styles = stylex.create({
   releaseHead: { display: "flex", alignItems: "baseline", gap: space.sm },
   releaseVersion: { fontSize: text.lg, fontWeight: 700 },
   muted: { margin: 0, fontSize: text.sm, color: color.muted },
+  withdrawn: {
+    margin: 0,
+    padding: space.md,
+    borderRadius: radius.md,
+    backgroundColor: color.surface,
+    borderLeftWidth: "3px",
+    borderLeftStyle: "solid",
+    borderLeftColor: color.danger,
+    fontSize: text.md,
+    lineHeight: 1.5,
+  },
+  withdrawnTitle: { fontWeight: 700 },
+  report: {
+    order: 3,
+    fontSize: text.sm,
+    color: { default: color.muted, ":hover": color.text },
+  },
 });
 
 function formatDate(date: string | Date): string {
@@ -149,6 +174,8 @@ function ModPage() {
   const showReleases = maker && (maker.mine || canReview);
   const name = listing?.name ?? maker?.name ?? "";
   const description = listing?.description ?? maker?.description;
+  const withdrawn = newestWithdrawn(maker, listing);
+  const version = listing?.version ?? withdrawn?.version;
 
   return (
     <div {...stylex.props(layout.container, layout.page, styles.page)}>
@@ -164,7 +191,14 @@ function ModPage() {
         >
           {listing?.icon && <img src={listing.icon.url} alt="" {...stylex.props(styles.icon)} />}
           {description && <p {...stylex.props(styles.description)}>{description}</p>}
-          {listing && <InstallActions href={appLinks.mod(listing.id)} label={`Install ${name}`} />}
+          {withdrawn && <WithdrawnNotice release={withdrawn} whole={!listing} />}
+          {listing && (
+            <InstallActions
+              href={appLinks.mod(listing.id)}
+              label={`Install ${name}`}
+              command={`tgg mod install ${listing.id}`}
+            />
+          )}
           {supportLinks.length > 0 && (
             <p {...stylex.props(styles.support)}>
               Support {listing?.author}:{" "}
@@ -185,6 +219,14 @@ function ModPage() {
           )}
         </ModHeader>
         {listing && <Facts listing={listing} game={game.slug} sets={sets} />}
+        {(listing || maker) && (
+          <a
+            href={reportHref(listing?.id ?? maker?.slug ?? "", name, version)}
+            {...stylex.props(styles.report)}
+          >
+            Report this mod
+          </a>
+        )}
         {listing && maker && user?.role === "admin" && (
           <PublisherControls
             modId={maker.id}
@@ -213,6 +255,48 @@ function ModPage() {
       </div>
     </div>
   );
+}
+
+type MakerRelease = MakerMod["releases"][number];
+
+/**
+ * The newest withdrawn release worth telling a visitor about: the mod's only
+ * releases were withdrawn, or one newer than what's listed was.
+ */
+function newestWithdrawn(maker: MakerMod | null, listing: Listing | null): MakerRelease | null {
+  const pulled = (maker?.releases ?? [])
+    .filter((release) => release.withdrawn)
+    .sort((a, b) => byVersionDescending(a.version, b.version));
+  const newest = pulled[0];
+  if (!newest) return null;
+  if (!listing) return newest;
+  return byVersionDescending(newest.version, listing.version) < 0 ? newest : null;
+}
+
+function WithdrawnNotice({ release, whole }: { release: MakerRelease; whole: boolean }) {
+  return (
+    <p {...stylex.props(styles.withdrawn)}>
+      <span {...stylex.props(styles.withdrawnTitle)}>
+        {whole ? "Withdrawn." : `Version ${release.version} was withdrawn.`}
+      </span>{" "}
+      {release.withdrawn?.reason}
+    </p>
+  );
+}
+
+/** A report by email, with the mod and version filled in. */
+function reportHref(id: string, name: string, version: string | undefined): string {
+  const subject = `Report: ${name} (${id}${version ? ` ${version}` : ""})`;
+  const body = [
+    `Mod: ${name}`,
+    `Id: ${id}`,
+    `Version: ${version ?? "unknown"}`,
+    `Page: https://textures.gg/games/${PRIMARY_GAME_SLUG}/mods/${id}`,
+    "",
+    "What's wrong:",
+    "",
+  ].join("\n");
+  return `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
 /** Who publishes it, linking to their profile when it's the maker's own name, and when it last changed. */
@@ -261,7 +345,7 @@ function Facts({
         <span {...stylex.props(styles.mono)}>{listing.version}</span> ·{" "}
         {formatDate(listing.updatedAt)}
       </Fact>
-      {listing.kind === "script" && <Fact term="Kind">Script</Fact>}
+      {listing.kind && <Fact term="Kind">{KIND_LINES[listing.kind]}</Fact>}
       <Fact term="Works on">
         {listing.targets.length
           ? listing.targets.map((target) => SYSTEM_NAMES[target]).join(", ")
