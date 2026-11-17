@@ -21,7 +21,6 @@ import {
   SetShareSchema,
   ShareIconSchema,
 } from "@vgskins/shared";
-import { isModDocsPath, modDocsLocation } from "./mod-docs";
 import type { CardInput } from "./share-card/card";
 import { modCard, modDescription, setCard, setDescription } from "./share-card/view";
 
@@ -43,7 +42,6 @@ export type WorkerEnv = Pick<Env, "ENVIRONMENT" | "API_BASE_URL" | "ASSETS_BASE_
   API: {
     // Answers the shared schemas describe are parsed here, at the edge.
     getSitemap(): Promise<unknown>;
-    getTggMeleeReleases(): Promise<string[]>;
     getPackOpenGraph(gameSlug: string, packSlug: string): Promise<PackOpenGraphData | null>;
     getUserOpenGraph(identifier: string): Promise<UserOpenGraphData | null>;
     getModShare(id: string): Promise<unknown>;
@@ -90,10 +88,12 @@ function isSocialBot(userAgent: string | null): boolean {
 // Code mod ids have dots (tgg.ucf), so a mod page or its source and review
 // pages can end in what looks like a file extension.
 const MOD_PAGE = /^\/games\/[^/]+\/mods\/[^/]+(\/[^.]*)?$/;
+// Docs pages name a version (/docs/mods/0.1/hooks), which isn't a file either.
+const DOCS_PAGE = /^\/docs\/mods(\/[^/]*){0,3}$/;
 
 /** Whether a path names a file (an asset), not a page. */
 export function isFilePath(pathname: string): boolean {
-  return /\.\w+$/.test(pathname) && !MOD_PAGE.test(pathname);
+  return /\.\w+$/.test(pathname) && !MOD_PAGE.test(pathname) && !DOCS_PAGE.test(pathname);
 }
 
 export function staticAssetRequest(request: Request): Request {
@@ -590,37 +590,6 @@ export default {
     if (isCardPath(url.pathname)) {
       return withResponseHeaders(
         await handleCard(request, env, await caches.open("share-cards"), ctx),
-        env
-      );
-    }
-
-    // Mod docs, as tgg-melee links them: a redirect to the release's docs,
-    // temporary because textures.gg will serve these pages itself.
-    if (isModDocsPath(url.pathname)) {
-      let releases: string[];
-      try {
-        releases = await env.API.getTggMeleeReleases();
-      } catch (err) {
-        logger.error({ err }, "Failed to load tgg-melee releases for the mod docs");
-        return withResponseHeaders(
-          new Response("Docs temporarily unavailable", {
-            status: 503,
-            headers: { "content-type": "text/plain; charset=UTF-8", "cache-control": "no-store" },
-          }),
-          env
-        );
-      }
-      const location = modDocsLocation(url.pathname, releases);
-      return withResponseHeaders(
-        location
-          ? new Response(null, {
-              status: 302,
-              headers: { location, "cache-control": "public, max-age=300" },
-            })
-          : new Response("Not found", {
-              status: 404,
-              headers: { "content-type": "text/plain; charset=UTF-8", "cache-control": "no-store" },
-            }),
         env
       );
     }

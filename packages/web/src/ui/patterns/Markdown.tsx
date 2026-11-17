@@ -1,4 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
+import { useNavigate } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { color, font, radius, space, text, tracking } from "../tokens.stylex";
@@ -73,6 +75,7 @@ const styles = stylex.create({
 });
 
 type Node = { type: string; value?: string; children?: Node[] };
+type Heading = Node & { position?: { start: { offset?: number } } };
 /** The text inside a markdown element. */
 function textOf(node: Node): string {
   if (node.type === "text") return node.value ?? "";
@@ -117,11 +120,104 @@ const components: Components = {
   img: ({ alt }) => (alt ? <span>{alt}</span> : null),
 };
 
-/** Markdown a mod maker wrote (a README or changelog), without raw HTML. */
-export function Markdown({ children }: { children: string }) {
+/**
+ * A heading's anchor, as GitHub makes it: lower case, punctuation dropped,
+ * spaces as hyphens ("When to write C" is when-to-write-c).
+ */
+export function headingSlug(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s_-]/gu, "")
+    .replace(/\s/g, "-");
+}
+
+/** Where a link in the markdown goes: another site, a page here, or nowhere (plain text). */
+export type MarkdownLink = { to: "external"; href: string } | { to: "site"; href: string } | null;
+
+type MarkdownProps = {
+  children: string;
+  /** Give headings ids, so #anchors to them work (docs pages). */
+  headingIds?: boolean;
+  /** Where each link goes; every link opens in a new tab without it. */
+  resolveLink?: (href: string) => MarkdownLink;
+};
+
+/** Markdown without raw HTML: a mod maker's README or changelog, or a docs page. */
+export function Markdown({ children, headingIds = false, resolveLink }: MarkdownProps) {
+  const navigate = useNavigate();
+  // Repeated headings get -1, -2, ... as GitHub numbers them. A heading keeps
+  // its id when React draws it again, by where it starts in the markdown.
+  const seen = new Map<string, number>();
+  const given = new Map<number, string>();
+  const id = (node: Heading | undefined): string | undefined => {
+    if (!headingIds || !node) return undefined;
+    const at = node.position?.start.offset ?? -1;
+    const known = given.get(at);
+    if (known !== undefined) return known;
+    const slug = headingSlug(textOf(node));
+    const count = seen.get(slug) ?? 0;
+    seen.set(slug, count + 1);
+    const next = count === 0 ? slug : `${slug}-${count}`;
+    if (at !== -1) given.set(at, next);
+    return next;
+  };
+  const heading = (level: "h2" | "h3" | "h4", node: Heading | undefined, children: ReactNode) => {
+    const Tag = level;
+    return (
+      <Tag id={id(node)} {...stylex.props(styles[level])}>
+        {children}
+      </Tag>
+    );
+  };
+  const link = (href: string | undefined, children: ReactNode) => {
+    const target: MarkdownLink = resolveLink
+      ? href
+        ? resolveLink(href)
+        : null
+      : href
+        ? { to: "external", href }
+        : null;
+    if (!target) return <span>{children}</span>;
+    if (target.to === "external") {
+      return (
+        <a
+          href={target.href}
+          target="_blank"
+          rel="noopener noreferrer nofollow ugc"
+          {...stylex.props(styles.link)}
+        >
+          {children}
+        </a>
+      );
+    }
+    return (
+      <a
+        href={target.href}
+        onClick={(event) => {
+          if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+          event.preventDefault();
+          void navigate({ href: target.href });
+        }}
+        {...stylex.props(styles.link)}
+      >
+        {children}
+      </a>
+    );
+  };
+  const shown: Components = {
+    ...components,
+    h1: ({ node, children }) => heading("h2", node, children),
+    h2: ({ node, children }) => heading("h2", node, children),
+    h3: ({ node, children }) => heading("h3", node, children),
+    h4: ({ node, children }) => heading("h4", node, children),
+    h5: ({ node, children }) => heading("h4", node, children),
+    h6: ({ node, children }) => heading("h4", node, children),
+    a: ({ href, children }) => link(href, children),
+  };
   return (
     <div {...stylex.props(styles.root)}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={shown}>
         {children}
       </ReactMarkdown>
     </div>
