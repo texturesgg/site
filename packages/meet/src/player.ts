@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { MeetMode } from "@vgskins/shared/meet";
+import { MEET_MAX_GAMES, MeetMode } from "@vgskins/shared/meet";
 import { z } from "zod";
 import { MAX_AVOID, MAX_RECENT } from "./pairing";
 import {
@@ -46,8 +46,12 @@ const QueueMatch = z.object({
   key: QueueKey,
   mode: MeetMode,
   token: z.string(),
-  side: z.number().int().min(0).max(1),
-  opponent: Member.shape.id,
+  side: z.number().int().min(0),
+  /** The other games' accounts. */
+  peers: z
+    .array(Member.shape.id)
+    .min(1)
+    .max(MEET_MAX_GAMES - 1),
   since: z.number(),
   at: z.number(),
 });
@@ -88,7 +92,7 @@ const Attachment = z.object({
 });
 type Attachment = z.infer<typeof Attachment>;
 
-/** Recent opponents, in storage. */
+/** Players this account played recently, in storage. */
 const Recent = z.array(z.object({ id: Member.shape.id, at: z.number() })).max(MAX_RECENT);
 type Recent = z.infer<typeof Recent>;
 
@@ -217,30 +221,30 @@ export class Player extends DurableObject<MeetEnv> {
           mode: m.mode,
           token: m.token,
           side: m.side,
-          opponent: m.opponent.id,
+          peers: m.peers.map((p) => p.id),
           since: m.since,
           at: Date.now(),
         };
       });
-      await this.addRecent(m.opponent.id);
+      for (const p of m.peers) await this.addRecent(p.id);
       send(ws, {
         type: "meet",
         code: "",
         side: m.side,
         token: m.token,
-        peers: [
-          {
-            side: 1 - m.side,
-            name: m.opponent.name,
-            candidates: m.opponent.candidates,
-            nat: m.opponent.nat,
-          },
-        ],
+        peers: m.peers.map(({ side, name, candidates, nat }) => ({ side, name, candidates, nat })),
         queue: { mode: m.mode, relay: m.relay },
       });
       return true;
     }
     return false;
+  }
+
+  /** Whether this player is still connected and in room `code`, for the
+   * room's idle check. */
+  inRoom(codeInput: string): boolean {
+    const code = z.string().parse(codeInput);
+    return this.ctx.getWebSockets().some((ws) => attachment(ws)?.room === code);
   }
 
   /** The queue ended this player's search: too long, or the queue gave up. */
@@ -320,6 +324,9 @@ export class Player extends DurableObject<MeetEnv> {
       case "room.leave":
         await this.leaveRoom(ws);
         return;
+      case "room.lock":
+        if (me.room !== null) await this.room(me.room).lock(me.id);
+        return;
       case "candidates": {
         const candidates = checkCandidates(message.list, me.ip);
         await this.ctx.storage.put("candidates", candidates);
@@ -355,8 +362,8 @@ export class Player extends DurableObject<MeetEnv> {
           this.report("failed", "", me.nat, 0);
           this.update(ws, (a) => {
             a.match = null;
-            if (!a.avoid.includes(match.opponent))
-              a.avoid = [...a.avoid, match.opponent].slice(-MAX_AVOID);
+            const avoid = [...a.avoid.filter((id) => !match.peers.includes(id)), ...match.peers];
+            a.avoid = avoid.slice(-MAX_AVOID);
             const requeues = (a.front?.key === match.key ? a.front.requeues : 0) + 1;
             a.front =
               requeues <= MAX_REQUEUES
@@ -407,7 +414,9 @@ export class Player extends DurableObject<MeetEnv> {
         if (splitAddr(message.addr) === null) return;
         const match = this.currentMatch(me);
         if (match) {
-          await this.player(match.opponent).relayPeer(match.token, message.addr);
+          await Promise.all(
+            match.peers.map((id) => this.player(id).relayPeer(match.token, message.addr))
+          );
         } else if (me.room !== null) {
           await this.room(me.room).relayPeer(me.id, message.addr);
         }

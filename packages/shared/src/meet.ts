@@ -100,10 +100,30 @@ export const MeetQueueSummary = z.object({
 export type MeetQueueSummary = z.infer<typeof MeetQueueSummary>;
 
 /**
- * A queue in the list. Readers from before `kind`, `mode_label`, `mods` and
- * `set` see them as their defaults.
+ * The most games the meeting point introduces at once: a cost limit, not a
+ * player count. A room's size is what the host's game asks for (what its
+ * netplay carries), checked against this; a mode's own count comes from the
+ * mode. A room calls at most two Player DOs per member per change, so this
+ * bounds that fan-out at 16 calls.
+ */
+export const MEET_MAX_GAMES = 8;
+
+/** How many games play a queue's match, fewest and most: 2 and 2 for VS. */
+export const MeetPlayers = z
+  .object({
+    min: z.number().int().min(2).max(MEET_MAX_GAMES),
+    max: z.number().int().min(2).max(MEET_MAX_GAMES),
+  })
+  .refine((p) => p.min <= p.max, { message: "min is more than max" });
+export type MeetPlayers = z.infer<typeof MeetPlayers>;
+
+/**
+ * A queue in the list. Readers from before `kind`, `mode_label`, `mods`,
+ * `set` and `players` see them as their defaults.
  */
 export const MeetQueueEntry = MeetQueueSummary.extend({
+  /** How many games its matches have: a queue pairs two today. */
+  players: MeetPlayers.default({ min: 2, max: 2 }),
   kind: MeetQueueKind.default("player"),
   /** The mode as a player reads it ("VS Mode", "First to 3"). */
   mode_label: z.string().min(1).max(MEET_MODE_MAX).optional(),

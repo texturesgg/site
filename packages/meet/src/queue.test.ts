@@ -351,7 +351,9 @@ describe("the list of queues", () => {
     const res = await SELF.fetch(`http://meet.test/v1/queues?limit=${limit}`);
     return MeetQueuesResponse.parse(await res.json()).queues;
   };
-  const standing = { kind: "standing", mode: "vs", mode_label: "VS Mode" };
+  // A queue match is two games, whatever its mode
+  const pair = { min: 2, max: 2 };
+  const standing = { kind: "standing", mode: "vs", mode_label: "VS Mode", players: pair };
 
   it("lists the standing queues first, with nobody searching, then busy ones", async () => {
     const a = await Game.open("listed");
@@ -374,6 +376,7 @@ describe("the list of queues", () => {
       label: "These mods",
       searching: 1,
       mods: [],
+      players: pair,
     });
     a.close();
   });

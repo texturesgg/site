@@ -1,4 +1,4 @@
-import { MeetMode, MeetModNames, MeetQueueSummary } from "@vgskins/shared/meet";
+import { MEET_MAX_GAMES, MeetMode, MeetModNames, MeetQueueSummary } from "@vgskins/shared/meet";
 import { z } from "zod";
 
 /**
@@ -39,12 +39,14 @@ const MAX_CONNECT_MS = 120_000;
 export const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ";
 export const CODE_LENGTH = 4;
 
-/** A room nobody touched for this long closes. */
+/** A room nobody touched for this long closes, unless its host is still in it. */
 export const ROOM_IDLE_MS = 30 * 60 * 1000;
+/** The longest a room stays open, however busy. */
+export const ROOM_MAX_MS = 12 * 60 * 60 * 1000;
 
-/** How many games a room holds: 2 for now. */
-export const ROOM_GAMES = 2;
-export const RoomGames = z.number().int().min(ROOM_GAMES).max(ROOM_GAMES);
+/** A room needs a host and someone to play. */
+export const ROOM_MIN_GAMES = 2;
+export const RoomGames = z.number().int().min(ROOM_MIN_GAMES).max(MEET_MAX_GAMES);
 
 export const Candidate = z.object({
   /** "1.2.3.4:51000" or "[2001:db8::1]:51000" */
@@ -87,9 +89,12 @@ export type StoredHello = z.infer<typeof StoredHello>;
 
 export const ClientMessage = z.discriminatedUnion("type", [
   HelloMessage,
-  z.object({ type: z.literal("room.make"), games: RoomGames.default(ROOM_GAMES) }),
+  // Make a room for up to `games` games: as many as the game's netplay carries.
+  z.object({ type: z.literal("room.make"), games: RoomGames }),
   z.object({ type: z.literal("room.join"), code: z.string().max(16) }),
   z.object({ type: z.literal("room.leave") }),
+  // The host started playing: nobody new joins until its next session.
+  z.object({ type: z.literal("room.lock") }),
   // Find a match: wait in the queue for `mode` and this game's mods.
   z.object({ type: z.literal("search"), mode: MeetMode }),
   z.object({ type: z.literal("search.stop") }),
@@ -146,6 +151,8 @@ export const ServerMessage = z.discriminatedUnion("type", [
     host: z.string(),
     members: z.array(z.string()),
     games: z.number().int(),
+    /** The host started playing: the room takes nobody new. */
+    locked: z.boolean().default(false),
   }),
   z.object({
     type: z.literal("meet"),
