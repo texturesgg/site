@@ -108,6 +108,14 @@ namespace_id = "1005"
 limit = 1
 period = 60
 
+# Competition votes, follow claims and entries: changes per account per minute
+[[ratelimits]]
+name = "RATE_LIMIT_VOTE"
+namespace_id = "1006"
+[ratelimits.simple]
+limit = 10
+period = 60
+
 # Environment variables (development default)
 [vars]
 ENVIRONMENT = "development"
@@ -204,6 +212,14 @@ namespace_id = "1005"
 limit = 1
 period = 60
 
+# Competition votes, follow claims and entries: changes per account per minute
+[[env.production.ratelimits]]
+name = "RATE_LIMIT_VOTE"
+namespace_id = "1006"
+[env.production.ratelimits.simple]
+limit = 10
+period = 60
+
 # Shared preview environment
 [env.preview]
 name = "vgskins-api-preview"
@@ -281,6 +297,14 @@ name = "RATE_LIMIT_DOWNLOAD_COUNT"
 namespace_id = "2005"
 [env.preview.ratelimits.simple]
 limit = 1
+period = 60
+
+# Competition votes, follow claims and entries: changes per account per minute
+[[env.preview.ratelimits]]
+name = "RATE_LIMIT_VOTE"
+namespace_id = "2006"
+[env.preview.ratelimits.simple]
+limit = 10
 period = 60
 
 # Environment-specific Worker secrets. Repeat with `--env preview` using

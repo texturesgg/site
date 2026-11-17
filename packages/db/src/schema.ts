@@ -789,6 +789,92 @@ export const codeModSetMods = sqliteTable(
 );
 
 // ============================================================================
+// Mod competitions (packages/shared/src/competition.ts has the rules)
+// ============================================================================
+
+// The X handle X itself reported for an X account, recorded whenever someone
+// signs in with X or links it (lib/auth.ts), so an audit can show a handle
+// the account holder didn't type.
+export const xHandles = sqliteTable("x_handles", {
+  // The X user id: accounts.accountId for provider "twitter".
+  accountId: text("account_id").primaryKey(),
+  handle: text("handle").notNull(),
+  seenAt: integer("seen_at", { mode: "timestamp_ms" }).notNull(),
+});
+
+// A mod its owner entered in a competition. `finalVotes` is its count when the
+// winners were announced, kept after the votes themselves are deleted.
+export const competitionEntries = sqliteTable(
+  "competition_entries",
+  {
+    competition: text("competition").notNull(),
+    codeModId: text("code_mod_id")
+      .notNull()
+      .references(() => codeMods.id, { onDelete: "cascade" }),
+    enteredBy: text("entered_by").references(() => users.id, { onDelete: "set null" }),
+    enteredAt: integer("entered_at", { mode: "timestamp_ms" }).notNull(),
+    finalVotes: integer("final_votes"),
+  },
+  (table) => [primaryKey({ columns: [table.competition, table.codeModId] })]
+);
+
+// One account's vote for one entry. The account's age, sign-in methods,
+// linked X account, a salted hash of the IP and the country are copied at
+// the time of the vote, for an admin's audit. A voided vote stays on record
+// and stops counting. Deleted 90 days after the winners are announced.
+export const competitionVotes = sqliteTable(
+  "competition_votes",
+  {
+    id: text("id").primaryKey(),
+    competition: text("competition").notNull(),
+    codeModId: text("code_mod_id")
+      .notNull()
+      .references(() => codeMods.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    // Cast with one of the extra votes from following.
+    bonus: integer("bonus", { mode: "boolean" }).notNull(),
+    accountCreatedAt: integer("account_created_at", { mode: "timestamp_ms" }).notNull(),
+    signInMethods: text("sign_in_methods", { mode: "json" }).$type<string[]>().notNull(),
+    xAccountId: text("x_account_id"),
+    ipHash: text("ip_hash").notNull(),
+    country: text("country"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    voidedAt: integer("voided_at", { mode: "timestamp_ms" }),
+    voidedBy: text("voided_by").references(() => users.id, { onDelete: "set null" }),
+    voidReason: text("void_reason"),
+  },
+  (table) => [
+    uniqueIndex("competition_vote_idx").on(table.competition, table.userId, table.codeModId),
+    index("competition_vote_mod_idx").on(table.competition, table.codeModId),
+  ]
+);
+
+// An account's "I follow @texturesgg", which with a linked X account gives it
+// the extra votes. Nothing is read from X about follows.
+export const competitionFollowClaims = sqliteTable(
+  "competition_follow_claims",
+  {
+    competition: text("competition").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    xAccountId: text("x_account_id").notNull(),
+    claimedAt: integer("claimed_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.competition, table.userId] })]
+);
+
+// When a competition's winners were announced. Its votes and follow claims go
+// 90 days later (the queue worker's hourly sweep).
+export const competitionAnnouncements = sqliteTable("competition_announcements", {
+  competition: text("competition").primaryKey(),
+  announcedAt: integer("announced_at", { mode: "timestamp_ms" }).notNull(),
+  announcedBy: text("announced_by").references(() => users.id, { onDelete: "set null" }),
+});
+
+// ============================================================================
 // Relations
 // ============================================================================
 

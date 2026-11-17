@@ -10,6 +10,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./meet": "./src/meet.ts",
+    "./competition": "./src/competition.ts",
     "./mod-docs": "./src/mod-docs.ts",
     "./studio-release": "./src/studio-release.ts",
     "./queue": "./src/queue.ts",

@@ -8,6 +8,7 @@ import {
   type ProcessDatFileMessage,
 } from "@vgskins/shared/queue";
 import { and, asc, eq, isNull, or } from "drizzle-orm";
+import { sweepCompetitionAudit } from "./competition-sweep";
 import { validateDat } from "./dat-validator";
 import { handleDeadLetterBatch } from "./dead-letter";
 import { sendModeratorNotifications } from "./email";
@@ -93,6 +94,7 @@ export default {
     const now = new Date();
     await sweepStaleProcessingPacks(db, now);
     await sweepAbandonedCorruptedPacks(db, env.BUCKET, now);
+    await sweepCompetitionAudit(db, now);
   },
 } satisfies ExportedHandler<Env, QueueMessage>;
 

@@ -20,6 +20,7 @@ import {
   twoFactorVerified,
 } from "./two-factor";
 import { uniqueUsername } from "./username";
+import { recordXHandle } from "./x-handles";
 
 /** The site origins the API trusts for CORS and auth; localhost only in development. */
 export function siteOrigins(env: Pick<Env, "ENVIRONMENT" | "SITE_BASE_URL">): string[] {
@@ -145,6 +146,12 @@ function createAuth(env: Env) {
       twitter: {
         clientId: env.TWITTER_CLIENT_ID,
         clientSecret: env.TWITTER_CLIENT_SECRET,
+        // X's own record of the handle, from the profile better-auth already
+        // fetched to sign in or link; changes nothing on the user.
+        mapProfileToUser: async (profile) => {
+          await recordXHandle(db, profile.data.id, profile.data.username);
+          return {};
+        },
       },
     },
 
