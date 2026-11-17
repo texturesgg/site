@@ -264,6 +264,14 @@ const app = new Hono<HonoEnv>()
             status: release.status,
             error: release.error,
             rejectionReason: seeAll ? release.rejectionReason : null,
+            withdrawn:
+              release.status === "withdrawn" && release.withdrawReason && release.withdrawMode
+                ? {
+                    reason: release.withdrawReason,
+                    mode: release.withdrawMode,
+                    at: release.withdrawnAt,
+                  }
+                : null,
             class: release.class,
             createdAt: release.createdAt,
             publishedAt: release.publishedAt,

@@ -183,6 +183,13 @@
       "when": 1794638131459,
       "tag": "0025_release_kind",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1794877251569,
+      "tag": "0026_release_withdraw",
+      "breakpoints": true
     }
   ]
 }

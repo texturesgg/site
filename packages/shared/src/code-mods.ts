@@ -86,6 +86,32 @@ export const putCodeModSetSchema = z.object({
 export type PutCodeModSet = z.infer<typeof putCodeModSetSchema>;
 
 /**
+ * What tgg does with an installed copy of a withdrawn release: `off` turns
+ * it off and says why, `warn` leaves it on and says why (for a release that
+ * is broken but not harmful).
+ */
+export const CODE_MOD_WITHDRAW_MODES = ["off", "warn"] as const;
+
+/** The longest withdraw reason: one line in a game or terminal. */
+export const WITHDRAW_REASON_MAX = 200;
+export type CodeModWithdrawMode = (typeof CODE_MOD_WITHDRAW_MODES)[number];
+
+/**
+ * A moderator withdrawing a release or a whole mod. The reason is what
+ * players read: "Turned off <mod> <version>: <reason>".
+ */
+export const withdrawCodeModSchema = z.object({
+  reason: z
+    .string()
+    .trim()
+    .min(1, "Say why, in a few words players will read")
+    .max(WITHDRAW_REASON_MAX, `A reason is at most ${WITHDRAW_REASON_MAX} characters`),
+  mode: z.enum(CODE_MOD_WITHDRAW_MODES).default("off"),
+});
+
+export type WithdrawCodeMod = z.infer<typeof withdrawCodeModSchema>;
+
+/**
  * The registry's official account, by its user name: a code mod it creates is
  * published as OFFICIAL_PUBLISHER and is official from the start.
  */

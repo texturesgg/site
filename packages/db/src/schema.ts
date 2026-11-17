@@ -1,4 +1,5 @@
 import { relations } from "drizzle-orm";
+import { CODE_MOD_WITHDRAW_MODES } from "@vgskins/shared";
 import type { SlippiCodeDecl, SupportLink } from "@vgskins/shared";
 import {
   type AnySQLiteColumn,
@@ -524,7 +525,7 @@ export const codeModReleases = sqliteTable(
     commitSha: text("commit_sha").notNull(),
     license: text("license"),
     status: text("status", {
-      enum: ["processing", "pending", "approved", "rejected", "failed"],
+      enum: ["processing", "pending", "approved", "rejected", "failed", "withdrawn"],
     })
       .default("processing")
       .notNull(),
@@ -535,6 +536,14 @@ export const codeModReleases = sqliteTable(
     reviewedAt: integer("reviewed_at", { mode: "timestamp_ms" }),
     // Why a moderator rejected it, shown to the mod's owner and moderators.
     rejectionReason: text("rejection_reason"),
+    // A withdrawn release (pulled after approval): why, which players see
+    // when tgg acts on an installed copy, and what tgg does with that copy
+    // ("off" turns it off, "warn" leaves it on and says why). Kept when the
+    // release is restored, as the record of the last withdrawal.
+    withdrawReason: text("withdraw_reason"),
+    withdrawMode: text("withdraw_mode", { enum: CODE_MOD_WITHDRAW_MODES }),
+    withdrawnBy: text("withdrawn_by").references(() => users.id, { onDelete: "set null" }),
+    withdrawnAt: integer("withdrawn_at", { mode: "timestamp_ms" }),
     // Its class, else null: "display" when a moderator's review says it only
     // changes what a player sees, which the builder writes into each package
     // (`tgg mod build --class display`) so netplay leaves it out; "offline"
