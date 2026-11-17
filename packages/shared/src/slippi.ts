@@ -143,7 +143,8 @@ export type SlippiMod = {
  * oldest of the newest run of releases that do; a code only older releases
  * declare gets the newest of those exactly, so a mod's versions can follow
  * the rule variants Slippi ran (tgg.ucf 0.8.0 for UCF 0.8). Then the
- * registry's minor and ignored codes.
+ * registry's minor and ignored codes. A stage-only or minor code of the
+ * registry's that a mod declares is left out: the mod's entry replaces it.
  */
 export function buildSlippiMapping(
   mods: SlippiMod[],
@@ -180,12 +181,17 @@ export function buildSlippiMapping(
       Number(b.official) - Number(a.official) ||
       (a.id ?? "").localeCompare(b.id ?? "")
   );
+  // A code a mod reproduces is the mod's: the registry's own entry for it
+  // (nothing reproduced it when it was written) gives way.
+  const reproduced = new Set(declared.map((entry) => entry.code));
+  const unclaimed = <T extends { code: string }>(entries: T[]) =>
+    entries.filter((entry) => !reproduced.has(entry.code));
   return {
     codes: [
-      ...registry.game.map(({ why: _, ...entry }) => entry),
+      ...unclaimed(registry.game).map(({ why: _, ...entry }) => entry),
       ...declared.map(({ official: _, ...entry }) => entry),
     ],
-    minor: registry.minor.map(({ why: _, ...entry }) => entry),
+    minor: unclaimed(registry.minor).map(({ why: _, ...entry }) => entry),
     ignore: registry.ignore.map(({ why: _, ...entry }) => entry),
   };
 }

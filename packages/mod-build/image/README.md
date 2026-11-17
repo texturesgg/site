@@ -48,7 +48,8 @@ ids, so the list names one release per layout.
   `tools/macos-as.sh`, which the Linux image doesn't have. `fetch-sdks.sh`
   still checks its SDK and lists its layout with builder `external`: a Mac
   builds it once a release is approved (see [macOS](#macos) below), and until
-  then the registry serves the layout the packages without a library.
+  then the registry serves the layout the packages without a library and the
+  stable-tier ones built for another macOS layout whose API it loads.
 
 ## Deploys
 

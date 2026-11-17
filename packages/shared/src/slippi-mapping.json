@@ -1,34 +1,6 @@
 {
-  "game": [
-    {
-      "code": "0x800165AC",
-      "name": "Stadium (3.19): Online/Core/Hacks/Stadium/StadiumFileLoad",
-      "versions": ">=3.19",
-      "stages": [3],
-      "why": "gameplay on Pokemon Stadium only (Slippi 3.19 loads transformations from Dolphin memory); nothing reproduces it yet"
-    },
-    {
-      "code": "0x801C65C8",
-      "name": "Stadium (3.19): Online/Core/Hacks/Stadium/CustomZeroBuffer",
-      "versions": ">=3.19",
-      "stages": [3],
-      "why": "gameplay on Pokemon Stadium only (Slippi 3.19 loads transformations from Dolphin memory); nothing reproduces it yet"
-    },
-    {
-      "code": "0x801D4760",
-      "name": "Stadium (3.19): Online/Core/Hacks/Stadium/GrPsxIsValid",
-      "versions": ">=3.19",
-      "stages": [3],
-      "why": "gameplay on Pokemon Stadium only (Slippi 3.19 loads transformations from Dolphin memory); nothing reproduces it yet"
-    }
-  ],
+  "game": [],
   "minor": [
-    {
-      "code": "0x800AC5B8",
-      "name": "Nana determinism (Common/NanaDeterminism)",
-      "versions": "*",
-      "why": "gameplay: defines stick values the game leaves undefined when Nana DIs a throw"
-    },
     {
       "code": "0x801239A8",
       "name": "Freeze glitch fix (External/FreezeGlitchFix)",
@@ -61,6 +33,30 @@
     }
   ],
   "ignore": [
+    {
+      "code": "0x800AC5B8",
+      "name": "Nana determinism (Common/NanaDeterminism)",
+      "versions": "*",
+      "why": "built into the port: it defines the stick values the game leaves undefined when Nana DIs a throw"
+    },
+    {
+      "code": "0x800165AC",
+      "name": "Stadium (3.19): Online/Core/Hacks/Stadium/StadiumFileLoad",
+      "versions": ">=3.19",
+      "why": "the port loads Pokemon Stadium transformations synchronously, so replays match without it"
+    },
+    {
+      "code": "0x801C65C8",
+      "name": "Stadium (3.19): Online/Core/Hacks/Stadium/CustomZeroBuffer",
+      "versions": ">=3.19",
+      "why": "the port loads Pokemon Stadium transformations synchronously, so replays match without it"
+    },
+    {
+      "code": "0x801D4760",
+      "name": "Stadium (3.19): Online/Core/Hacks/Stadium/GrPsxIsValid",
+      "versions": ">=3.19",
+      "why": "the port loads Pokemon Stadium transformations synchronously, so replays match without it"
+    },
     {
       "code": "ucf-off",
       "name": "No UCF",

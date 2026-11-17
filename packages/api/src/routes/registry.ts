@@ -23,7 +23,7 @@ import { and, asc, count, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { describeRoute } from "hono-openapi";
 import { z } from "zod";
-import { layoutSummary } from "../lib/code-mod-layouts";
+import { layoutSummary, StableManifest, stableLoadsOn } from "../lib/code-mod-layouts";
 import {
   PaginationQuery,
   paginationResponse,
@@ -173,7 +173,7 @@ const app = new Hono<HonoEnv>()
       tags: ["Registry"],
       summary: "Get the mod catalog for a game layout",
       description:
-        "tgg-mod's catalog (schema 1) for `layout`, a port's game layout id: every approved release with a successful build for it, newest first per mod. Each entry is the packed manifest with `netplay`, `publisher: {id, name, official}` (as the mods list gives it) and `package: {url, sha256, size}`; package URLs are content-addressed and immutable. `ids` is every mod id with an approved release, built for this layout or not. `withdrawn` lists releases a moderator pulled after approval, for every layout: `{id, version, reason, mode, sha256: [...]}`, where `mode` is `off` (tgg turns an installed copy off) or `warn` (tgg says why and leaves it on). `snapshot` names this state of the catalog. An unknown layout has no mods.",
+        "tgg-mod's catalog (schema 1) for `layout`, a port's game layout id: every approved release with a successful build for it, newest first per mod. A package without a library serves every layout, and a stable-tier library built for another layout serves this one when its target matches and this port's API loads it (same major; from 1.0 an older or equal minor unless it uses experimental calls; before 1.0 the same minor). Each entry is the packed manifest with `netplay`, `publisher: {id, name, official}` (as the mods list gives it) and `package: {url, sha256, size}`; package URLs are content-addressed and immutable. `ids` is every mod id with an approved release, built for this layout or not. `withdrawn` lists releases a moderator pulled after approval, for every layout: `{id, version, reason, mode, sha256: [...]}`, where `mode` is `off` (tgg turns an installed copy off) or `warn` (tgg says why and leaves it on). `snapshot` names this state of the catalog. An unknown layout has no mods.",
       parameters: [{ name: "layout", in: "query", required: true, schema: { type: "string" } }],
       responses: {
         200: { description: "The catalog" },
@@ -185,11 +185,27 @@ const app = new Hono<HonoEnv>()
       const db = createDb(c.env.DB);
       const { layout } = c.req.valid("query");
       const [known] = await db
-        .select({ id: codeModLayouts.id })
+        .select({
+          id: codeModLayouts.id,
+          target: codeModLayouts.target,
+          apiVersion: codeModLayouts.apiVersion,
+        })
         .from(codeModLayouts)
         .where(eq(codeModLayouts.id, layout));
       // A package without a library (layout null) serves every known layout.
-      const rows = known
+      // A stable-tier library built for another layout serves this one too
+      // when it has the same target and this port's API loads it.
+      const offers = known?.apiVersion ?? null;
+      const builtFor = known
+        ? offers
+          ? or(
+              eq(codeModBuilds.layoutId, layout),
+              isNull(codeModBuilds.layoutId),
+              eq(codeModLayouts.target, known.target)
+            )
+          : or(eq(codeModBuilds.layoutId, layout), isNull(codeModBuilds.layoutId))
+        : undefined;
+      const found = known
         ? await db
             .select({
               releaseId: codeModReleases.id,
@@ -210,15 +226,28 @@ const app = new Hono<HonoEnv>()
             .innerJoin(codeModReleases, eq(codeModReleases.id, codeModBuilds.releaseId))
             .innerJoin(codeMods, eq(codeMods.id, codeModReleases.codeModId))
             .innerJoin(users, eq(users.id, codeMods.userId))
+            .leftJoin(codeModLayouts, eq(codeModLayouts.id, codeModBuilds.layoutId))
             .where(
               and(
-                or(eq(codeModBuilds.layoutId, layout), isNull(codeModBuilds.layoutId)),
+                builtFor,
                 eq(codeModBuilds.status, "succeeded"),
                 eq(codeModReleases.status, "approved"),
                 isNull(codeMods.deletedAt)
               )
             )
         : [];
+      // Rank each package for this layout: its own build, then one for every
+      // layout, then a stable one borrowed from another layout (the newest
+      // API first). A package from another layout that isn't stable, or that
+      // this port's API doesn't load, isn't served.
+      const rows = found.flatMap((row) => {
+        if (row.layoutId === layout) return [{ ...row, rank: 0, borrowedApi: 0 }];
+        if (row.layoutId === null) return [{ ...row, rank: 1, borrowedApi: 0 }];
+        const stable = StableManifest.safeParse(row.manifest);
+        if (!offers || !stable.success || stable.data.target !== known?.target) return [];
+        if (!stableLoadsOn(stable.data, offers)) return [];
+        return [{ ...row, rank: 2, borrowedApi: stable.data.api_version.minor }];
+      });
 
       // Every mod the registry has, built for this layout or not, so a client
       // can tell a mod that doesn't exist from one not built for its game yet.
@@ -269,14 +298,14 @@ const app = new Hono<HonoEnv>()
             ]
           : []
       );
-      // One package per release; a release has a build for its layout or one
-      // for every layout, never both, but the layout's own wins regardless.
+      // One package per release, the best ranked (ties go to the lower
+      // SHA-256, so the choice doesn't depend on row order).
       const builds = new Map<string, (typeof usable)[number]>();
+      const better = (a: (typeof usable)[number], b: (typeof usable)[number]) =>
+        a.rank - b.rank || b.borrowedApi - a.borrowedApi || a.sha256.localeCompare(b.sha256);
       for (const row of usable) {
         const seen = builds.get(row.releaseId);
-        if (!seen || (seen.layoutId === null && row.layoutId !== null)) {
-          builds.set(row.releaseId, row);
-        }
+        if (!seen || better(row, seen) < 0) builds.set(row.releaseId, row);
       }
       const entries = [...builds.values()].sort(
         (a, b) => a.id.localeCompare(b.id) || byVersionDescending(a.version, b.version)

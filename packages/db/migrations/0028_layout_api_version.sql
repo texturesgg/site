@@ -1,0 +1,1 @@
+ALTER TABLE `code_mod_layouts` ADD `api_version` text;
