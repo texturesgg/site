@@ -24,7 +24,7 @@ import {
   splitAddr,
 } from "./protocol";
 import { JoinResult, Matched, QueueCount, QueueKey, queueKey, SearchEnded } from "./queue";
-import { relayCredentials } from "./relay";
+import { relayCredentials, relayTotalDaily } from "./relay";
 import type { Seat } from "./room";
 
 /** Codes tried before giving up on making a room. */
@@ -382,6 +382,15 @@ export class Player extends DurableObject<MeetEnv> {
           send(ws, { type: "error", message: "That's all the relayed games for today." });
           return;
         }
+        const total = relayTotalDaily(this.env);
+        if (!(await this.directory().takeRelay(total))) {
+          const message =
+            total === 0
+              ? "The relay is off right now."
+              : "The relay is full for today. It opens again at midnight UTC.";
+          send(ws, { type: "error", message });
+          return;
+        }
         const credentials = await relayCredentials(this.env);
         if (credentials === null) {
           send(ws, { type: "error", message: "There's no relay to fall back on yet." });
@@ -552,6 +561,10 @@ export class Player extends DurableObject<MeetEnv> {
 
   private queue(key: string) {
     return this.env.QUEUE.get(this.env.QUEUE.idFromName(key));
+  }
+
+  private directory() {
+    return this.env.DIRECTORY.get(this.env.DIRECTORY.idFromName("all"));
   }
 
   private player(id: string) {

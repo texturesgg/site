@@ -285,6 +285,27 @@ describe("a queue", () => {
     b.close();
   });
 
+  it("refuses the host a relay once every account's relays for the day are used up", async () => {
+    const v = "7777777777777777";
+    const a = await Game.open("full-a");
+    const b = await Game.open("full-b");
+    a.ready(v);
+    b.ready(v);
+    await a.search();
+    await b.search();
+    const host = (await a.meet()).side === 0 ? a : b;
+    const directory = env.DIRECTORY.get(env.DIRECTORY.idFromName("all"));
+    while (await directory.takeRelay(Number(env.RELAY_TOTAL_DAILY))) {
+      // use up today's total
+    }
+    host.send({ type: "relay.request" });
+    expect(await host.next("error")).toMatchObject({
+      message: "The relay is full for today. It opens again at midnight UTC.",
+    });
+    a.close();
+    b.close();
+  });
+
   it("ends a search after ten minutes", async () => {
     const v = "8888888888888888";
     const a = await Game.open("old-a");
