@@ -112,8 +112,20 @@ export const withdrawCodeModSchema = z.object({
 export type WithdrawCodeMod = z.infer<typeof withdrawCodeModSchema>;
 
 /**
- * The registry's official account, by its user name: a code mod it creates is
- * published as OFFICIAL_PUBLISHER and is official from the start.
+ * The publisher name of the registry's official account (named by its account
+ * id, the API's OFFICIAL_ACCOUNT_ID, never by a user name, which can change
+ * hands): a code mod it creates is published under this name and is official
+ * from the start.
  */
-export const OFFICIAL_ACCOUNT = "tgg_admin";
 export const OFFICIAL_PUBLISHER = "textures.gg";
+
+/**
+ * Mod id prefixes only the official account may take: `tgg.` names
+ * textures.gg's own mods, so a stranger's `tgg.netplay-fix` can't pass as one.
+ */
+export const OFFICIAL_CODE_MOD_ID_PREFIXES = ["tgg."] as const;
+
+/** The official prefix `slug` starts with, if any. */
+export function officialCodeModIdPrefix(slug: string): string | undefined {
+  return OFFICIAL_CODE_MOD_ID_PREFIXES.find((prefix) => slug.startsWith(prefix));
+}
