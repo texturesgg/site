@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
-import { type MeetQueueSummary, MeetQueuesResponse } from "@vgskins/shared/meet";
+import { type MeetQueueEntry, MeetQueuesResponse, meetModeLabel } from "@vgskins/shared/meet";
 import { MEET_URL } from "@/lib/config";
 import { color, font, radius, space, text } from "../tokens.stylex";
 
@@ -41,6 +41,7 @@ const styles = stylex.create({
     fontSize: text.sm,
     whiteSpace: "nowrap",
   },
+  nobody: { color: color.muted },
   dot: {
     width: "8px",
     height: "8px",
@@ -66,23 +67,16 @@ const styles = stylex.create({
   how: { margin: 0, fontSize: text.sm, color: color.muted },
 });
 
-/** A queue's mode as a player knows it: VS Mode, or a mod's menu entry ("main/first-to-3"). */
-export function modeName(mode: string): string {
-  if (mode === "vs") return "VS Mode";
-  const last = mode.split("/").pop() ?? mode;
-  const words = last.replace(/[-_.]+/g, " ").trim();
-  return words.charAt(0).toUpperCase() + words.slice(1);
-}
-
-async function fetchQueues(): Promise<MeetQueueSummary[]> {
+async function fetchQueues(): Promise<MeetQueueEntry[]> {
   const response = await fetch(`${MEET_URL}/v1/queues?limit=${SHOWN}`);
   if (!response.ok) throw new Error(`The queue list answered ${response.status}`);
   return MeetQueuesResponse.parse(await response.json()).queues;
 }
 
 /**
- * Who is searching for a match in the game right now, by queue: a short list
- * when anyone is, otherwise one quiet line. Nothing when the list can't load.
+ * The game's matchmaking queues: the standing ones (Competitive) always, then
+ * any others someone is searching in, each with how many are searching. One
+ * quiet line when there are none, nothing when the list can't load.
  */
 export function FindMatch() {
   const { data } = useQuery({
@@ -92,7 +86,7 @@ export function FindMatch() {
     retry: false,
   });
   if (!data) return null;
-  const queues = data.filter((queue) => queue.searching > 0);
+  const queues = data.filter((queue) => queue.kind === "standing" || queue.searching > 0);
 
   if (queues.length === 0) {
     return (
@@ -105,15 +99,20 @@ export function FindMatch() {
   return (
     <section {...stylex.props(styles.section)} aria-labelledby="find-match">
       <h2 id="find-match" {...stylex.props(styles.heading)}>
-        Searching now
+        Find a match
       </h2>
       <ul {...stylex.props(styles.list)}>
         {queues.map((queue) => (
           <li key={`${queue.mode} ${queue.label}`} {...stylex.props(styles.row)}>
             <span {...stylex.props(styles.label)}>{queue.label}</span>
-            <span {...stylex.props(styles.mode)}>{modeName(queue.mode)}</span>
-            <span {...stylex.props(styles.searching)}>
-              <span {...stylex.props(styles.dot)} aria-hidden="true" />
+            <span {...stylex.props(styles.mode)}>
+              {queue.mode_label ?? meetModeLabel(queue.mode)}
+            </span>
+            <span {...stylex.props(styles.searching, queue.searching === 0 && styles.nobody)}>
+              <span
+                {...stylex.props(queue.searching > 0 ? styles.dot : styles.quietDot)}
+                aria-hidden="true"
+              />
               {queue.searching} searching
             </span>
           </li>

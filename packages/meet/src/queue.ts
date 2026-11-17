@@ -2,9 +2,10 @@ import { DurableObject } from "cloudflare:workers";
 import {
   MeetMode,
   MeetModNames,
+  MeetQueueInfo,
   MeetQueueLabel,
-  MeetQueueLabelResult,
-  MeetQueueSummary,
+  MeetQueueMods,
+  MeetQueueSet,
 } from "@vgskins/shared/meet";
 import { z } from "zod";
 import { pairUp, Waiter } from "./pairing";
@@ -23,6 +24,7 @@ import { Candidates, Member, Nat, randomToken } from "./protocol";
  *   MAX_IDLE_TICKS ticks in a row without a pair, every search ends.
  * - The Directory hears this queue's count at most every DIRECTORY_MS.
  * - Making a pair sends to its two Player DOs and nothing else.
+ * - The API is asked the queue's name at most every LABEL_RETRY_MS, on a join.
  */
 
 export const MAX_WAITING = 512;
@@ -30,7 +32,7 @@ export const SEARCH_MS = 10 * 60 * 1000;
 export const TICK_MS = 2000;
 export const MAX_IDLE_TICKS = 1800;
 export const DIRECTORY_MS = 10_000;
-/** How long before asking the API to name the queue again after it couldn't. */
+/** How long before asking the API about the queue again: its name, set and mods. */
 export const LABEL_RETRY_MS = 10 * 60 * 1000;
 /** What a queue is called while the API can't name it. */
 export const UNNAMED = "These mods";
@@ -68,7 +70,7 @@ export const JoinRequest = z.object({
 export type JoinRequest = z.infer<typeof JoinRequest>;
 
 /** The queue's name and how many are searching in it. */
-export const QueueCount = MeetQueueSummary.omit({ mode: true });
+export const QueueCount = z.object({ label: MeetQueueLabel, searching: z.number().int().min(0) });
 export type QueueCount = z.infer<typeof QueueCount>;
 
 /** Queue -> Player DO: the answer to a join. */
@@ -100,6 +102,9 @@ const Meta = z.object({
   mode: MeetMode,
   label: MeetQueueLabel.nullable(),
   labelTried: z.number(),
+  /** The standing queue's set, and the mods, as the API named them. */
+  set: MeetQueueSet.nullable().default(null),
+  mods: MeetQueueMods.default([]),
   /** When the Directory last heard the count, and what it heard. */
   sentAt: z.number(),
   sent: z.number().int(),
@@ -132,6 +137,8 @@ export class Queue extends DurableObject<MeetEnv> {
       mode,
       label: null,
       labelTried: 0,
+      set: null,
+      mods: [],
       sentAt: 0,
       sent: -1,
       ticks: 0,
@@ -141,9 +148,15 @@ export class Queue extends DurableObject<MeetEnv> {
     }
     this.entries.set(entry.id, entry);
     await this.ctx.storage.put(`w:${entry.id}`, entry);
-    if (meta.label === null && Date.now() - meta.labelTried > LABEL_RETRY_MS) {
+    // Asked again now and then, so a set marked as a queue later is picked up.
+    if (Date.now() - meta.labelTried > LABEL_RETRY_MS) {
       meta.labelTried = Date.now();
-      meta.label = await this.nameQueue(names);
+      const info = await this.nameQueue(names);
+      if (info) {
+        meta.label = info.label;
+        meta.set = info.set;
+        meta.mods = info.mods;
+      }
     }
     await this.pair();
     await this.save();
@@ -188,15 +201,16 @@ export class Queue extends DurableObject<MeetEnv> {
     await this.save();
   }
 
-  /** A name for the queue from the registry's sets ("Competitive"); null when
-   * the API can't say. Cosmetic: it's what the game and the app show. */
-  private async nameQueue(names: string): Promise<string | null> {
+  /** A name for the queue from the registry's sets ("Competitive"), the
+   * standing queue's set when it is one, and its mods; null when the API
+   * can't say. It's what the game and the queue list show. */
+  private async nameQueue(names: string): Promise<MeetQueueInfo> {
     try {
-      const label = MeetQueueLabelResult.safeParse(await this.env.API.queueLabel({ names }));
-      if (!label.success) console.error("queue label", label.error.issues[0]);
-      return label.success ? label.data : null;
+      const info = MeetQueueInfo.safeParse(await this.env.API.queueInfo({ names }));
+      if (!info.success) console.error("queue info", info.error.issues[0]);
+      return info.success ? info.data : null;
     } catch (error) {
-      console.error("queue label", error);
+      console.error("queue info", error);
       return null;
     }
   }
@@ -250,7 +264,13 @@ export class Queue extends DurableObject<MeetEnv> {
       meta.sent = searching;
       meta.sentAt = now;
       try {
-        await this.directory().update({ key: meta.key, mode: meta.mode, ...this.count() });
+        await this.directory().update({
+          key: meta.key,
+          mode: meta.mode,
+          set: meta.set,
+          mods: meta.mods,
+          ...this.count(),
+        });
       } catch (error) {
         console.error("directory", error);
       }

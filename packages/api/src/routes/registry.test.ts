@@ -297,16 +297,17 @@ describe("sets", () => {
     expect(created.status).toBe(201);
     expect(await created.json()).toMatchObject({ name: "competitive", version: 1 });
 
-    // A new title, and the same mods in another order: same version.
+    // A new title, a queue, and the same mods in another order: same version.
     const retitled = await putSet("competitive", {
       title: "Competitive rules",
+      queue: true,
       mods: [
         { id: "tgg.menu-art", range: "*" },
         { id: "tgg.ucf", range: "^1.0" },
       ],
     });
     expect(retitled.status).toBe(200);
-    expect(await retitled.json()).toMatchObject({ version: 1 });
+    expect(await retitled.json()).toMatchObject({ version: 1, queue: true });
 
     const narrowed = await putSet("competitive", {
       title: "Competitive rules",
@@ -315,7 +316,8 @@ describe("sets", () => {
         { id: "tgg.ucf", range: "~1.1" },
       ],
     });
-    expect(await narrowed.json()).toMatchObject({ version: 2 });
+    // A save that leaves the queue out keeps it.
+    expect(await narrowed.json()).toMatchObject({ version: 2, queue: true });
 
     const response = await get("/api/registry/sets");
     expect(response.status).toBe(200);
@@ -325,6 +327,7 @@ describe("sets", () => {
         title: "Competitive rules",
         description: "",
         version: 2,
+        queue: true,
         mods: [
           { id: "tgg.menu-art", range: "*" },
           { id: "tgg.ucf", range: "~1.1" },

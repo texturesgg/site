@@ -347,14 +347,60 @@ describe("a queue", () => {
 });
 
 describe("the list of queues", () => {
-  it("lists busy queues for an app", async () => {
+  const list = async (limit: number) => {
+    const res = await SELF.fetch(`http://meet.test/v1/queues?limit=${limit}`);
+    return MeetQueuesResponse.parse(await res.json()).queues;
+  };
+  const standing = { kind: "standing", mode: "vs", mode_label: "VS Mode" };
+
+  it("lists the standing queues first, with nobody searching, then busy ones", async () => {
     const a = await Game.open("listed");
     a.ready("7777777777777777");
     await a.search();
     await settle();
-    const res = await SELF.fetch("http://meet.test/v1/queues");
-    const body = MeetQueuesResponse.parse(await res.json());
-    expect(body.queues).toContainEqual({ mode: "vs", label: "These mods", searching: 1 });
+    const queues = await list(10);
+    expect(queues.slice(0, 2).map((queue) => queue.set)).toEqual(["competitive", "doubles"]);
+    expect(queues[1]).toEqual({
+      ...standing,
+      label: "Doubles",
+      searching: 0,
+      mods: [{ id: "tgg.doubles", version: "1.0.0" }],
+      set: "doubles",
+    });
+    expect(queues).toContainEqual({
+      kind: "player",
+      mode: "vs",
+      mode_label: "VS Mode",
+      label: "These mods",
+      searching: 1,
+      mods: [],
+    });
+    a.close();
+  });
+
+  it("counts a search with a standing set's mods on that set's row", async () => {
+    const a = await Game.open("standing");
+    a.ready("8888888888888888");
+    a.send({
+      type: "hello",
+      game: "g",
+      target: "t",
+      versions: "8888888888888888",
+      version: "0.1.0",
+      names: "tgg.competitive-rules 1.0.0",
+    });
+    await a.search();
+    await settle();
+    const queues = await list(11);
+    expect(queues[0]).toMatchObject({
+      ...standing,
+      label: "Competitive",
+      mods: [{ id: "tgg.competitive-rules", version: "1.0.0" }],
+      set: "competitive",
+    });
+    // Earlier tests' searches may still count, so at least this one.
+    expect(queues[0].searching).toBeGreaterThanOrEqual(1);
+    expect(queues.filter((queue) => queue.label === "Competitive")).toHaveLength(1);
     a.close();
   });
 });

@@ -13,8 +13,14 @@ import {
   getShareIcon,
   getUserOpenGraphData,
 } from "./lib/public-catalog";
-import { MeetQueueLabelRequest, type MeetQueueLabelResult } from "@vgskins/shared";
-import { queueLabel } from "./lib/meet-queue-label";
+import {
+  type MeetQueueInfo,
+  MeetQueueInfoRequest,
+  MeetQueueLabelRequest,
+  type MeetQueueLabelResult,
+  type MeetStandingQueue,
+} from "@vgskins/shared";
+import { queueInfo, queueLabel, standingQueues } from "./lib/meet-queue-label";
 import { MeetTicket, verifyMeetTicket } from "./lib/meet-ticket";
 import { openApiRoutes } from "./lib/openapi";
 import { generalApiRateLimit, rateLimitByIp } from "./lib/rate-limit";
@@ -181,6 +187,18 @@ export class MeetEntrypoint extends WorkerEntrypoint<Env> {
   async queueLabel(input: MeetQueueLabelRequest): Promise<MeetQueueLabelResult> {
     const request = MeetQueueLabelRequest.safeParse(input);
     return request.success ? queueLabel(this.env, request.data.names) : null;
+  }
+
+  /** A matchmaking queue's name, its standing set if it is one, and its mods
+   * ("id version, ..."). */
+  async queueInfo(input: MeetQueueInfoRequest): Promise<MeetQueueInfo> {
+    const request = MeetQueueInfoRequest.safeParse(input);
+    return request.success ? queueInfo(this.env, request.data.names) : null;
+  }
+
+  /** The registry's sets marked as standing matchmaking queues, with their gameplay mods. */
+  async standingQueues(): Promise<MeetStandingQueue[]> {
+    return standingQueues(this.env);
   }
 }
 

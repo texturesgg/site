@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type LabelSet, labelFor, parseNames } from "./meet-queue-label";
+import { type LabelSet, parseNames, queueFor } from "./meet-queue-label";
 
 const competitive: LabelSet = {
   title: "Competitive",
@@ -15,6 +15,8 @@ const names = new Map([
   ["tgg.ucf", "UCF"],
 ]);
 const base = "tgg.netplay 0.10.0, tgg.direct-connect 0.6.0, tgg.ucf 1.0.0";
+/** The name a queue with these mods gets beside the Competitive set. */
+const labelFor = (list: string) => queueFor(parseNames(list), [competitive], names).label;
 
 describe("queue names", () => {
   it("reads tgg_mod_set_names", () => {
@@ -26,28 +28,28 @@ describe("queue names", () => {
   });
 
   it("names a set by its gameplay mods, display mods or not", () => {
-    expect(labelFor(parseNames(base), [competitive], names)).toBe("Competitive");
+    expect(labelFor(base)).toBe("Competitive");
   });
 
   it("adds what isn't in the set", () => {
-    expect(labelFor(parseNames(`${base}, me.volleyball 1.0.0`), [competitive], names)).toBe(
-      "Competitive + Volleyball"
-    );
+    expect(labelFor(`${base}, me.volleyball 1.0.0`)).toBe("Competitive + Volleyball");
   });
 
   it("isn't the set when a gameplay mod of it is missing or another version", () => {
-    expect(
-      labelFor(parseNames("tgg.netplay 0.10.0, tgg.direct-connect 0.6.0"), [competitive], names)
-    ).toBe("No gameplay mods");
-    expect(labelFor(parseNames(`${base.replace("1.0.0", "2.0.0")}`), [competitive], names)).toBe(
-      "UCF"
+    expect(labelFor("tgg.netplay 0.10.0, tgg.direct-connect 0.6.0")).toBe("No gameplay mods");
+    expect(labelFor(`${base.replace("1.0.0", "2.0.0")}`)).toBe("UCF");
+    expect(labelFor("tgg.netplay 0.10.0, tgg.direct-connect 0.6.0, me.volleyball 1.0.0")).toBe(
+      "Volleyball"
     );
-    expect(
-      labelFor(
-        parseNames("tgg.netplay 0.10.0, tgg.direct-connect 0.6.0, me.volleyball 1.0.0"),
-        [competitive],
-        names
-      )
-    ).toBe("Volleyball");
+  });
+
+  it("is a standing queue only when the set is one and nothing is added", () => {
+    const queue: LabelSet = { ...competitive, name: "competitive", queue: true };
+    expect(queueFor(parseNames(base), [queue], names)).toEqual({
+      label: "Competitive",
+      set: "competitive",
+    });
+    expect(queueFor(parseNames(`${base}, me.volleyball 1.0.0`), [queue], names).set).toBeNull();
+    expect(queueFor(parseNames(base), [{ ...queue, queue: false }], names).set).toBeNull();
   });
 });
