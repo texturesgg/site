@@ -383,7 +383,7 @@ export class Player extends DurableObject<MeetEnv> {
           return;
         }
         const total = relayTotalDaily(this.env);
-        if (!(await this.directory().takeRelay(total))) {
+        if (!z.boolean().parse(await this.directory().takeRelay(total))) {
           const message =
             total === 0
               ? "The relay is off right now."
