@@ -63,7 +63,9 @@ export function queueFor(
   const nameOf = (id: string) => names.get(id) ?? id;
   let best: { set: LabelSet; size: number } | null = null;
   for (const set of sets) {
-    const counted = set.mods.filter((m) => m.counted);
+    // Online plumbing alone doesn't name a queue: a set built to be built on
+    // ("Online play") never wins over the set that holds the rules.
+    const counted = set.mods.filter((m) => m.counted && !PLUMBING.has(m.mod));
     if (counted.length === 0) continue;
     const fits = set.mods.every((m) => {
       const have = profile.find((p) => p.id === m.mod);

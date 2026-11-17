@@ -33,7 +33,7 @@ export function modCard(mod: ModShare): Omit<CardInput, "iconData"> {
 
 export function setCard(set: SetShare): Omit<CardInput, "iconData"> {
   return {
-    eyebrow: "Melee mod set",
+    eyebrow: "Melee set",
     title: set.title,
     // Admins make sets.
     byline: "by textures.gg",

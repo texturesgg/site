@@ -43,6 +43,22 @@ describe("queue names", () => {
     );
   });
 
+  it("never names a queue after a set of online plumbing alone", () => {
+    const online: LabelSet = {
+      title: "Online play",
+      mods: ["tgg.netplay", "tgg.direct-connect", "tgg.http", "tgg.unlocks"].map((mod) => ({
+        mod,
+        range: "*",
+        counted: true,
+      })),
+    };
+    const profile = parseNames(`${base}, tgg.http 1.0.0, tgg.unlocks 2.0.0`);
+    expect(queueFor(profile, [online, competitive], names).label).toBe("Competitive");
+    expect(queueFor(parseNames("tgg.netplay 0.10.0"), [online], names).label).toBe(
+      "No gameplay mods"
+    );
+  });
+
   it("is a standing queue only when the set is one and nothing is added", () => {
     const queue: LabelSet = { ...competitive, name: "competitive", queue: true };
     expect(queueFor(parseNames(base), [queue], names)).toEqual({

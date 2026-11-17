@@ -21,6 +21,7 @@ import {
 } from "@vgskins/db";
 import { logger } from "@vgskins/logger";
 import {
+  type CodeModSetMod,
   codeModSetNameSchema,
   putCodeModSetSchema,
   REPORT_STATUSES,
@@ -853,13 +854,14 @@ const app = new Hono<HonoEnv>()
         db.select().from(codeModSetMods).where(eq(codeModSetMods.setName, name)),
       ]);
       // Order alone isn't a change: installers read a set as mods and ranges.
-      const key = (mods: { id: string; range: string }[]) =>
+      const key = (mods: CodeModSetMod[]) =>
         mods
-          .map((mod) => `${mod.id} ${mod.range}`)
+          .map((mod) => `${mod.id} ${mod.range}${mod.left_out ? " out" : ""}`)
           .sort()
           .join("\n");
       const changed =
-        key(input.mods) !== key(listed.map((mod) => ({ id: mod.mod, range: mod.range })));
+        key(input.mods) !==
+        key(listed.map((mod) => ({ id: mod.mod, range: mod.range, left_out: mod.leftOut })));
       const version = existing ? existing.version + (changed ? 1 : 0) : 1;
 
       const now = new Date();
@@ -889,6 +891,7 @@ const app = new Hono<HonoEnv>()
         setName: name,
         mod: mod.id,
         range: mod.range,
+        leftOut: mod.left_out ?? false,
         position,
       }));
       if (rows.length) {

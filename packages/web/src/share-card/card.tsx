@@ -16,7 +16,7 @@ const C = {
 
 /** What a card says, worked out from a mod or set (see view.ts). */
 export type CardInput = {
-  /** Above the title: "Melee mod", "Melee mod set". */
+  /** Above the title: "Melee mod", "Melee set". */
   eyebrow: string;
   title: string;
   /** "by textures.gg", "6 mods". */

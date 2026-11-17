@@ -107,7 +107,7 @@ function Competition() {
     <div {...stylex.props(layout.container, layout.page, styles.page)}>
       <PageHeader
         title="Mod competition"
-        description="tgg-melee loads mods, stacks several at once, bundles them into sets you can share, and matches players by the mods they run. In December, make one. Players vote, and the top three share $500."
+        description="tgg-melee loads mods, stacks several at once, puts them in sets you can share, and matches players by the mods they run. In December, make one. Players vote, and the top three share $500."
       />
       <dl {...stylex.props(styles.facts)}>
         <Fact label="Entries open">Dec 1</Fact>

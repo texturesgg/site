@@ -18,6 +18,8 @@ import {
   CODE_MOD_WITHDRAW_MODES,
   type CodeModWithdrawMode,
   codeModSlugSchema,
+  OFFICIAL_PUBLISHER,
+  type RegistrySet,
 } from "@vgskins/shared";
 import { and, asc, count, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
@@ -108,7 +110,7 @@ const app = new Hono<HonoEnv>()
       tags: ["Registry"],
       summary: "List mod sets",
       description:
-        "Every set: `{name, title, description, version, queue, mods: [{id, range}]}`, ranges in the game's `depends` syntax. `version` goes up whenever the list or a range changes. `queue` is whether matchmaking lists the set as a standing queue.",
+        "Every set (registrySetSchema): `{name, title, description, version, queue, owner: {id, name, official}, builds_on, mods: [{id, range, left_out?}]}`, ranges in the game's `depends` syntax. `version` goes up whenever the list, a range or a left-out mark changes. `queue` is whether matchmaking lists the set as a standing queue. `owner` is in the shape the mods list gives a publisher; every set is textures.gg's today. `builds_on` lists the link names of the sets it builds on (none yet). A mod line has `left_out: true` only when the mod is left out.",
       responses: { 200: { description: "Every set" } },
     }),
     async (c) => {
@@ -120,20 +122,26 @@ const app = new Hono<HonoEnv>()
           .from(codeModSetMods)
           .orderBy(asc(codeModSetMods.setName), asc(codeModSetMods.position)),
       ]);
+      // Only textures.gg makes sets so far.
+      const owner = { id: c.env.OFFICIAL_ACCOUNT_ID, name: OFFICIAL_PUBLISHER, official: true };
+      const body: RegistrySet[] = sets.map((set) => ({
+        name: set.name,
+        title: set.title,
+        description: set.description,
+        version: set.version,
+        queue: set.queue,
+        owner,
+        builds_on: [],
+        mods: mods
+          .filter((mod) => mod.setName === set.name)
+          .map((mod) => ({
+            id: mod.mod,
+            range: mod.range,
+            ...(mod.leftOut ? { left_out: true } : {}),
+          })),
+      }));
       c.header("Cache-Control", LISTING_CACHE);
-      return c.json(
-        sets.map((set) => ({
-          name: set.name,
-          title: set.title,
-          description: set.description,
-          version: set.version,
-          queue: set.queue,
-          mods: mods
-            .filter((mod) => mod.setName === set.name)
-            .map((mod) => ({ id: mod.mod, range: mod.range })),
-        })),
-        200
-      );
+      return c.json(body, 200);
     }
   )
 

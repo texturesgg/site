@@ -1,0 +1,1 @@
+ALTER TABLE `code_mod_set_mods` ADD `left_out` integer DEFAULT false NOT NULL;
