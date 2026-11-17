@@ -3,5 +3,7 @@
 
 User-agent: *
 Allow: /
+# A mod release's review is for moderators.
+Disallow: /games/*/mods/*/review
 
 Sitemap: https://textures.gg/sitemap.xml

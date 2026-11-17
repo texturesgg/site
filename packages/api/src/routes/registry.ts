@@ -10,7 +10,6 @@ import {
   codeMods,
   createDb,
   users,
-  type Database,
 } from "@vgskins/db";
 import { logger } from "@vgskins/logger";
 import {
@@ -20,22 +19,18 @@ import {
   type CodeModWithdrawMode,
   codeModSlugSchema,
 } from "@vgskins/shared";
-import { and, asc, count, desc, eq, exists, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { describeRoute } from "hono-openapi";
 import { z } from "zod";
-import {
-  CODE_MOD_SYSTEMS,
-  type CodeModSystem,
-  layoutSummary,
-  layoutSystem,
-} from "../lib/code-mod-layouts";
+import { layoutSummary } from "../lib/code-mod-layouts";
 import {
   PaginationQuery,
   paginationResponse,
   parsePagination,
   validationHook,
 } from "../lib/validation";
+import { currentPort, imageUrl, listedMods, MOD_COLUMNS, summarize } from "../lib/registry-listing";
 import type { HonoEnv } from "../types";
 
 // The catalog format tgg-mod reads (its `catalog::SCHEMA`).
@@ -54,11 +49,6 @@ async function sha256Hex(text: string): Promise<string> {
 /** The URL a package is served at: by its SHA-256, so it never changes. */
 function packageUrl(origin: string, sha256: string): string {
   return `${origin}/api/registry/packages/${sha256}.zip`;
-}
-
-/** The URL a listing's image is served at, by its SHA-256. */
-function imageUrl(origin: string, sha256: string): string {
-  return `${origin}/api/registry/images/${sha256}.png`;
 }
 
 // A package of a withdrawn release as read back from the database: a
@@ -103,213 +93,6 @@ function withdrawnList(rows: unknown[]): {
   return [...releases.values()]
     .map((release) => ({ ...release, sha256: release.sha256.sort() }))
     .sort((a, b) => a.id.localeCompare(b.id) || byVersionDescending(a.version, b.version));
-}
-
-type Image = { url: string; width: number; height: number };
-type Netplay = NonNullable<(typeof codeModBuilds.$inferSelect)["netplay"]>;
-
-/** What the mods list shows of a mod; the details add to it. */
-type ModSummary = {
-  id: string;
-  name: string;
-  description: string | null;
-  // The author's account name, kept for older installers; stores show
-  // `publisher`.
-  author: string;
-  // Who publishes it: an admin-set name (first-party mods say "textures.gg")
-  // or the author's name, and whether admins vouch for it.
-  // `id` is the publishing account's id, which never changes: what tgg
-  // remembers a player's trust by.
-  publisher: { id: string; name: string; official: boolean };
-  icon: Image | null;
-  tags: string[];
-  installs: number;
-  version: string;
-  updatedAt: Date;
-  sets: string[];
-  targets: CodeModSystem[];
-  netplay: Netplay | null;
-  // "script" for a script mod (one package for every system), else what the
-  // release ships ("native", "content"), null before its check recorded it
-  kind: "content" | "script" | "native" | null;
-};
-
-// A listed mod: not deleted, with an approved release.
-function listedMods(db: Database) {
-  return and(
-    isNull(codeMods.deletedAt),
-    exists(
-      db
-        .select({ one: sql`1` })
-        .from(codeModReleases)
-        .where(
-          and(eq(codeModReleases.codeModId, codeMods.id), eq(codeModReleases.status, "approved"))
-        )
-    )
-  );
-}
-
-const MOD_COLUMNS = {
-  id: codeMods.id,
-  slug: codeMods.slug,
-  name: codeMods.name,
-  description: codeMods.description,
-  sourceUrl: codeMods.sourceUrl,
-  installs: codeMods.downloadCount,
-  author: users.name,
-  userId: codeMods.userId,
-  publisherName: codeMods.publisherName,
-  official: codeMods.official,
-};
-type ModRow = {
-  id: string;
-  slug: string;
-  name: string;
-  description: string | null;
-  installs: number;
-  author: string;
-  userId: string;
-  publisherName: string | null;
-  official: boolean;
-};
-
-/**
- * The newest tgg-melee release the builder has active layouts for, and the
- * systems they cover: what a mod's `targets` are counted against.
- */
-async function currentPort(
-  db: Database
-): Promise<{ version: string | null; layouts: Map<string, CodeModSystem> }> {
-  const active = await db
-    .select({
-      id: codeModLayouts.id,
-      target: codeModLayouts.target,
-      portVersion: codeModLayouts.portVersion,
-    })
-    .from(codeModLayouts)
-    .where(eq(codeModLayouts.active, true));
-  const version = active.map((layout) => layout.portVersion).sort(byVersionDescending)[0] ?? null;
-  const layouts = new Map<string, CodeModSystem>();
-  for (const layout of active) {
-    const os = layoutSystem(layout.target);
-    if (layout.portVersion === version && os !== "other") layouts.set(layout.id, os);
-  }
-  return { version, layouts };
-}
-
-/**
- * The summaries of `mods`, each from its newest approved release, with
- * that release's id for the details to read more of.
- */
-async function summarize(
-  db: Database,
-  origin: string,
-  mods: ModRow[],
-  port: Awaited<ReturnType<typeof currentPort>>
-): Promise<(ModSummary & { releaseId: string })[]> {
-  if (mods.length === 0) return [];
-  const releases = await db
-    .select({
-      id: codeModReleases.id,
-      codeModId: codeModReleases.codeModId,
-      version: codeModReleases.version,
-      tags: codeModReleases.tags,
-      kind: codeModReleases.kind,
-      createdAt: codeModReleases.createdAt,
-      publishedAt: codeModReleases.publishedAt,
-    })
-    .from(codeModReleases)
-    .where(
-      and(
-        inArray(
-          codeModReleases.codeModId,
-          mods.map((mod) => mod.id)
-        ),
-        eq(codeModReleases.status, "approved")
-      )
-    );
-  const latest = new Map<string, (typeof releases)[number]>();
-  for (const release of releases) {
-    const seen = latest.get(release.codeModId);
-    if (!seen || byVersionDescending(release.version, seen.version) < 0) {
-      latest.set(release.codeModId, release);
-    }
-  }
-  const releaseIds = [...latest.values()].map((release) => release.id);
-  const [builds, icons, sets] = await Promise.all([
-    db
-      .select({
-        releaseId: codeModBuilds.releaseId,
-        layoutId: codeModBuilds.layoutId,
-        manifest: codeModBuilds.manifest,
-        netplay: codeModBuilds.netplay,
-      })
-      .from(codeModBuilds)
-      .where(
-        and(inArray(codeModBuilds.releaseId, releaseIds), eq(codeModBuilds.status, "succeeded"))
-      ),
-    db
-      .select()
-      .from(codeModReleaseImages)
-      .where(
-        and(
-          inArray(codeModReleaseImages.releaseId, releaseIds),
-          eq(codeModReleaseImages.kind, "icon")
-        )
-      ),
-    db
-      .select({ setName: codeModSetMods.setName, mod: codeModSetMods.mod })
-      .from(codeModSetMods)
-      .where(
-        inArray(
-          codeModSetMods.mod,
-          mods.map((mod) => mod.slug)
-        )
-      )
-      .orderBy(asc(codeModSetMods.setName)),
-  ]);
-
-  return mods.flatMap((mod) => {
-    const release = latest.get(mod.id);
-    if (!release) return [];
-    const built = builds.filter((build) => build.releaseId === release.id);
-    // A build without a library (layout null) serves every layout.
-    const systems = new Set(
-      built.flatMap((build) =>
-        build.layoutId === null
-          ? [...port.layouts.values()]
-          : (port.layouts.get(build.layoutId) ?? [])
-      )
-    );
-    const manifest = built.find((build) => build.manifest)?.manifest ?? {};
-    const icon = icons.find((image) => image.releaseId === release.id);
-    return [
-      {
-        releaseId: release.id,
-        id: mod.slug,
-        name: typeof manifest.name === "string" ? manifest.name : mod.name,
-        description:
-          typeof manifest.description === "string" ? manifest.description : mod.description,
-        author: mod.author,
-        publisher: {
-          id: mod.userId,
-          name: mod.publisherName ?? mod.author,
-          official: mod.official,
-        },
-        icon: icon
-          ? { url: imageUrl(origin, icon.sha256), width: icon.width, height: icon.height }
-          : null,
-        tags: release.tags ?? [],
-        installs: mod.installs,
-        version: release.version,
-        updatedAt: release.publishedAt ?? release.createdAt,
-        sets: sets.filter((set) => set.mod === mod.slug).map((set) => set.setName),
-        targets: CODE_MOD_SYSTEMS.filter((os) => systems.has(os)),
-        netplay: built.find((build) => build.netplay)?.netplay ?? null,
-        kind: release.kind,
-      },
-    ];
-  });
 }
 
 // The registry players' installers read: tgg-mod (the textures.gg app and the
@@ -621,7 +404,7 @@ const app = new Hono<HonoEnv>()
       ]);
       const origin = new URL(c.req.url).origin;
       const items = (await summarize(db, origin, rows, port)).map(
-        ({ releaseId: _, ...summary }) => summary
+        ({ releaseId: _, iconSha256: __, ...summary }) => summary
       );
       c.header("Cache-Control", LISTING_CACHE);
       return c.json({ port: port.version, ...paginationResponse(items, total, pagination) }, 200);
@@ -651,7 +434,7 @@ const app = new Hono<HonoEnv>()
       ]);
       if (!mod) return c.json({ error: "Mod not found" }, 404);
       const origin = new URL(c.req.url).origin;
-      const [{ releaseId, ...summary }] = await summarize(db, origin, [mod], port);
+      const [{ releaseId, iconSha256: _, ...summary }] = await summarize(db, origin, [mod], port);
       const [releases, screenshots, depends] = await Promise.all([
         db
           .select({

@@ -1,8 +1,28 @@
-import { codeModLayouts, createDb, games, packs, users } from "@vgskins/db";
-import { and, eq, isNull } from "drizzle-orm";
+import {
+  codeModLayouts,
+  codeModReleaseImages,
+  codeModReleases,
+  codeModSetMods,
+  codeModSets,
+  codeMods,
+  createDb,
+  games,
+  packs,
+  users,
+} from "@vgskins/db";
+import {
+  codeModSetNameSchema,
+  codeModSlugSchema,
+  type ModShare,
+  type PublicSitemap,
+  type SetShare,
+} from "@vgskins/shared";
+import { and, count, eq, isNull, max } from "drizzle-orm";
 import { z } from "zod";
 import type { Env } from "../types";
+import { codeModsEnabled } from "./feature-flags";
 import { findUserByIdentifier, loadPack, notBanned } from "./queries";
+import { listedMods, loadModSummary } from "./registry-listing";
 
 const PublicCatalogIdentifier = z.string().min(1).max(200);
 
@@ -20,12 +40,6 @@ export interface UserOpenGraphData {
   name: string;
   bio: string | null;
   image: string | null;
-}
-
-export interface PublicSitemapData {
-  games: Array<{ slug: string; updatedAt: Date }>;
-  packs: Array<{ slug: string; gameSlug: string; publishedAt: Date | null }>;
-  users: Array<{ name: string; updatedAt: Date }>;
 }
 
 export function parsePublicCatalogIdentifier(value: unknown): string {
@@ -72,9 +86,9 @@ export async function getUserOpenGraphData(
   return user ? { name: user.name, bio: user.bio, image: user.image } : null;
 }
 
-export async function getPublicSitemapData(env: Env): Promise<PublicSitemapData> {
+export async function getPublicSitemapData(env: Env): Promise<PublicSitemap> {
   const db = createDb(env.DB);
-  const [allGames, allPacks, allUsers] = await Promise.all([
+  const [allGames, allPacks, allUsers, codeModsPublic] = await Promise.all([
     db
       .select({
         slug: games.slug,
@@ -97,9 +111,98 @@ export async function getPublicSitemapData(env: Env): Promise<PublicSitemapData>
       })
       .from(users)
       .where(and(eq(users.onboardingCompleted, true), notBanned())),
+    codeModsEnabled(env.FLAGS, null),
   ]);
 
-  return { games: allGames, packs: allPacks, users: allUsers };
+  // Mods and sets are listed only once code mods are on for everyone.
+  const [mods, sets] = codeModsPublic
+    ? await Promise.all([
+        db
+          .select({ id: codeMods.slug, updatedAt: max(codeModReleases.publishedAt) })
+          .from(codeMods)
+          .innerJoin(codeModReleases, eq(codeModReleases.codeModId, codeMods.id))
+          .where(and(eq(codeModReleases.status, "approved"), isNull(codeMods.deletedAt)))
+          .groupBy(codeMods.slug),
+        db.select({ name: codeModSets.name }).from(codeModSets),
+      ])
+    : [[], []];
+
+  return {
+    games: allGames,
+    packs: allPacks,
+    users: allUsers,
+    mods,
+    sets,
+  };
+}
+
+// Code mods and sets answer only while the code-mods flag is on for someone
+// signed out, so with it off a mod link shows no more than it did before.
+
+/** A listed code mod, for its link's tags and share card, or null. */
+export async function getModShareData(env: Env, rawId: unknown): Promise<ModShare | null> {
+  const id = codeModSlugSchema.parse(rawId);
+  if (!(await codeModsEnabled(env.FLAGS, null))) return null;
+  const db = createDb(env.DB);
+  const summary = await loadModSummary(db, env.API_BASE_URL, id);
+  if (!summary) return null;
+  return {
+    id: summary.id,
+    name: summary.name,
+    description: summary.description,
+    publisher: { name: summary.publisher.name, official: summary.publisher.official },
+    version: summary.version,
+    kind: summary.kind,
+    netplay: summary.netplay,
+    icon: summary.iconSha256,
+  };
+}
+
+/** A set, for its link's tags and share card, or null. */
+export async function getSetShareData(env: Env, rawName: unknown): Promise<SetShare | null> {
+  const name = codeModSetNameSchema.parse(rawName);
+  if (!(await codeModsEnabled(env.FLAGS, null))) return null;
+  const db = createDb(env.DB);
+  const [[set], [{ modCount }]] = await Promise.all([
+    db.select().from(codeModSets).where(eq(codeModSets.name, name)),
+    db.select({ modCount: count() }).from(codeModSetMods).where(eq(codeModSetMods.setName, name)),
+  ]);
+  if (!set) return null;
+  return {
+    name: set.name,
+    title: set.title,
+    description: set.description,
+    version: set.version,
+    modCount,
+  };
+}
+
+const Sha256 = z.string().regex(/^[0-9a-f]{64}$/);
+
+/**
+ * A listing icon's PNG, for a share card: only an image of an approved
+ * release of a listed mod, as the registry serves them.
+ */
+export async function getShareIcon(env: Env, rawSha256: unknown): Promise<Uint8Array | null> {
+  const sha256 = Sha256.parse(rawSha256);
+  if (!(await codeModsEnabled(env.FLAGS, null))) return null;
+  const db = createDb(env.DB);
+  const [image] = await db
+    .select({ sha256: codeModReleaseImages.sha256 })
+    .from(codeModReleaseImages)
+    .innerJoin(codeModReleases, eq(codeModReleases.id, codeModReleaseImages.releaseId))
+    .innerJoin(codeMods, eq(codeMods.id, codeModReleases.codeModId))
+    .where(
+      and(
+        eq(codeModReleaseImages.sha256, sha256),
+        eq(codeModReleases.status, "approved"),
+        listedMods(db)
+      )
+    )
+    .limit(1);
+  if (!image) return null;
+  const object = await env.CODE_MODS.get(`code-mods/images/${sha256}.png`);
+  return object ? new Uint8Array(await object.arrayBuffer()) : null;
 }
 
 /**

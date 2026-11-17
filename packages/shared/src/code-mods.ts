@@ -51,6 +51,14 @@ export const CODE_MOD_NETPLAY_CLASSES = [
 export type CodeModNetplay = (typeof CODE_MOD_NETPLAY_CLASSES)[number];
 
 /**
+ * What a release ships, from its source when it is checked: Luau scripts
+ * (one package for every system), native code built per layout, or files
+ * and assets alone.
+ */
+export const CODE_MOD_KINDS = ["content", "script", "native"] as const;
+export type CodeModKind = (typeof CODE_MOD_KINDS)[number];
+
+/**
  * A version range in the game's `depends` syntax, as tgg-mod reads it: a
  * version (`1.2.3` exactly, `1.2` any 1.2.x), `^1.2`, `~1.2`, `>=1.2`, or
  * `*`. A pre-release or build suffix on the version is allowed and ignored.

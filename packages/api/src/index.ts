@@ -6,8 +6,11 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { authHandler, siteOrigins } from "./lib/auth";
 import {
+  getModShareData,
   getPackOpenGraphData,
   getPublicSitemapData,
+  getSetShareData,
+  getShareIcon,
   getTggMeleeReleases,
   getUserOpenGraphData,
 } from "./lib/public-catalog";
@@ -132,7 +135,7 @@ export type AppType = ApplyGlobalResponse<
   typeof app,
   { 400: ErrorBody; 401: ErrorBody; 403: ErrorBody; 429: ErrorBody; 500: ErrorBody }
 >;
-export type { PackOpenGraphData, PublicSitemapData, UserOpenGraphData } from "./lib/public-catalog";
+export type { PackOpenGraphData, UserOpenGraphData } from "./lib/public-catalog";
 
 /** Internal, read-only catalog methods exposed only through a Service Binding. */
 export class PublicCatalogEntrypoint extends WorkerEntrypoint<Env> {
@@ -146,6 +149,18 @@ export class PublicCatalogEntrypoint extends WorkerEntrypoint<Env> {
 
   getSitemap() {
     return getPublicSitemapData(this.env);
+  }
+
+  getModShare(id: string) {
+    return getModShareData(this.env, id);
+  }
+
+  getSetShare(name: string) {
+    return getSetShareData(this.env, name);
+  }
+
+  getShareIcon(sha256: string) {
+    return getShareIcon(this.env, sha256);
   }
 
   getTggMeleeReleases() {

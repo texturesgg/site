@@ -7,9 +7,23 @@
  * Normal SPA navigations use one canonical shell cache key; asset requests pass through unchanged.
  */
 
-import type { PackOpenGraphData, PublicSitemapData, UserOpenGraphData } from "@vgskins/api";
+import type { PackOpenGraphData, UserOpenGraphData } from "@vgskins/api";
 import { logger } from "@vgskins/logger";
+import {
+  codeModSetNameSchema,
+  codeModSlugSchema,
+  type ModShare,
+  PRIMARY_GAME_SLUG,
+  ModShareSchema,
+  type PublicSitemap,
+  PublicSitemapSchema,
+  type SetShare,
+  SetShareSchema,
+  ShareIconSchema,
+} from "@vgskins/shared";
 import { isModDocsPath, modDocsLocation } from "./mod-docs";
+import type { CardInput } from "./share-card/card";
+import { modCard, modDescription, setCard, setDescription } from "./share-card/view";
 
 // Headers that are safe for every response. A full Content-Security-Policy
 // (scripts, fonts, Turnstile, avatars, API and asset origins) should be rolled
@@ -27,12 +41,18 @@ export const SECURITY_HEADERS: Readonly<Record<string, string>> = {
 export type WorkerEnv = Pick<Env, "ENVIRONMENT" | "API_BASE_URL" | "ASSETS_BASE_URL"> & {
   ASSETS: Pick<Fetcher, "fetch">;
   API: {
-    getSitemap(): Promise<PublicSitemapData>;
+    // Answers the shared schemas describe are parsed here, at the edge.
+    getSitemap(): Promise<unknown>;
     getTggMeleeReleases(): Promise<string[]>;
     getPackOpenGraph(gameSlug: string, packSlug: string): Promise<PackOpenGraphData | null>;
     getUserOpenGraph(identifier: string): Promise<UserOpenGraphData | null>;
+    getModShare(id: string): Promise<unknown>;
+    getSetShare(name: string): Promise<unknown>;
+    getShareIcon(sha256: string): Promise<unknown>;
   };
 };
+
+const SITE = "https://textures.gg";
 
 export function withResponseHeaders(response: Response, env: Pick<Env, "ENVIRONMENT">): Response {
   const headers = new Headers(response.headers);
@@ -67,6 +87,15 @@ function isSocialBot(userAgent: string | null): boolean {
   return BOT_USER_AGENTS.some((bot) => ua.includes(bot.toLowerCase()));
 }
 
+// Code mod ids have dots (tgg.ucf), so a mod page or its source and review
+// pages can end in what looks like a file extension.
+const MOD_PAGE = /^\/games\/[^/]+\/mods\/[^/]+(\/[^.]*)?$/;
+
+/** Whether a path names a file (an asset), not a page. */
+export function isFilePath(pathname: string): boolean {
+  return /\.\w+$/.test(pathname) && !MOD_PAGE.test(pathname);
+}
+
 export function staticAssetRequest(request: Request): Request {
   if (request.method !== "GET" && request.method !== "HEAD") return request;
   const acceptsHtml = request.headers.get("accept")?.toLowerCase().includes("text/html");
@@ -74,7 +103,7 @@ export function staticAssetRequest(request: Request): Request {
   if (!knownBotHtml && !acceptsHtml) return request;
 
   const url = new URL(request.url);
-  if (url.pathname.match(/\.\w+$/)) return request;
+  if (isFilePath(url.pathname)) return request;
 
   // Every client route must resolve through one deployment-scoped cache key.
   // Otherwise an older cached route shell can reference hashed assets that a
@@ -95,13 +124,18 @@ interface OgData {
   title: string;
   description: string;
   image?: string;
+  /** Set for an image of a known size, such as a share card. */
+  imageSize?: { width: number; height: number };
+  imageAlt?: string;
+  /** The page's canonical URL. */
   url: string;
   type?: string;
 }
 
-function buildOgTags(og: OgData): string {
+export function buildOgTags(og: OgData): string {
   const tags = [
     `<title>${escapeHtml(og.title)}</title>`,
+    `<link rel="canonical" href="${escapeHtml(og.url)}" />`,
     `<meta property="og:title" content="${escapeHtml(og.title)}" />`,
     `<meta property="og:description" content="${escapeHtml(og.description)}" />`,
     `<meta property="og:url" content="${escapeHtml(og.url)}" />`,
@@ -117,6 +151,14 @@ function buildOgTags(og: OgData): string {
     tags.push(`<meta property="og:image" content="${escapeHtml(og.image)}" />`);
     tags.push(`<meta name="twitter:image" content="${escapeHtml(og.image)}" />`);
   }
+  if (og.imageSize) {
+    tags.push(`<meta property="og:image:width" content="${og.imageSize.width}" />`);
+    tags.push(`<meta property="og:image:height" content="${og.imageSize.height}" />`);
+  }
+  if (og.imageAlt) {
+    tags.push(`<meta property="og:image:alt" content="${escapeHtml(og.imageAlt)}" />`);
+    tags.push(`<meta name="twitter:image:alt" content="${escapeHtml(og.imageAlt)}" />`);
+  }
 
   return tags.join("\n    ");
 }
@@ -129,6 +171,7 @@ function injectOgTags(html: string, ogTags: string): string {
   cleaned = cleaned.replace(/<meta\s+name="twitter:[^"]*"\s+content="[^"]*"\s*\/?>/gi, "");
   cleaned = cleaned.replace(/<meta\s+name="description"\s+content="[^"]*"\s*\/?>/gi, "");
   cleaned = cleaned.replace(/<title>[^<]*<\/title>/i, "");
+  cleaned = cleaned.replace(/<link\s+rel="canonical"\s+href="[^"]*"\s*\/?>/gi, "");
 
   // Inject after <meta charset>
   return cleaned.replace(
@@ -235,13 +278,187 @@ function handleGamePage(gameSlug: string): OgData {
   };
 }
 
+const CARD_SIZE = { width: 1200, height: 630 };
+
+/**
+ * A mod page's tags. The card URL carries the version so a new release gets
+ * a new card past every cache, the site's and the networks'.
+ */
+export function buildModOpenGraphData(mod: ModShare, origin: string, gameSlug: string): OgData {
+  return {
+    title: `${mod.name} - textures.gg`,
+    description: modDescription(mod),
+    image: `${origin}/cards/mods/${mod.id}.png?v=${encodeURIComponent(mod.version)}`,
+    imageSize: CARD_SIZE,
+    imageAlt: `${mod.name}, a Melee mod by ${mod.publisher.name}`,
+    url: `${SITE}/games/${gameSlug}/mods/${mod.id}`,
+  };
+}
+
+export function buildSetOpenGraphData(set: SetShare, origin: string, gameSlug: string): OgData {
+  return {
+    title: `${set.title} - textures.gg`,
+    description: setDescription(set),
+    image: `${origin}/cards/sets/${set.name}.png?v=${set.version}`,
+    imageSize: CARD_SIZE,
+    imageAlt: `${set.title}, a set of Melee mods`,
+    url: `${SITE}/games/${gameSlug}/sets/${set.name}`,
+  };
+}
+
+/**
+ * A mod or set from the catalog, or null when there's none to show: missing,
+ * not public, code mods off for people signed out, or a failed lookup (which
+ * is logged). Any of these keeps the plain SPA shell, as before mods had tags.
+ */
+async function loadShare<T>(
+  load: () => Promise<unknown>,
+  schema: { parse(value: unknown): T },
+  context: Record<string, unknown>
+): Promise<T | null> {
+  try {
+    const value = await load();
+    return value === null ? null : schema.parse(value);
+  } catch (err) {
+    logger.warn({ err, ...context }, "Share catalog lookup failed");
+    return null;
+  }
+}
+
+const NullableModShare = ModShareSchema.nullable();
+const NullableSetShare = SetShareSchema.nullable();
+
+async function handleModPage(
+  api: WorkerEnv["API"],
+  origin: string,
+  gameSlug: string,
+  rawId: string
+): Promise<OgData | null> {
+  const id = codeModSlugSchema.safeParse(rawId);
+  if (!id.success) return null;
+  const mod = await loadShare(() => api.getModShare(id.data), NullableModShare, { modId: rawId });
+  return mod ? buildModOpenGraphData(mod, origin, gameSlug) : null;
+}
+
+async function handleSetPage(
+  api: WorkerEnv["API"],
+  origin: string,
+  gameSlug: string,
+  rawName: string
+): Promise<OgData | null> {
+  const name = codeModSetNameSchema.safeParse(rawName);
+  if (!name.success) return null;
+  const set = await loadShare(() => api.getSetShare(name.data), NullableSetShare, {
+    setName: rawName,
+  });
+  return set ? buildSetOpenGraphData(set, origin, gameSlug) : null;
+}
+
+// ─── Share cards ────────────────────────────────────────────────
+
+const CARD_PATH = /^\/cards\/(mods|sets)\/([^/]+)\.png$/;
+// A day: a card changes with a new version (its URL's ?v=), and rarely
+// otherwise (a publisher's name, a mod's netplay class).
+const CARD_CACHE_CONTROL = "public, max-age=86400";
+
+export function isCardPath(pathname: string): boolean {
+  return CARD_PATH.test(pathname);
+}
+
+function notFound(): Response {
+  return new Response("Not found", {
+    status: 404,
+    headers: {
+      "content-type": "text/plain; charset=UTF-8",
+      "cache-control": "public, max-age=300",
+    },
+  });
+}
+
+/**
+ * A mod's or set's share card as a PNG, drawn on first request and kept in
+ * `cache` by URL. A 404 for anything the catalog doesn't show, which with
+ * code mods off is everything.
+ */
+export async function handleCard(
+  request: Request,
+  env: Pick<WorkerEnv, "API" | "ASSETS">,
+  cache: Pick<Cache, "match" | "put">,
+  ctx: Pick<ExecutionContext, "waitUntil">
+): Promise<Response> {
+  const api = env.API;
+  const url = new URL(request.url);
+  const match = CARD_PATH.exec(url.pathname);
+  if (!match || (request.method !== "GET" && request.method !== "HEAD")) return notFound();
+  const cacheKey = new Request(url.toString(), { method: "GET" });
+  const cached = await cache.match(cacheKey);
+  if (cached) return cached;
+
+  const [, kind, key] = match;
+  let card: Omit<CardInput, "iconData"> | null = null;
+  let iconSha256: string | null = null;
+  if (kind === "mods") {
+    const id = codeModSlugSchema.safeParse(key);
+    const mod = id.success
+      ? await loadShare(() => api.getModShare(id.data), NullableModShare, { modId: key })
+      : null;
+    if (mod) {
+      card = modCard(mod);
+      iconSha256 = mod.icon;
+    }
+  } else {
+    const name = codeModSetNameSchema.safeParse(key);
+    const set = name.success
+      ? await loadShare(() => api.getSetShare(name.data), NullableSetShare, { setName: key })
+      : null;
+    if (set) card = setCard(set);
+  }
+  if (!card) return notFound();
+
+  const icon = iconSha256
+    ? await loadShare(() => api.getShareIcon(iconSha256), ShareIconSchema, { iconSha256 })
+    : null;
+  // The renderer and its WebAssembly load only for a card.
+  const { CARD_FONT_FILES, pngDataUrl, renderCard } = await import("./share-card/render");
+  const font = async (path: string) => {
+    const res = await env.ASSETS.fetch(new Request(new URL(path, url.origin)));
+    if (!res.ok) throw new Error(`The card font ${path} answered ${res.status}`);
+    return res.arrayBuffer();
+  };
+  const [regular, bold] = await Promise.all([
+    font(CARD_FONT_FILES.regular),
+    font(CARD_FONT_FILES.bold),
+  ]);
+  const png = await renderCard(
+    { ...card, iconData: icon ? pngDataUrl(icon) : null },
+    { regular, bold }
+  );
+  const response = new Response(new Uint8Array(png), {
+    headers: { "content-type": "image/png", "cache-control": CARD_CACHE_CONTROL },
+  });
+  ctx.waitUntil(cache.put(cacheKey, response.clone()));
+  return response;
+}
+
 // ─── Route matching ─────────────────────────────────────────────
 
 async function getOgDataForPath(
   api: WorkerEnv["API"],
   assetsBaseUrl: string,
+  origin: string,
   pathname: string
 ): Promise<OgData | "not-found" | null> {
+  // /games/melee/mods/:modId and /games/melee/sets/:setName (code mods are
+  // Melee's only)
+  const modMatch = pathname.match(/^\/games\/([^/]+)\/mods\/([^/]+)\/?$/);
+  if (modMatch && modMatch[1] === PRIMARY_GAME_SLUG) {
+    return handleModPage(api, origin, modMatch[1], modMatch[2]);
+  }
+  const setMatch = pathname.match(/^\/games\/([^/]+)\/sets\/([^/]+)\/?$/);
+  if (setMatch && setMatch[1] === PRIMARY_GAME_SLUG) {
+    return handleSetPage(api, origin, setMatch[1], setMatch[2]);
+  }
+
   // /games/:slug/packs/:packSlug
   const packMatch = pathname.match(/^\/games\/([^/]+)\/packs\/([^/]+)\/?$/);
   if (packMatch) {
@@ -276,7 +493,7 @@ function formatDate(value: SitemapDate): string | null {
   }
 }
 
-export function buildSitemapXml(data: PublicSitemapData): string {
+export function buildSitemapXml(data: PublicSitemap): string {
   const BASE = "https://textures.gg";
   const urls: string[] = [];
 
@@ -308,13 +525,25 @@ export function buildSitemapXml(data: PublicSitemapData): string {
     entry(`${BASE}/users/${encodeURIComponent(user.name)}`, "0.5", formatDate(user.updatedAt));
   }
 
+  // Code mods and sets (empty while code mods are off for people signed out)
+  for (const mod of data.mods) {
+    entry(`${BASE}/games/${PRIMARY_GAME_SLUG}/mods/${mod.id}`, "0.8", formatDate(mod.updatedAt));
+  }
+  for (const set of data.sets) {
+    entry(`${BASE}/games/${PRIMARY_GAME_SLUG}/sets/${set.name}`, "0.7");
+  }
+
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>`;
 }
 
 // ─── Main handler ───────────────────────────────────────────────
 
 export default {
-  async fetch(request: Request, env: WorkerEnv): Promise<Response> {
+  async fetch(
+    request: Request,
+    env: WorkerEnv,
+    ctx: Pick<ExecutionContext, "waitUntil">
+  ): Promise<Response> {
     const url = new URL(request.url);
     const userAgent = request.headers.get("user-agent");
 
@@ -330,7 +559,7 @@ export default {
     // Dynamic sitemap generation
     if (url.pathname === "/sitemap.xml") {
       try {
-        const xml = buildSitemapXml(await env.API.getSitemap());
+        const xml = buildSitemapXml(PublicSitemapSchema.parse(await env.API.getSitemap()));
         return withResponseHeaders(
           new Response(xml, {
             headers: {
@@ -356,6 +585,13 @@ export default {
           env
         );
       }
+    }
+
+    if (isCardPath(url.pathname)) {
+      return withResponseHeaders(
+        await handleCard(request, env, await caches.open("share-cards"), ctx),
+        env
+      );
     }
 
     // Mod docs, as tgg-melee links them: a redirect to the release's docs,
@@ -408,12 +644,12 @@ export default {
     }
 
     // Only intercept for social bots on HTML pages (not assets)
-    if (isSocialBot(userAgent) && !url.pathname.match(/\.\w+$/)) {
+    if (isSocialBot(userAgent) && !isFilePath(url.pathname)) {
       logger.info(
         { userAgent, path: url.pathname, apiBase: env.API_BASE_URL },
         "Bot detected, resolving OG data"
       );
-      const ogData = await getOgDataForPath(env.API, env.ASSETS_BASE_URL, url.pathname);
+      const ogData = await getOgDataForPath(env.API, env.ASSETS_BASE_URL, url.origin, url.pathname);
       logger.info(
         { ogData, path: url.pathname },
         ogData ? "OG data resolved" : "No OG data for path"
