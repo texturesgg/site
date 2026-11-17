@@ -11,6 +11,18 @@ import { RELAY_TTL_S } from "./protocol";
  * TURN_DEV_PASS stand for them: a local TURN server's static credentials.
  */
 
+/**
+ * Relayed sessions a day across every account (wrangler.toml
+ * RELAY_TOTAL_DAILY): the cap on the whole relay bill, beside each account's
+ * RELAY_DAILY. 0 turns the relay off. A value that isn't a whole number
+ * counts as 0, so a typo closes the relay rather than opening it.
+ */
+export function relayTotalDaily(env: Pick<MeetEnv, "RELAY_TOTAL_DAILY">): number {
+  const cap = z.coerce.number().int().min(0).safeParse(env.RELAY_TOTAL_DAILY);
+  if (!cap.success) console.error("RELAY_TOTAL_DAILY isn't a whole number; the relay is off");
+  return cap.success ? cap.data : 0;
+}
+
 export type RelayCredentials = { server: string; username: string; credential: string };
 
 /** Cloudflare's answer: one ICE server or a list, each with one URL or a list. */

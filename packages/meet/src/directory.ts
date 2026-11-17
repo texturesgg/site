@@ -8,6 +8,9 @@ import { DELETE_BATCH, QueueKey } from "./queue";
  * match screen, the site). One instance, "all". Each Queue DO tells it its
  * count at most every 10 seconds; a game asks its own queue directly.
  *
+ * It also counts relayed sessions across every account (takeRelay), against
+ * RELAY_TOTAL_DAILY.
+ *
  * Limits: MAX_QUEUES rows; a row nobody searched in for STALE_MS goes; a
  * list is at most MEET_QUEUES_MAX rows.
  */
@@ -25,6 +28,10 @@ const QueueRow = QueueUpdate.extend({ updated: z.number() });
 type QueueRow = z.infer<typeof QueueRow>;
 
 const ListLimit = z.number().int().min(1).max(MEET_QUEUES_MAX);
+
+const RelayCap = z.number().int().min(0);
+/** Today's relayed sessions across every account (UTC days). */
+const RelayCount = z.object({ day: z.string(), count: z.number().int() });
 
 export class Directory extends DurableObject<MeetEnv> {
   private rows = new Map<string, QueueRow>();
@@ -61,6 +68,17 @@ export class Directory extends DurableObject<MeetEnv> {
       .sort((a, b) => b.searching - a.searching || a.label.localeCompare(b.label))
       .slice(0, limit)
       .map(({ mode, label, searching }) => ({ mode, label, searching }));
+  }
+
+  /** Counts one more relayed session today: false once `cap` is reached. */
+  async takeRelay(input: number): Promise<boolean> {
+    const cap = RelayCap.parse(input);
+    const day = new Date().toISOString().slice(0, 10);
+    const stored = RelayCount.safeParse(await this.ctx.storage.get("relays"));
+    const count = stored.success && stored.data.day === day ? stored.data.count : 0;
+    if (count >= cap) return false;
+    await this.ctx.storage.put("relays", { day, count: count + 1 });
+    return true;
   }
 
   /** Drops rows of queues that went quiet: empty, or not heard from in

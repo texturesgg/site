@@ -55,15 +55,18 @@ namespace_id = "1101"
 limit = 10
 period = 60
 
+# RELAY_TOTAL_DAILY: relayed sessions a day across every account, the cap on
+# the relay bill (src/relay.ts). 0 turns the relay off.
 [vars]
 ENVIRONMENT = "development"
+RELAY_TOTAL_DAILY = "300"
 
 [observability]
 enabled = true
 
 [env.production]
 name = "tgg-meet"
-vars = { ENVIRONMENT = "production" }
+vars = { ENVIRONMENT = "production", RELAY_TOTAL_DAILY = "300" }
 routes = [{ pattern = "meet.textures.gg", custom_domain = true }]
 
 [[env.production.durable_objects.bindings]]
@@ -100,7 +103,7 @@ period = 60
 
 [env.preview]
 name = "tgg-meet-preview"
-vars = { ENVIRONMENT = "preview" }
+vars = { ENVIRONMENT = "preview", RELAY_TOTAL_DAILY = "20" }
 routes = [{ pattern = "meet-preview.textures.gg", custom_domain = true }]
 
 [[env.preview.durable_objects.bindings]]
