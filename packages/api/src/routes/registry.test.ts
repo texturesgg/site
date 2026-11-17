@@ -111,7 +111,7 @@ type Catalog = {
     id: string;
     version: string;
     netplay: string;
-    publisher: { name: string; official: boolean };
+    publisher: { id: string; name: string; official: boolean };
     package: { url: string; sha256: string; size: number };
   }[];
 };
@@ -172,13 +172,15 @@ describe("catalog", () => {
   it("says who publishes each mod, and a new publisher is a new snapshot", async () => {
     const before = await catalog(LINUX);
     const ucf = () => before.mods.find((mod) => mod.id === "tgg.ucf");
-    expect(ucf()?.publisher).toEqual({ name: "owner", official: false });
+    // Named by the account, which a rename or an admin-set name never changes.
+    expect(ucf()?.publisher).toEqual({ id: "owner", name: "owner", official: false });
     await db
       .update(codeMods)
       .set({ publisherName: "textures.gg", official: true })
       .where(eq(codeMods.id, "tgg.ucf"));
     const after = await catalog(LINUX);
     expect(after.mods.find((mod) => mod.id === "tgg.ucf")?.publisher).toEqual({
+      id: "owner",
       name: "textures.gg",
       official: true,
     });
@@ -432,7 +434,7 @@ describe("mods", () => {
       name: "tgg.ucf",
       description: null,
       author: "owner",
-      publisher: { name: "owner", official: false },
+      publisher: { id: "owner", name: "owner", official: false },
       icon: { url: `http://localhost/api/registry/images/${icon}.png`, width: 64, height: 64 },
       tags: ["competitive", "netplay"],
       installs: expect.any(Number),
