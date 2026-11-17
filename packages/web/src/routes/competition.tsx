@@ -11,7 +11,7 @@ import { color, font, radius, space, text } from "@/ui/tokens.stylex";
 
 // The December 2026 mod competition. A shell behind the code-mods flag: what
 // isn't decided yet shows as "To confirm", and the rules are a draft. The
-// voting itself happens on a third-party platform, not here.
+// way voting works isn't decided yet.
 
 const PRIZES = [
   { place: "1st", amount: "$250" },
@@ -164,9 +164,9 @@ function Competition() {
 
           <ArticleSection title="Judging">
             <p>
-              Players vote through Dec 31 on <ToConfirm>voting platform</ToConfirm>, a third-party
-              site that checks each vote comes from a real account. Jayson and Santi confirm the
-              winners from the results and announce them a few days after.
+              Players vote on textures.gg through Dec 31. <ToConfirm>how voting works</ToConfirm>{" "}
+              Jayson and Santi confirm the winners from the results and announce them a few days
+              after.
             </p>
           </ArticleSection>
 
