@@ -118,7 +118,9 @@ type ModSummary = {
   author: string;
   // Who publishes it: an admin-set name (first-party mods say "textures.gg")
   // or the author's name, and whether admins vouch for it.
-  publisher: { name: string; official: boolean };
+  // `id` is the publishing account's id, which never changes: what tgg
+  // remembers a player's trust by.
+  publisher: { id: string; name: string; official: boolean };
   icon: Image | null;
   tags: string[];
   installs: number;
@@ -155,6 +157,7 @@ const MOD_COLUMNS = {
   sourceUrl: codeMods.sourceUrl,
   installs: codeMods.downloadCount,
   author: users.name,
+  userId: codeMods.userId,
   publisherName: codeMods.publisherName,
   official: codeMods.official,
 };
@@ -165,6 +168,7 @@ type ModRow = {
   description: string | null;
   installs: number;
   author: string;
+  userId: string;
   publisherName: string | null;
   official: boolean;
 };
@@ -287,7 +291,11 @@ async function summarize(
         description:
           typeof manifest.description === "string" ? manifest.description : mod.description,
         author: mod.author,
-        publisher: { name: mod.publisherName ?? mod.author, official: mod.official },
+        publisher: {
+          id: mod.userId,
+          name: mod.publisherName ?? mod.author,
+          official: mod.official,
+        },
         icon: icon
           ? { url: imageUrl(origin, icon.sha256), width: icon.width, height: icon.height }
           : null,
@@ -382,7 +390,7 @@ const app = new Hono<HonoEnv>()
       tags: ["Registry"],
       summary: "Get the mod catalog for a game layout",
       description:
-        "tgg-mod's catalog (schema 1) for `layout`, a port's game layout id: every approved release with a successful build for it, newest first per mod. Each entry is the packed manifest with `netplay`, `publisher: {name, official}` (as the mods list gives it) and `package: {url, sha256, size}`; package URLs are content-addressed and immutable. `ids` is every mod id with an approved release, built for this layout or not. `withdrawn` lists releases a moderator pulled after approval, for every layout: `{id, version, reason, mode, sha256: [...]}`, where `mode` is `off` (tgg turns an installed copy off) or `warn` (tgg says why and leaves it on). `snapshot` names this state of the catalog. An unknown layout has no mods.",
+        "tgg-mod's catalog (schema 1) for `layout`, a port's game layout id: every approved release with a successful build for it, newest first per mod. Each entry is the packed manifest with `netplay`, `publisher: {id, name, official}` (as the mods list gives it) and `package: {url, sha256, size}`; package URLs are content-addressed and immutable. `ids` is every mod id with an approved release, built for this layout or not. `withdrawn` lists releases a moderator pulled after approval, for every layout: `{id, version, reason, mode, sha256: [...]}`, where `mode` is `off` (tgg turns an installed copy off) or `warn` (tgg says why and leaves it on). `snapshot` names this state of the catalog. An unknown layout has no mods.",
       parameters: [{ name: "layout", in: "query", required: true, schema: { type: "string" } }],
       responses: {
         200: { description: "The catalog" },
@@ -411,6 +419,7 @@ const app = new Hono<HonoEnv>()
               signature: codeModBuilds.signature,
               netplay: codeModBuilds.netplay,
               author: users.name,
+              userId: codeMods.userId,
               publisherName: codeMods.publisherName,
               official: codeMods.official,
             })
@@ -494,7 +503,11 @@ const app = new Hono<HonoEnv>()
       const mods = entries.map((row) => ({
         ...row.manifest,
         netplay: row.netplay,
-        publisher: { name: row.publisherName ?? row.author, official: row.official },
+        publisher: {
+          id: row.userId,
+          name: row.publisherName ?? row.author,
+          official: row.official,
+        },
         package: {
           url: packageUrl(origin, row.sha256),
           sha256: row.sha256,
@@ -510,7 +523,7 @@ const app = new Hono<HonoEnv>()
             `layout ${layout}`,
             ...entries.map(
               (row) =>
-                `${row.id} ${row.version} ${row.sha256} ${row.publisherName ?? row.author} ${row.official}`
+                `${row.id} ${row.version} ${row.sha256} ${row.userId} ${row.publisherName ?? row.author} ${row.official}`
             ),
             `ids ${ids.join(" ")}`,
             ...withdrawn.map(
@@ -574,7 +587,7 @@ const app = new Hono<HonoEnv>()
       tags: ["Registry"],
       summary: "List mods",
       description:
-        "Every mod with an approved release, paginated (`page`, `pageSize` up to 100, default 50), in `sort` order: `official` (the default) lists official mods first, then most installed; `installs` is most installed alone. Each is described by its newest approved release: `{id, name, description, author, publisher: {name, official}, icon: {url, width, height} | null, tags, installs, version, updatedAt, sets, targets, netplay, kind}`. `publisher.name` is the name an admin set for the mod (first-party mods say textures.gg) or else the author's account name; `official` marks mods admins vouch for. `author` is the author's account name. `targets` are the systems (`linux`, `windows`, `macos`) that release has builds for on `port`, the newest tgg-melee release with active layouts. `kind` is `script`, `native` or `content` (null for a release checked before kinds were recorded). `installs` counts first installs: package downloads with `for=install`.",
+        "Every mod with an approved release, paginated (`page`, `pageSize` up to 100, default 50), in `sort` order: `official` (the default) lists official mods first, then most installed; `installs` is most installed alone. Each is described by its newest approved release: `{id, name, description, author, publisher: {id, name, official}, icon: {url, width, height} | null, tags, installs, version, updatedAt, sets, targets, netplay, kind}`. `publisher.name` is the name an admin set for the mod (first-party mods say textures.gg) or else the author's account name; `official` marks mods admins vouch for; `id` is the publishing account's id, which never changes. `author` is the author's account name. `targets` are the systems (`linux`, `windows`, `macos`) that release has builds for on `port`, the newest tgg-melee release with active layouts. `kind` is `script`, `native` or `content` (null for a release checked before kinds were recorded). `installs` counts first installs: package downloads with `for=install`.",
       responses: {
         200: { description: "A page of mods" },
         400: { description: "Invalid request" },
