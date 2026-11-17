@@ -12,7 +12,7 @@ const REPORT_PATH = "/api/reports";
  * Get the client IP from the request.
  * CF Workers set CF-Connecting-IP header automatically.
  */
-export function getClientIp(c: Context<HonoEnv>): string {
+export function getClientIp(c: { req: { header(name: string): string | undefined } }): string {
   return c.req.header("cf-connecting-ip") ?? c.req.header("x-forwarded-for") ?? "unknown";
 }
 

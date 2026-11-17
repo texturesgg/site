@@ -33,6 +33,8 @@ import filesRoutes from "./routes/files";
 import flagsRoutes from "./routes/flags";
 import meetRoutes from "./routes/meet";
 import modDocsRoutes from "./routes/mod-docs";
+import competitionRoutes from "./routes/competition";
+import adminCompetitionRoutes from "./routes/admin-competition";
 import gamesRoutes from "./routes/games";
 import packsRoutes from "./routes/packs";
 import registryRoutes from "./routes/registry";
@@ -70,6 +72,7 @@ const app = new Hono<HonoEnv>()
   .route("/api/users", usersRoutes)
   .route("/api/reports", reportsRoutes)
   .route("/api/sitemap", sitemapRoutes)
+  .route("/api/admin/competition", adminCompetitionRoutes)
   .route("/api/admin", adminRoutes)
   .route("/api/code-mods", codeModsRoutes)
   .route("/api/code-mod-releases", codeModReleasesRoutes)
@@ -77,7 +80,8 @@ const app = new Hono<HonoEnv>()
   .route("/api/external-builds", externalBuildsRoutes)
   .route("/api/editor", editorRoutes)
   .route("/api/meet", meetRoutes)
-  .route("/api/docs/mods", modDocsRoutes);
+  .route("/api/docs/mods", modDocsRoutes)
+  .route("/api/competition", competitionRoutes);
 
 // The OpenAPI document and its reference page. Both answer 404 in production;
 // mounted off the chain so neither joins the hono/client AppType.

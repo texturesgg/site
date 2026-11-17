@@ -218,6 +218,13 @@
       "when": 1794899444772,
       "tag": "0030_set_left_out",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1794900648608,
+      "tag": "0031_competition_voting",
+      "breakpoints": true
     }
   ]
 }

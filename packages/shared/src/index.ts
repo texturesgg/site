@@ -7,3 +7,4 @@ export * from "./queue.js";
 export * from "./types/index.js";
 export * from "./utils/index.js";
 export * from "./slippi.js";
+export * from "./competition.js";
