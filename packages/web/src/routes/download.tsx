@@ -44,7 +44,8 @@ const megabytes = (bytes: number) => `${Math.max(0.1, bytes / 1_000_000).toFixed
 
 export const Route = createFileRoute("/download")({
   loader: async ({ context }) => {
-    if (await featureFlag(context.queryClient, "codeMods")) {
+    // A flag that can't be read leaves the page as it is with the flag off.
+    if (await featureFlag(context.queryClient, "codeMods").catch(() => false)) {
       await context.queryClient.ensureQueryData(studioReleaseQuery);
     }
   },
@@ -74,11 +75,18 @@ const styles = stylex.create({
     backgroundColor: color.surface,
     listStyle: "none",
   },
-  platformText: { display: "flex", flexDirection: "column", gap: space.xxs, minWidth: 0 },
+  platformText: {
+    display: "flex",
+    flexDirection: "column",
+    gap: space.xxs,
+    flex: "1 1 240px",
+    minWidth: 0,
+  },
   platformName: { fontSize: text.xl, fontWeight: 700 },
   platformMeta: { fontSize: text.sm, color: color.muted },
   file: { fontFamily: font.mono, fontSize: text.xs, color: color.muted, overflowWrap: "anywhere" },
-  actions: { display: "flex", alignItems: "center", gap: space.xs },
+  actions: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: space.xxs },
+  others: { display: "flex", gap: space.sm, fontSize: text.sm },
   command: {
     margin: 0,
     padding: space.md,
@@ -180,16 +188,6 @@ function PlatformRow({ name, assets }: { name: string; assets: StudioAsset[] }) 
       </span>
       {main && (
         <span {...stylex.props(styles.actions)}>
-          {others.map((asset) => (
-            <AnchorButton
-              key={asset.url}
-              href={asset.url}
-              variant="ghost"
-              aria-label={`${asset.kind} for ${name}`}
-            >
-              {asset.kind}
-            </AnchorButton>
-          ))}
           <AnchorButton
             href={main.url}
             variant="primary"
@@ -198,6 +196,19 @@ function PlatformRow({ name, assets }: { name: string; assets: StudioAsset[] }) 
           >
             Download
           </AnchorButton>
+          {others.length > 0 && (
+            <span {...stylex.props(styles.others)}>
+              {others.map((asset) => (
+                <TextAnchor
+                  key={asset.url}
+                  href={asset.url}
+                  aria-label={`${asset.kind} for ${name}, ${megabytes(asset.size)}`}
+                >
+                  {asset.kind}
+                </TextAnchor>
+              ))}
+            </span>
+          )}
         </span>
       )}
     </li>
