@@ -780,6 +780,8 @@ export const codeModSetMods = sqliteTable(
       .references(() => codeModSets.name, { onDelete: "cascade" }),
     mod: text("mod").notNull(),
     range: text("range").notNull(),
+    // Left out: the mod doesn't load even when a set this one builds on lists it.
+    leftOut: integer("left_out", { mode: "boolean" }).default(false).notNull(),
     // The order an admin listed the mods in.
     position: integer("position").notNull(),
   },

@@ -319,6 +319,16 @@ describe("sets", () => {
     // A save that leaves the queue out keeps it.
     expect(await narrowed.json()).toMatchObject({ version: 2, queue: true });
 
+    // Leaving a mod out is a change to the list.
+    const leftOut = await putSet("competitive", {
+      title: "Competitive rules",
+      mods: [
+        { id: "tgg.menu-art", range: "*", left_out: true },
+        { id: "tgg.ucf", range: "~1.1" },
+      ],
+    });
+    expect(await leftOut.json()).toMatchObject({ version: 3 });
+
     const response = await get("/api/registry/sets");
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual([
@@ -326,10 +336,12 @@ describe("sets", () => {
         name: "competitive",
         title: "Competitive rules",
         description: "",
-        version: 2,
+        version: 3,
         queue: true,
+        owner: { id: "official", name: "textures.gg", official: true },
+        builds_on: [],
         mods: [
-          { id: "tgg.menu-art", range: "*" },
+          { id: "tgg.menu-art", range: "*", left_out: true },
           { id: "tgg.ucf", range: "~1.1" },
         ],
       },

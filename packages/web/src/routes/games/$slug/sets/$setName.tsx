@@ -22,8 +22,10 @@ export const Route = createFileRoute("/games/$slug/sets/$setName")({
     ]);
     const set = sets.find((candidate) => candidate.name === params.setName);
     if (!set) throw notFound();
-    // The set's mods in its order; one the registry no longer lists drops out.
+    // The set's mods in its order; one the registry no longer lists, or one
+    // left out of a set it builds on, drops out.
     const listed = set.mods.flatMap((entry) => {
+      if (entry.left_out) return [];
       const mod = mods.items.find((candidate) => candidate.id === entry.id);
       return mod ? [mod] : [];
     });
@@ -60,7 +62,7 @@ function SetPage() {
             </ModEyebrow>
           }
           title={set.title}
-          byline={`${set.mods.length} ${set.mods.length === 1 ? "mod" : "mods"} · version ${set.version}`}
+          byline={`By ${set.owner.name} · ${mods.length} ${mods.length === 1 ? "mod" : "mods"} · version ${set.version}`}
         >
           {set.description && <p {...stylex.props(styles.description)}>{set.description}</p>}
           <InstallActions

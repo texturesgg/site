@@ -78,6 +78,39 @@ export const codeModSetNameSchema = z
   .max(64, "A set name is at most 64 characters")
   .regex(/^[a-z0-9][a-z0-9_-]*$/, "Use lowercase letters, digits, '-' and '_'");
 
+/** A mod line in a set. `left_out` leaves out a mod that a set it builds on lists. */
+export const codeModSetModSchema = z.object({
+  id: codeModSlugSchema,
+  range: codeModRangeSchema,
+  left_out: z.boolean().optional(),
+});
+export type CodeModSetMod = z.infer<typeof codeModSetModSchema>;
+
+/** Who publishes a mod or owns a set: the account's id, the name shown, and whether admins vouch for it. */
+export const codeModPublisherSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  official: z.boolean(),
+});
+export type CodeModPublisher = z.infer<typeof codeModPublisherSchema>;
+
+/**
+ * A set as GET /api/registry/sets lists it. `builds_on` names the sets it
+ * builds on by link name (none yet). A mod line has `left_out: true` only
+ * when it's left out; readers take a missing one as false.
+ */
+export const registrySetSchema = z.object({
+  name: codeModSetNameSchema,
+  title: z.string(),
+  description: z.string(),
+  version: z.number().int().min(1),
+  queue: z.boolean(),
+  owner: codeModPublisherSchema,
+  builds_on: z.array(codeModSetNameSchema),
+  mods: z.array(codeModSetModSchema),
+});
+export type RegistrySet = z.infer<typeof registrySetSchema>;
+
 /** A set as an admin writes it; the registry keeps its version. */
 export const putCodeModSetSchema = z.object({
   title: z.string().trim().min(1, "A title is required").max(80),
@@ -85,7 +118,7 @@ export const putCodeModSetSchema = z.object({
   /** A standing matchmaking queue. Left out, a saved set keeps what it had. */
   queue: z.boolean().optional(),
   mods: z
-    .array(z.object({ id: codeModSlugSchema, range: codeModRangeSchema }))
+    .array(codeModSetModSchema)
     .max(200)
     .refine(
       (mods) => new Set(mods.map((mod) => mod.id)).size === mods.length,
