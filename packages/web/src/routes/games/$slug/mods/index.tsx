@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { requireFeatureFlag } from "@/lib/feature-flags";
 import { EmptyState } from "@/ui/patterns/EmptyState";
+import { FindMatch } from "@/ui/patterns/FindMatch";
 import { GameSections } from "@/ui/patterns/GameSections";
 import { layout } from "@/ui/patterns/layout";
 import { ModGrid } from "@/ui/patterns/ModTile";
@@ -117,6 +118,8 @@ function Mods() {
       >
         <GameSections slug={game.slug} />
       </PageHeader>
+
+      {game.slug === PRIMARY_GAME_SLUG && words.length === 0 && <FindMatch />}
 
       {sets.length > 0 && words.length === 0 && (
         <section {...stylex.props(styles.section)}>
