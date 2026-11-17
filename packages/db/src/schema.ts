@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { CODE_MOD_WITHDRAW_MODES } from "@vgskins/shared";
+import { CODE_MOD_KINDS, CODE_MOD_WITHDRAW_MODES } from "@vgskins/shared";
 import type { SlippiCodeDecl, SupportLink } from "@vgskins/shared";
 import {
   type AnySQLiteColumn,
@@ -581,7 +581,7 @@ export const codeModReleases = sqliteTable(
     // (Luau under scripts/, one package for every platform and layout, its
     // class from its scripts), "native" (C, built per layout) or "content"
     // (files and assets alone). Null until then.
-    kind: text("kind", { enum: ["content", "script", "native"] }),
+    kind: text("kind", { enum: CODE_MOD_KINDS }),
     // The store listing, read from the source at `commitSha` when the release
     // is recorded, so review covers it: the README (markdown), this version's
     // CHANGELOG.md section, and the manifest's `tags` and `homepage`. Its

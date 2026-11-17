@@ -1,7 +1,12 @@
 import { logger } from "@vgskins/logger";
 import { describe, expect, it, vi } from "vitest";
+import type { ModShare } from "@vgskins/shared";
+import { modCard } from "./share-card/view";
 import worker, {
+  buildModOpenGraphData,
+  buildOgTags,
   buildPackOpenGraphData,
+  handleCard,
   buildSitemapXml,
   buildUserOpenGraphData,
   resolveOpenGraphData,
@@ -125,12 +130,16 @@ describe("public catalog RPC rendering", () => {
         },
       ],
       users: [{ name: "Ciao", updatedAt: new Date("2026-08-03T00:00:00Z") }],
+      mods: [{ id: "tgg.ucf", updatedAt: new Date("2026-11-11T00:00:00Z") }],
+      sets: [{ name: "competitive" }],
     });
 
     expect(xml).toContain("https://textures.gg/games/melee");
     expect(xml).toContain("https://textures.gg/games/melee/packs/falcon-pack");
     expect(xml).toContain("https://textures.gg/users/Ciao");
     expect(xml).toContain("<lastmod>2026-08-02</lastmod>");
+    expect(xml).toContain("https://textures.gg/games/melee/mods/tgg.ucf");
+    expect(xml).toContain("https://textures.gg/games/melee/sets/competitive");
   });
 
   it("keeps a user name from breaking out of its sitemap entry", () => {
@@ -138,6 +147,8 @@ describe("public catalog RPC rendering", () => {
       games: [],
       packs: [],
       users: [{ name: "a&b</loc><x>", updatedAt: new Date("2026-08-03T00:00:00Z") }],
+      mods: [],
+      sets: [],
     });
 
     expect(xml).toContain("<loc>https://textures.gg/users/a%26b%3C%2Floc%3E%3Cx%3E</loc>");
@@ -217,12 +228,16 @@ describe("fetch handler", () => {
       getPackOpenGraph: async () => null,
       getUserOpenGraph: async () => null,
       getTggMeleeReleases: async () => [],
+      getModShare: async () => null,
+      getSetShare: async () => null,
+      getShareIcon: async () => null,
     },
   };
+  const ctx = { waitUntil: () => undefined };
 
   it("answers a failed sitemap with a 503 nothing caches, not the HTML shell", async () => {
     vi.spyOn(logger, "error").mockImplementation(() => undefined);
-    const response = await worker.fetch(new Request("https://textures.gg/sitemap.xml"), env);
+    const response = await worker.fetch(new Request("https://textures.gg/sitemap.xml"), env, ctx);
     expect(response.status).toBe(503);
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(response.headers.get("retry-after")).toBe("300");
@@ -231,9 +246,104 @@ describe("fetch handler", () => {
   it("answers a hashed asset this deployment lacks with a 404, not the HTML shell", async () => {
     const response = await worker.fetch(
       new Request("https://textures.gg/assets/index-0ld0ld0l.js"),
-      env
+      env,
+      ctx
     );
     expect(response.status).toBe(404);
     expect(response.headers.get("cache-control")).toBe("no-store");
+  });
+});
+
+describe("code mod links", () => {
+  const mod: ModShare = {
+    id: "tgg.ucf",
+    name: "UCF",
+    description: null,
+    publisher: { name: "textures.gg", official: true },
+    version: "1.0.0-rc.1",
+    kind: "script",
+    netplay: "code",
+    icon: null,
+  };
+
+  it("points a mod's card at its version, so a new release gets a new card", () => {
+    const og = buildModOpenGraphData(mod, "https://textures.gg", "melee");
+    expect(og.image).toBe("https://textures.gg/cards/mods/tgg.ucf.png?v=1.0.0-rc.1");
+    expect(og.url).toBe("https://textures.gg/games/melee/mods/tgg.ucf");
+    expect(og.description).toBe("A Melee mod by textures.gg.");
+    const tags = buildOgTags(og);
+    expect(tags).toContain(
+      '<link rel="canonical" href="https://textures.gg/games/melee/mods/tgg.ucf" />'
+    );
+    expect(tags).toContain('<meta name="twitter:card" content="summary_large_image" />');
+  });
+
+  it("says what kind of mod it is and whether netplay needs it on the card", () => {
+    expect(modCard(mod).chips).toEqual(["Script", "Has to match in netplay"]);
+    expect(modCard({ ...mod, kind: "content", netplay: "display" }).chips).toEqual([
+      "Display only",
+    ]);
+  });
+
+  // With code mods off for people signed out, the catalog answers null.
+  const flagOff: WorkerEnv = {
+    ENVIRONMENT: "production",
+    API_BASE_URL: "https://api.textures.gg",
+    ASSETS_BASE_URL: "https://assets.textures.gg",
+    ASSETS: {
+      fetch: async () =>
+        new Response(
+          '<html><head><meta charset="UTF-8" /><title>textures.gg</title></head></html>',
+          {
+            headers: { "content-type": "text/html" },
+          }
+        ),
+    },
+    API: {
+      getSitemap: async () => null,
+      getPackOpenGraph: async () => null,
+      getUserOpenGraph: async () => null,
+      getTggMeleeReleases: async () => [],
+      getModShare: async () => null,
+      getSetShare: async () => null,
+      getShareIcon: async () => null,
+    },
+  };
+
+  it("has no card for a mod or set the catalog doesn't show", async () => {
+    const cache = { match: async () => undefined, put: async () => undefined };
+    for (const path of ["/cards/mods/tgg.ucf.png", "/cards/sets/competitive.png"]) {
+      const response = await handleCard(new Request(`https://textures.gg${path}`), flagOff, cache, {
+        waitUntil: () => undefined,
+      });
+      expect(response.status).toBe(404);
+    }
+  });
+
+  it("gives crawlers a mod's tags, though its id looks like a file name", async () => {
+    const response = await worker.fetch(
+      new Request("https://textures.gg/games/melee/mods/tgg.ucf", {
+        headers: { "user-agent": "Twitterbot/1.0" },
+      }),
+      { ...flagOff, API: { ...flagOff.API, getModShare: async () => mod } },
+      { waitUntil: () => undefined }
+    );
+    const html = await response.text();
+    expect(html).toContain("<title>UCF - textures.gg</title>");
+    expect(html).toContain(
+      '<meta property="og:image" content="https://textures.gg/cards/mods/tgg.ucf.png?v=1.0.0-rc.1" />'
+    );
+  });
+
+  it("gives crawlers the plain page for a mod the catalog doesn't show", async () => {
+    const response = await worker.fetch(
+      new Request("https://textures.gg/games/melee/mods/tgg.ucf", {
+        headers: { "user-agent": "Twitterbot/1.0" },
+      }),
+      flagOff,
+      { waitUntil: () => undefined }
+    );
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain("<title>textures.gg</title>");
   });
 });

@@ -20,6 +20,7 @@
   "dependencies": {
     "@base-ui/react": "1.8.0",
     "@marsidev/react-turnstile": "^1.5.4",
+    "@resvg/resvg-wasm": "2.6.2",
     "@stylexjs/stylex": "0.19.1",
     "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-router": "1.170.38",
@@ -31,6 +32,7 @@
     "react-dom": "catalog:",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
+    "satori": "0.29.0",
     "sonner": "^2.0.7",
     "zod": "^4.4.3"
   },
