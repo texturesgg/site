@@ -1,8 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
+import { encode } from "uqr";
 import { authClient } from "@/lib/auth-client";
 import { Button, TextAnchor, TextField } from "../primitives";
-import { color, font, space, text } from "../tokens.stylex";
+import { color, font, radius, space, text } from "../tokens.stylex";
 
 // Two-factor sign-in, which moderators and admins need: the code a signed-in
 // session or an email sign-in asks for, and turning it on.
@@ -20,6 +21,7 @@ const styles = stylex.create({
     wordBreak: "break-all",
     color: color.text,
   },
+  qr: { display: "block", width: "200px", height: "200px", borderRadius: radius.md },
   codes: {
     display: "grid",
     gridTemplateColumns: "repeat(2, max-content)",
@@ -92,7 +94,33 @@ export function TwoFactorCodeForm({ onDone }: { onDone: () => void }) {
   );
 }
 
-/** Turns two-factor sign-in on: the key for the app, backup codes, then a code. */
+/** The quiet margin QR readers expect around the code, in modules. */
+const QR_MARGIN = 4;
+
+/**
+ * A QR code drawn in the browser, dark on light so every reader scans it. The
+ * value never leaves the page.
+ */
+function QrCode({ value, label }: { value: string; label: string }) {
+  const { data, size } = encode(value, { ecc: "M", border: 0 });
+  const span = size + QR_MARGIN * 2;
+  let path = "";
+  data.forEach((row, y) =>
+    row.forEach((dark, x) => {
+      if (dark) path += `M${x + QR_MARGIN} ${y + QR_MARGIN}h1v1h-1z`;
+    })
+  );
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${span} ${span}" shape-rendering="crispEdges"><rect width="${span}" height="${span}" fill="#FFFFFF"/><path d="${path}" fill="#000000"/></svg>`;
+  return (
+    <img
+      src={`data:image/svg+xml,${encodeURIComponent(svg)}`}
+      alt={label}
+      {...stylex.props(styles.qr)}
+    />
+  );
+}
+
+/** Turns two-factor sign-in on: the code or key for the app, backup codes, then a code. */
 export function TwoFactorSetup({ onDone }: { onDone: () => void }) {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -140,9 +168,11 @@ export function TwoFactorSetup({ onDone }: { onDone: () => void }) {
   return (
     <div {...stylex.props(styles.body)}>
       <p {...stylex.props(styles.message)}>
-        Add textures.gg to your authenticator app with this key, or{" "}
+        Scan this with your authenticator app, or{" "}
         <TextAnchor href={setup.uri}>open it in the app</TextAnchor> on your phone.
       </p>
+      <QrCode value={setup.uri} label="QR code for your authenticator app" />
+      <p {...stylex.props(styles.message)}>Can't scan it? Enter this key instead.</p>
       <p {...stylex.props(styles.key)}>{key}</p>
       <p {...stylex.props(styles.message)}>
         Save these backup codes somewhere safe. Each one works once if you lose your phone.
