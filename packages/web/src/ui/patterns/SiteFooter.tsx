@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { DISCORD_URL, GITHUB_URL } from "@/lib/config";
+import { useFeatureFlag } from "@/lib/feature-flags";
 import { createLink } from "@tanstack/react-router";
 import type { ComponentProps, Ref } from "react";
 import { color, radius, space, text } from "../tokens.stylex";
@@ -23,6 +24,9 @@ const styles = stylex.create({
     color: color.muted,
   },
   nav: { display: "flex", flexWrap: "wrap", gap: space.xs },
+  legal: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.xs },
+  company: { margin: 0, paddingInlineEnd: space.xs },
+  legalRow: { paddingTop: 0 },
   link: {
     display: "inline-flex",
     alignItems: "center",
@@ -49,6 +53,8 @@ function FooterAnchor({
 const FooterLink = createLink(FooterAnchor);
 
 export function SiteFooter() {
+  // The legal pages are drafts behind the code-mods flag until they're approved.
+  const legal = useFeatureFlag("codeMods");
   return (
     <footer {...stylex.props(styles.footer)}>
       <div {...stylex.props(layout.container, styles.inner)}>
@@ -61,6 +67,18 @@ export function SiteFooter() {
           <FooterAnchor href={GITHUB_URL}>GitHub</FooterAnchor>
         </nav>
       </div>
+      {legal && (
+        <div {...stylex.props(layout.container, styles.inner, styles.legalRow)}>
+          <div {...stylex.props(styles.legal)}>
+            <p {...stylex.props(styles.company)}>© 2026 SaavyLab LLC</p>
+            <nav aria-label="Legal" {...stylex.props(styles.nav)}>
+              <FooterLink to="/legal/terms">Terms</FooterLink>
+              <FooterLink to="/legal/privacy">Privacy</FooterLink>
+              <FooterLink to="/legal/copyright">Copyright</FooterLink>
+            </nav>
+          </div>
+        </div>
+      )}
     </footer>
   );
 }
