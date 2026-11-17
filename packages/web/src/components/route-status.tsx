@@ -33,10 +33,10 @@ export function NotFoundPage() {
   return (
     <StatusPage
       title="Page not found"
-      message="This page doesn't exist, or the pack was removed or isn't public yet."
+      message="This page doesn't exist, or what was here was removed or isn't public yet."
     >
       <ButtonLink to="/games/$slug" params={{ slug: PRIMARY_GAME_SLUG }} variant="primary">
-        Browse packs
+        Explore
       </ButtonLink>
       <ButtonLink to="/">Go home</ButtonLink>
     </StatusPage>

@@ -38,6 +38,15 @@ const styles = stylex.create({
     objectFit: "cover",
     backgroundColor: color.raise,
   },
+  // A mod with no icon: its first letter, as its share card draws it.
+  letter: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: text.h3,
+    fontWeight: 800,
+    color: color.accentText,
+  },
   text: { display: "flex", flexDirection: "column", gap: space.xxs, minWidth: 0 },
   name: {
     fontSize: text.lg,
@@ -110,7 +119,9 @@ export function ModTile({ mod, game }: { mod: ModTileData; game: string }) {
       {mod.icon ? (
         <img src={mod.icon.url} alt="" loading="lazy" {...stylex.props(styles.icon)} />
       ) : (
-        <span aria-hidden="true" {...stylex.props(styles.icon)} />
+        <span aria-hidden="true" {...stylex.props(styles.icon, styles.letter)}>
+          {mod.name.slice(0, 1).toUpperCase()}
+        </span>
       )}
       <span {...stylex.props(styles.text)}>
         <span {...stylex.props(styles.name)}>{mod.name}</span>

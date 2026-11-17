@@ -28,6 +28,7 @@ import {
   loadCodeMod,
   loadCodeModBuild,
   releaseNetplay,
+  PUBLIC_RELEASE_STATUSES,
   visibleCodeMods,
 } from "../lib/queries";
 import {
@@ -228,7 +229,7 @@ const app = new Hono<HonoEnv>()
       .where(
         and(
           eq(codeModReleases.codeModId, mod.id),
-          seeAll ? undefined : eq(codeModReleases.status, "approved")
+          seeAll ? undefined : inArray(codeModReleases.status, PUBLIC_RELEASE_STATUSES)
         )
       )
       .orderBy(desc(codeModReleases.createdAt));

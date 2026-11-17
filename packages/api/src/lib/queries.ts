@@ -82,8 +82,15 @@ export async function findUserByIdentifier(db: Database, identifier: string) {
 }
 
 /**
+ * The releases everyone may read about: approved ones, and withdrawn ones, so
+ * a pulled mod says it was withdrawn and why rather than disappearing. Only
+ * approved releases download.
+ */
+export const PUBLIC_RELEASE_STATUSES = ["approved", "withdrawn"] as const;
+
+/**
  * Whether the requester sees a code mod's unapproved releases and builds: its
- * owner and moderators do. Everyone else sees approved releases only.
+ * owner and moderators do. Everyone else sees approved and withdrawn releases.
  */
 export function canViewUnapprovedReleases(ownerId: string, user: Requester): boolean {
   return ownerId === user?.id || isModerator(user);
@@ -91,22 +98,25 @@ export function canViewUnapprovedReleases(ownerId: string, user: Requester): boo
 
 /**
  * The code mods the requester may see, as a condition on `codeMods`: not
- * deleted, and with an approved release unless they own it or moderate. Lists
- * filter with this; single mods load through `loadCodeMod`.
+ * deleted, and with an approved or withdrawn release unless they own it or
+ * moderate. Lists filter with this; single mods load through `loadCodeMod`.
  */
 export function visibleCodeMods(db: Database, user: Requester) {
   if (isModerator(user)) return isNull(codeMods.deletedAt);
-  const approved = exists(
+  const published = exists(
     db
       .select({ id: codeModReleases.id })
       .from(codeModReleases)
       .where(
-        and(eq(codeModReleases.codeModId, codeMods.id), eq(codeModReleases.status, "approved"))
+        and(
+          eq(codeModReleases.codeModId, codeMods.id),
+          inArray(codeModReleases.status, PUBLIC_RELEASE_STATUSES)
+        )
       )
   );
   return and(
     isNull(codeMods.deletedAt),
-    user ? or(eq(codeMods.userId, user.id), approved) : approved
+    user ? or(eq(codeMods.userId, user.id), published) : published
   );
 }
 

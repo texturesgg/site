@@ -63,7 +63,11 @@ function SetPage() {
           byline={`${set.mods.length} ${set.mods.length === 1 ? "mod" : "mods"} · version ${set.version}`}
         >
           {set.description && <p {...stylex.props(styles.description)}>{set.description}</p>}
-          <InstallActions href={appLinks.set(set.name)} label={`Install ${set.title}`} />
+          <InstallActions
+            href={appLinks.set(set.name)}
+            label={`Install ${set.title}`}
+            command={`tgg mod install --set ${set.name}`}
+          />
         </ModHeader>
       </div>
       <section {...stylex.props(styles.section)}>
