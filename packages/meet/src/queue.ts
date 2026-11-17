@@ -172,7 +172,8 @@ export class Queue extends DurableObject<MeetEnv> {
     }
     const keys = pairs.flatMap((p) => [`w:${p.host.id}`, `w:${p.joiner.id}`]);
     // storage.delete takes at most 128 keys at a time
-    for (let i = 0; i < keys.length; i += 128) await this.ctx.storage.delete(keys.slice(i, i + 128));
+    for (let i = 0; i < keys.length; i += 128)
+      await this.ctx.storage.delete(keys.slice(i, i + 128));
     await Promise.all(
       pairs.flatMap(({ host, joiner, relay }) => {
         const token = randomToken();
