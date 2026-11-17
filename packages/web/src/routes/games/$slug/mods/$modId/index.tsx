@@ -351,6 +351,11 @@ function Facts({
           ? listing.targets.map((target) => SYSTEM_NAMES[target]).join(", ")
           : "Not built for the latest tgg-melee yet"}
       </Fact>
+      {listing.oneVersion && (
+        <Fact term="Game version">
+          Works only on the tgg-melee version it was built for. Each new version needs a new build.
+        </Fact>
+      )}
       {listing.netplay && <Fact term="Netplay">{NETPLAY_LABELS[listing.netplay]}</Fact>}
       <Fact term="Installs">
         <span {...stylex.props(styles.mono)}>{listing.installs.toLocaleString("en-US")}</span>

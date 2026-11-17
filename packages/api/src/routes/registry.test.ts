@@ -444,6 +444,7 @@ describe("mods", () => {
       targets: ["linux"],
       netplay: "code",
       kind: null,
+      oneVersion: false,
     });
     // A package without a library is built for every system.
     expect(page.items.find((mod) => mod.id === "tgg.menu-art")).toMatchObject({

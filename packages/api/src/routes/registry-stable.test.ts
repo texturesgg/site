@@ -166,3 +166,14 @@ describe("stable-tier packages in the catalog", () => {
     expect(await served("linux011")).toEqual([]);
   });
 });
+
+it("says when a mod is tied to the minor it was built for", async () => {
+  const oneVersion = async (id: string) => {
+    const response = await app.request(`/api/registry/mods/${id}`, {}, env);
+    expect(response.status).toBe(200);
+    const body: { oneVersion: boolean } = await response.json();
+    return body.oneVersion;
+  };
+  expect(await oneVersion("c.experimental")).toBe(true);
+  expect(await oneVersion("a.stable")).toBe(false);
+});

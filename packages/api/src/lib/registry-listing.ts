@@ -10,6 +10,7 @@ import {
 } from "@vgskins/db";
 import { byVersionDescending } from "@vgskins/shared";
 import { and, asc, eq, exists, inArray, isNull, sql } from "drizzle-orm";
+import { z } from "zod";
 import { CODE_MOD_SYSTEMS, type CodeModSystem, layoutSystem } from "./code-mod-layouts";
 
 // What the registry lists of a mod (routes/registry.ts), shared with the
@@ -47,7 +48,13 @@ export type ModSummary = {
   // "script" for a script mod (one package for every system), else what the
   // release ships ("native", "content"), null before its check recorded it
   kind: "content" | "script" | "native" | null;
+  // Whether it loads only on the API minor it was built for (its packed
+  // manifest says `experimental`), so a new tgg-melee needs a new build.
+  oneVersion: boolean;
 };
+
+/** A packed manifest that opts into experimental calls. */
+const Experimental = z.object({ experimental: z.literal(true) });
 
 // A listed mod: not deleted, with an approved release.
 export function listedMods(db: Database) {
@@ -223,6 +230,7 @@ export async function summarize(
         targets: CODE_MOD_SYSTEMS.filter((os) => systems.has(os)),
         netplay: built.find((build) => build.netplay)?.netplay ?? null,
         kind: release.kind,
+        oneVersion: built.some((build) => Experimental.safeParse(build.manifest).success),
       },
     ];
   });
