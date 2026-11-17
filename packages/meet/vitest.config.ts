@@ -11,7 +11,7 @@ const STUB_API = `
 import { WorkerEntrypoint } from "cloudflare:workers";
 export class MeetEntrypoint extends WorkerEntrypoint {
   verifyTicket() { return null; }
-  queueLabel(names) {
+  queueLabel({ names }) {
     if (names.includes("tgg.competitive-rules")) return "Competitive";
     return null;
   }

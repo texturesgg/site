@@ -1,7 +1,8 @@
-import { env, runDurableObjectAlarm, runInDurableObject, SELF } from "cloudflare:test";
-import { describe, expect, it } from "vitest";
+import { env, runDurableObjectAlarm, SELF } from "cloudflare:test";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { MeetQueuesResponse } from "@vgskins/shared/meet";
 import { HARD_PAIR_AFTER_MS, RING_AFTER_MS } from "./pairing";
-import type { Entry, Queue } from "./queue";
+import { ServerMessage } from "./protocol";
 import { queueKey, SEARCH_MS } from "./queue";
 
 // Fake games on the meeting point: a WebSocket each, signed in with a
@@ -12,7 +13,9 @@ const PLACES = {
   la: ["34.05", "-118.24"],
 } as const;
 
-type Message = { type: string; [key: string]: unknown };
+type Message = ServerMessage;
+
+type Meet = Extract<Message, { type: "meet" }>;
 
 class Game {
   messages: Message[] = [];
@@ -23,17 +26,18 @@ class Game {
     readonly ws: WebSocket
   ) {
     ws.addEventListener("message", (event) => {
-      this.messages.push(JSON.parse(event.data as string));
+      this.messages.push(ServerMessage.parse(JSON.parse(String(event.data))));
       for (const wake of this.waiters.splice(0)) wake();
     });
   }
 
   static async open(name: string, place: keyof typeof PLACES = "chicago"): Promise<Game> {
     const [latitude, longitude] = PLACES[place];
-    const res = await SELF.fetch(`http://meet.test/v1?ticket=dev:${name}`, {
+    const init: RequestInit<Partial<IncomingRequestCfProperties>> = {
       headers: { Upgrade: "websocket" },
       cf: { latitude, longitude },
-    } as RequestInit);
+    };
+    const res = await SELF.fetch(`http://meet.test/v1?ticket=dev:${name}`, init);
     const ws = res.webSocket;
     if (!ws) throw new Error(`no socket: ${res.status} ${await res.text()}`);
     ws.accept();
@@ -66,7 +70,7 @@ class Game {
   }
 
   /** The first message of `type` not read yet (it's taken). */
-  async next(type: string, ms = 3000): Promise<Message> {
+  async next(type: Message["type"], ms = 3000): Promise<Message> {
     const end = Date.now() + ms;
     for (;;) {
       const i = this.messages.findIndex((m) => m.type === type);
@@ -81,7 +85,19 @@ class Game {
     }
   }
 
-  has(type: string) {
+  /** The next `meet`. */
+  async meet(): Promise<Meet> {
+    const m = await this.next("meet");
+    if (m.type !== "meet") throw new Error(`${this.name}: ${m.type} for a meet`);
+    return m;
+  }
+
+  /** Who the next `meet` pairs this game with. */
+  async peer(): Promise<string> {
+    return (await this.meet()).peers[0].name;
+  }
+
+  has(type: Message["type"]) {
     return this.messages.some((m) => m.type === type);
   }
 
@@ -101,16 +117,15 @@ async function queueOf(versions = "aaaaaaaaaaaaaaaa", mode = "vs") {
   return env.QUEUE.get(env.QUEUE.idFromName(await queueKey(mode, "0.1.0", versions, null)));
 }
 
-/** Makes everyone in a queue look like they started searching `ms` earlier. */
-async function backdate(stub: DurableObjectStub<Queue>, ms: number) {
-  await runInDurableObject(stub, async (queue: Queue, state) => {
-    const entries = (queue as unknown as { entries: Map<string, Entry> }).entries;
-    for (const entry of entries.values()) {
-      entry.since -= ms;
-      await state.storage.put(`w:${entry.id}`, entry);
-    }
-  });
+/** Moves the clock `ms` on, for every DO too (they run in the tests' isolate);
+ * it stays there until the test ends. */
+function later(ms: number) {
+  vi.useFakeTimers({ toFake: ["Date"], now: Date.now() + ms });
 }
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("a queue", () => {
   it("pairs two games with the same mods", async () => {
@@ -120,8 +135,8 @@ describe("a queue", () => {
     b.ready();
     expect(await a.search()).toMatchObject({ mode: "vs", searching: 1, label: "These mods" });
     await b.search();
-    const ma = await a.next("meet");
-    const mb = await b.next("meet");
+    const ma = await a.meet();
+    const mb = await b.meet();
     expect(ma.token).toBe(mb.token);
     expect([ma.side, mb.side].sort()).toEqual([0, 1]);
     expect(ma.queue).toEqual({ mode: "vs", relay: false });
@@ -152,11 +167,10 @@ describe("a queue", () => {
     expect(games.some((g) => g.has("meet"))).toBe(false);
     await s1b.search();
     await s2b.search();
-    const peer = async (g: Game) => ((await g.next("meet")).peers as { name: string }[])[0].name;
-    expect(await peer(s1a)).toBe("s1b");
-    expect(await peer(s1b)).toBe("s1a");
-    expect(await peer(s2a)).toBe("s2b");
-    expect(await peer(s2b)).toBe("s2a");
+    expect(await s1a.peer()).toBe("s1b");
+    expect(await s1b.peer()).toBe("s1a");
+    expect(await s2a.peer()).toBe("s2b");
+    expect(await s2b.peer()).toBe("s2a");
     await settle();
     expect(other.has("meet")).toBe(false);
     for (const g of games) g.close();
@@ -205,8 +219,7 @@ describe("a queue", () => {
     const c = await Game.open("fail-c");
     c.ready(v);
     await c.search();
-    const peer = ((await a.next("meet")).peers as { name: string }[])[0].name;
-    expect(peer).toBe("fail-c");
+    expect(await a.peer()).toBe("fail-c");
     for (const g of [a, b, c]) g.close();
   });
 
@@ -222,7 +235,7 @@ describe("a queue", () => {
     await runDurableObjectAlarm(stub);
     await settle();
     expect(chi.has("meet")).toBe(false);
-    await backdate(stub, RING_AFTER_MS[1]);
+    later(RING_AFTER_MS[1]);
     await runDurableObjectAlarm(stub);
     await chi.next("meet");
     await la.next("meet");
@@ -248,7 +261,7 @@ describe("a queue", () => {
     const c = await Game.open("re-c", "detroit");
     c.ready(v);
     await c.search();
-    expect(((await a.next("meet")).peers as { name: string }[])[0].name).toBe("re-c");
+    expect(await a.peer()).toBe("re-c");
     // b is alone: after REMATCH_AFTER_MS with nobody else, d is fine, and
     // so would a rematch be
     for (const g of [a, b, c]) g.close();
@@ -265,9 +278,9 @@ describe("a queue", () => {
     await settle();
     expect(a.has("meet")).toBe(false);
     const stub = await queueOf(v);
-    await backdate(stub, HARD_PAIR_AFTER_MS);
+    later(HARD_PAIR_AFTER_MS);
     await runDurableObjectAlarm(stub);
-    expect((await a.next("meet")).queue).toEqual({ mode: "vs", relay: true });
+    expect((await a.meet()).queue).toEqual({ mode: "vs", relay: true });
     a.close();
     b.close();
   });
@@ -278,7 +291,7 @@ describe("a queue", () => {
     a.ready(v);
     await a.search();
     const stub = await queueOf(v);
-    await backdate(stub, SEARCH_MS);
+    later(SEARCH_MS);
     await runDurableObjectAlarm(stub);
     expect(await a.next("search.ended")).toMatchObject({
       why: "Nobody to play right now. Try again later.",
@@ -319,9 +332,7 @@ describe("the list of queues", () => {
     await a.search();
     await settle();
     const res = await SELF.fetch("http://meet.test/v1/queues");
-    const body = (await res.json()) as {
-      queues: { mode: string; label: string; searching: number }[];
-    };
+    const body = MeetQueuesResponse.parse(await res.json());
     expect(body.queues).toContainEqual({ mode: "vs", label: "These mods", searching: 1 });
     a.close();
   });

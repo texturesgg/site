@@ -1,5 +1,6 @@
 import { createDb, users } from "@vgskins/db";
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 import type { Env } from "../types";
 
 /**
@@ -18,7 +19,18 @@ export const MEET_TICKET_TTL_MS = 2 * 60 * 1000;
 
 const AUDIENCE = "meet";
 
-type TicketPayload = { sub: string; aud: string; exp: number };
+/** The longest ticket accepted. */
+export const MAX_TICKET = 1024;
+
+const TicketPayload = z.object({
+  sub: z.string().min(1),
+  aud: z.literal(AUDIENCE),
+  exp: z.number(),
+});
+type TicketPayload = z.infer<typeof TicketPayload>;
+
+/** A ticket as the meeting point passes it on. */
+export const MeetTicket = z.string().max(MAX_TICKET);
 
 export type MeetPlayer = { id: string; name: string };
 
@@ -74,7 +86,7 @@ export async function readMeetTicket(
   ticket: string,
   now = Date.now()
 ): Promise<string | null> {
-  if (typeof ticket !== "string" || ticket.length > 1024) return null;
+  if (!MeetTicket.safeParse(ticket).success) return null;
   const [body, sig, extra] = ticket.split(".");
   if (!body || !sig || extra !== undefined) return null;
   const signature = fromBase64url(sig);
@@ -88,15 +100,15 @@ export async function readMeetTicket(
   if (!valid) return null;
   const raw = fromBase64url(body);
   if (!raw) return null;
-  let payload: TicketPayload;
+  let json: unknown;
   try {
-    payload = JSON.parse(new TextDecoder().decode(raw)) as TicketPayload;
+    json = JSON.parse(new TextDecoder().decode(raw));
   } catch {
     return null;
   }
-  if (payload.aud !== AUDIENCE || typeof payload.sub !== "string") return null;
-  if (typeof payload.exp !== "number" || payload.exp <= now) return null;
-  return payload.sub;
+  const payload = TicketPayload.safeParse(json);
+  if (!payload.success || payload.data.exp <= now) return null;
+  return payload.data.sub;
 }
 
 /**

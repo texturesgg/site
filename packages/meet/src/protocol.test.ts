@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { checkCandidates, mayOffer, normalizeCode } from "./protocol";
+import {
+  checkCandidates,
+  MAX_MESSAGE_BYTES,
+  mayOffer,
+  normalizeCode,
+  parseClientMessage,
+} from "./protocol";
 import { udpServer } from "./relay";
 
 // The address check is what keeps the meeting point from being used to aim
@@ -56,5 +62,32 @@ describe("relay servers", () => {
     expect(checkCandidates([{ addr: "198.51.100.9:3478", kind: "relay" }], "198.51.100.9")).toEqual(
       []
     );
+  });
+});
+
+// Everything a game sends goes through parseClientMessage: what it refuses
+// never reaches a handler.
+describe("a game's messages", () => {
+  it("takes a known message, with its defaults", () => {
+    expect(parseClientMessage(JSON.stringify({ type: "search", mode: "vs" }))).toEqual({
+      ok: true,
+      message: { type: "search", mode: "vs" },
+    });
+    expect(parseClientMessage(JSON.stringify({ type: "candidates", list: [] }))).toEqual({
+      ok: true,
+      message: { type: "candidates", list: [], nat: "unknown" },
+    });
+  });
+
+  it("refuses what it doesn't know, what isn't JSON, and what's too big", () => {
+    const refused = (text: string) => {
+      const result = parseClientMessage(text);
+      return result.ok ? null : result.error;
+    };
+    expect(refused(JSON.stringify({ type: "search", mode: "VS!" }))).toBe(
+      "The game sent something the meeting point doesn't know."
+    );
+    expect(refused("{")).toBe("The game sent something that isn't JSON.");
+    expect(refused(" ".repeat(MAX_MESSAGE_BYTES + 1))).toBe("That message is too big.");
   });
 });

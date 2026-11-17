@@ -1,3 +1,4 @@
+import { MeetMode, MeetModNames, MeetQueueSummary } from "@vgskins/shared/meet";
 import { z } from "zod";
 
 /**
@@ -23,14 +24,15 @@ export const RELAY_DAILY = 30;
 /** How long relay credentials work. */
 export const RELAY_TTL_S = 600;
 
-/** The longest list of mods a hello may carry. */
-export const MAX_NAMES = 2000;
-
-/** A queue's mode: "vs" (VS Mode, 1 on 1) or a mod's menu entry ("main/first-to-3"). */
-export const MODE_PATTERN = /^[a-z0-9][a-z0-9/_.-]{0,63}$/;
-
 /** The most candidates a game may offer. */
 export const MAX_CANDIDATES = 8;
+
+/** The longest address, version or name a message carries. */
+const MAX_FIELD = 64;
+/** The longest reason a game gives for a failed connection. */
+const MAX_WHY = 200;
+/** The longest a connection may take to report, in ms. */
+const MAX_CONNECT_MS = 120_000;
 
 /** Codes: letters only, so the game's own keyboard types them without its digits
  * page, and no look-alikes (I, L, O). */
@@ -40,79 +42,134 @@ export const CODE_LENGTH = 4;
 /** A room nobody touched for this long closes. */
 export const ROOM_IDLE_MS = 30 * 60 * 1000;
 
-const Candidate = z.object({
+/** How many games a room holds: 2 for now. */
+export const ROOM_GAMES = 2;
+export const RoomGames = z.number().int().min(ROOM_GAMES).max(ROOM_GAMES);
+
+export const Candidate = z.object({
   /** "1.2.3.4:51000" or "[2001:db8::1]:51000" */
-  addr: z.string().max(64),
+  addr: z.string().max(MAX_FIELD),
   /** where it came from: local, tailscale, stun, stun6, mapped */
   kind: z.enum(["local", "tailscale", "stun", "stun6", "mapped", "relay"]),
 });
 export type Candidate = z.infer<typeof Candidate>;
 
-const Nat = z.enum(["easy", "hard", "unknown"]);
+export const Candidates = z.array(Candidate).max(MAX_CANDIDATES);
+
+/** How the game's router behaves, from its STUN check: "hard" can't be punched through. */
+export const Nat = z.enum(["easy", "hard", "unknown"]);
+export type Nat = z.infer<typeof Nat>;
+
+/** A player's account id and name. */
+export const Member = z.object({
+  id: z.string().min(1).max(MAX_FIELD),
+  name: z.string().max(MAX_FIELD),
+});
+export type Member = z.infer<typeof Member>;
+
+export const HelloMessage = z.object({
+  type: z.literal("hello"),
+  game: z.string().max(MAX_FIELD),
+  target: z.string().max(MAX_FIELD),
+  versions: z.string().max(MAX_FIELD),
+  // For queues: the game's version as players on any platform compare it,
+  // tgg_mod_set_all, whether this game asks every mod to match, and the
+  // counted mods ("id version, ...", tgg_mod_set_names) to name the queue.
+  version: z.string().max(MAX_FIELD).default(""),
+  all: z.string().max(MAX_FIELD).default(""),
+  strict: z.boolean().default(false),
+  names: MeetModNames.default(""),
+});
+
+/** What a Player DO keeps of the hello, for its searches. */
+export const StoredHello = HelloMessage.omit({ type: true, game: true, target: true });
+export type StoredHello = z.infer<typeof StoredHello>;
 
 export const ClientMessage = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("hello"),
-    game: z.string().max(64),
-    target: z.string().max(64),
-    versions: z.string().max(64),
-    // For queues: the game's version as players on any platform compare it,
-    // tgg_mod_set_all, whether this game asks every mod to match, and the
-    // counted mods ("id version, ...", tgg_mod_set_names) to name the queue.
-    version: z.string().max(64).default(""),
-    all: z.string().max(64).default(""),
-    strict: z.boolean().default(false),
-    names: z.string().max(MAX_NAMES).default(""),
-  }),
-  z.object({ type: z.literal("room.make"), games: z.number().int().min(2).max(2).default(2) }),
+  HelloMessage,
+  z.object({ type: z.literal("room.make"), games: RoomGames.default(ROOM_GAMES) }),
   z.object({ type: z.literal("room.join"), code: z.string().max(16) }),
   z.object({ type: z.literal("room.leave") }),
   // Find a match: wait in the queue for `mode` and this game's mods.
-  z.object({ type: z.literal("search"), mode: z.string().regex(MODE_PATTERN) }),
+  z.object({ type: z.literal("search"), mode: MeetMode }),
   z.object({ type: z.literal("search.stop") }),
   // How many are searching in the queue for `mode` and this game's mods.
-  z.object({ type: z.literal("counts"), mode: z.string().regex(MODE_PATTERN) }),
-  z.object({
-    type: z.literal("candidates"),
-    list: z.array(Candidate).max(MAX_CANDIDATES),
-    nat: Nat.default("unknown"),
-  }),
+  z.object({ type: z.literal("counts"), mode: MeetMode }),
+  z.object({ type: z.literal("candidates"), list: Candidates, nat: Nat.default("unknown") }),
   z.object({
     type: z.literal("connected"),
     how: z.enum(["local", "tailscale", "stun", "stun6", "mapped", "relay", "other"]),
-    ms: z.number().min(0).max(120_000),
+    ms: z.number().min(0).max(MAX_CONNECT_MS),
   }),
-  z.object({ type: z.literal("failed"), why: z.string().max(200) }),
+  z.object({ type: z.literal("failed"), why: z.string().max(MAX_WHY) }),
   // The host: direct punching hasn't got through, so it wants a relay.
   z.object({ type: z.literal("relay.request") }),
   // The host: its address on the relay, for the other games.
-  z.object({ type: z.literal("relay.ready"), addr: z.string().max(64) }),
+  z.object({ type: z.literal("relay.ready"), addr: z.string().max(MAX_FIELD) }),
   // The host: bytes that went through its relay since its last report.
   z.object({ type: z.literal("relay.bytes"), bytes: z.number().min(0).max(1e12) }),
 ]);
 export type ClientMessage = z.infer<typeof ClientMessage>;
 
-export type Member = { id: string; name: string };
+/** A message from a game, or what to tell it when it isn't one. */
+export function parseClientMessage(
+  data: string | ArrayBuffer
+): { ok: true; message: ClientMessage } | { ok: false; error: string } {
+  const text = typeof data === "string" ? data : new TextDecoder().decode(data);
+  if (text.length > MAX_MESSAGE_BYTES) return { ok: false, error: "That message is too big." };
+  let json: unknown;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    return { ok: false, error: "The game sent something that isn't JSON." };
+  }
+  const result = ClientMessage.safeParse(json);
+  if (!result.success) {
+    return { ok: false, error: "The game sent something the meeting point doesn't know." };
+  }
+  return { ok: true, message: result.data };
+}
 
-export type ServerMessage =
-  | { type: "welcome"; name: string }
-  | { type: "room"; code: string; host: string; members: string[]; games: number }
-  | {
-      type: "meet";
-      code: string;
-      side: number;
-      token: string;
-      peers: { side: number; name: string; candidates: Candidate[]; nat: string }[];
-      /** A queue's match: the mode, and whether the games go straight to the relay. */
-      queue?: { mode: string; relay: boolean };
-    }
-  | { type: "relay"; server: string; username: string; credential: string }
-  | { type: "relay.peer"; addr: string }
-  | { type: "searching"; mode: string; label: string; searching: number }
-  | { type: "search.ended"; why: string }
-  | { type: "counts"; mode: string; label: string; searching: number }
-  | { type: "closed"; why: string }
-  | { type: "error"; message: string };
+/** The other games of a match, as `meet` hands them out. */
+export const Peer = z.object({
+  side: z.number().int().min(0),
+  name: z.string(),
+  candidates: Candidates,
+  nat: z.string(),
+});
+
+export const ServerMessage = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("welcome"), name: z.string() }),
+  z.object({
+    type: z.literal("room"),
+    code: z.string(),
+    host: z.string(),
+    members: z.array(z.string()),
+    games: z.number().int(),
+  }),
+  z.object({
+    type: z.literal("meet"),
+    code: z.string(),
+    side: z.number().int().min(0),
+    token: z.string(),
+    peers: z.array(Peer),
+    /** A queue's match: the mode, and whether the games go straight to the relay. */
+    queue: z.object({ mode: MeetMode, relay: z.boolean() }).optional(),
+  }),
+  z.object({
+    type: z.literal("relay"),
+    server: z.string(),
+    username: z.string(),
+    credential: z.string(),
+  }),
+  z.object({ type: z.literal("relay.peer"), addr: z.string() }),
+  z.object({ type: z.literal("searching"), ...MeetQueueSummary.shape }),
+  z.object({ type: z.literal("search.ended"), why: z.string() }),
+  z.object({ type: z.literal("counts"), ...MeetQueueSummary.shape }),
+  z.object({ type: z.literal("closed"), why: z.string() }),
+  z.object({ type: z.literal("error"), message: z.string() }),
+]);
+export type ServerMessage = z.infer<typeof ServerMessage>;
 
 /** A code the way the player typed it, or null when it can't be one. */
 export function normalizeCode(text: string): string | null {

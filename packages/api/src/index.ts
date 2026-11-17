@@ -11,8 +11,9 @@ import {
   getTggMeleeReleases,
   getUserOpenGraphData,
 } from "./lib/public-catalog";
+import { MeetQueueLabelRequest, type MeetQueueLabelResult } from "@vgskins/shared";
 import { queueLabel } from "./lib/meet-queue-label";
-import { verifyMeetTicket } from "./lib/meet-ticket";
+import { MeetTicket, verifyMeetTicket } from "./lib/meet-ticket";
 import { openApiRoutes } from "./lib/openapi";
 import { generalApiRateLimit, rateLimitByIp } from "./lib/rate-limit";
 import adminRoutes from "./routes/admin";
@@ -158,16 +159,16 @@ export class PublicCatalogEntrypoint extends WorkerEntrypoint<Env> {
  * banned.
  */
 export class MeetEntrypoint extends WorkerEntrypoint<Env> {
-  verifyTicket(ticket: unknown) {
-    if (typeof ticket !== "string") return null;
-    return verifyMeetTicket(this.env, ticket);
+  verifyTicket(input: string) {
+    const ticket = MeetTicket.safeParse(input);
+    return ticket.success ? verifyMeetTicket(this.env, ticket.data) : null;
   }
 
   /** A name for a matchmaking queue from its mods ("id version, ..."): the
    * registry set they make up, or their names. */
-  queueLabel(names: unknown) {
-    if (typeof names !== "string") return "These mods";
-    return queueLabel(this.env, names.slice(0, 2000));
+  async queueLabel(input: MeetQueueLabelRequest): Promise<MeetQueueLabelResult> {
+    const request = MeetQueueLabelRequest.safeParse(input);
+    return request.success ? queueLabel(this.env, request.data.names) : null;
   }
 }
 

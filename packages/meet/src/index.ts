@@ -9,31 +9,49 @@ export { Room } from "./room";
 export { Queue } from "./queue";
 export { Directory } from "./directory";
 
+import { MeetQueuesQuery, MeetQueuesResponse } from "@vgskins/shared/meet";
+import { z } from "zod";
+import { Member } from "./protocol";
+
 /** How long the queue list is cached at the edge. */
 const QUEUES_CACHE_S = 10;
 
+/** Where Cloudflare places a connection (request.cf), for pairing nearby players. */
+const Place = z
+  .object({ latitude: z.string().optional(), longitude: z.string().optional() })
+  .catch({});
+
+/** The API's answer to a ticket: the player, or null. */
+const TicketPlayer = Member.extend({
+  name: z.string().transform((n) => n.slice(0, 64)),
+}).nullable();
+
 /**
  * GET /v1/queues: the busiest queues and how many are searching in each, for
- * an app's Find a match screen. `?limit=` up to 50. Cached for
+ * an app's Find a match screen (MeetQueuesQuery, MeetQueuesResponse). Cached for
  * QUEUES_CACHE_S, so asking often costs the Directory nothing.
  */
 async function queues(request: Request, env: MeetEnv, ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url);
-  const limit = Math.max(1, Math.min(50, Number(url.searchParams.get("limit")) || 20));
+  const query = MeetQueuesQuery.safeParse(Object.fromEntries(url.searchParams));
+  if (!query.success) {
+    return Response.json({ error: query.error.issues[0].message }, { status: 400 });
+  }
+  const { limit } = query.data;
   const cacheKey = new Request(`${url.origin}/v1/queues?limit=${limit}`);
   const cache = await caches.open("queues");
   const hit = await cache.match(cacheKey);
   if (hit) return hit;
   const directory = env.DIRECTORY.get(env.DIRECTORY.idFromName("all"));
-  const response = Response.json(
-    { queues: await directory.list(limit) },
-    {
-      headers: {
-        "Cache-Control": `public, max-age=${QUEUES_CACHE_S}`,
-        "Access-Control-Allow-Origin": "*",
-      },
-    }
-  );
+  const body: MeetQueuesResponse = MeetQueuesResponse.parse({
+    queues: await directory.list(limit),
+  });
+  const response = Response.json(body, {
+    headers: {
+      "Cache-Control": `public, max-age=${QUEUES_CACHE_S}`,
+      "Access-Control-Allow-Origin": "*",
+    },
+  });
   ctx.waitUntil(cache.put(cacheKey, response.clone()));
   return response;
 }
@@ -44,7 +62,7 @@ async function playerFor(env: MeetEnv, ticket: string) {
     const name = ticket.slice(4);
     return /^[a-zA-Z0-9_-]{1,32}$/.test(name) ? { id: `dev-${name}`, name } : null;
   }
-  return env.API.verifyTicket(ticket);
+  return TicketPlayer.parse(await env.API.verifyTicket(ticket));
 }
 
 export default {
@@ -88,9 +106,9 @@ export default {
     headers.set("x-meet-name", player.name);
     headers.set("x-meet-ip", ip);
     // Where Cloudflare places the connection, for pairing nearby players
-    const cf = request.cf as { latitude?: string; longitude?: string } | undefined;
-    headers.set("x-meet-lat", cf?.latitude ?? "");
-    headers.set("x-meet-lon", cf?.longitude ?? "");
+    const place = Place.parse(request.cf ?? {});
+    headers.set("x-meet-lat", place.latitude ?? "");
+    headers.set("x-meet-lon", place.longitude ?? "");
     const stub = env.PLAYER.get(env.PLAYER.idFromName(player.id));
     return stub.fetch(new Request(request.url, { headers }));
   },

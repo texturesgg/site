@@ -1,3 +1,6 @@
+import { z } from "zod";
+import { Member, Nat } from "./protocol";
+
 /**
  * Who plays whom in a queue: plain functions over the waiting players, so
  * the rule is tested without a Durable Object (pairing.test.ts).
@@ -13,26 +16,28 @@
  * REMATCH_AFTER_MS.
  */
 
-export type Nat = "easy" | "hard" | "unknown";
+/** At most this many players avoided, and this many recent opponents. */
+export const MAX_AVOID = 8;
+export const MAX_RECENT = 4;
 
-export type Waiter = {
-  id: string;
-  name: string;
+export const Waiter = z.object({
+  ...Member.shape,
   /** When they started searching; a failed match keeps the old time, so they
    * go back to the front. */
-  since: number;
+  since: z.number(),
   /** Where Cloudflare says they connect from, or null when it doesn't say. */
-  lat: number | null;
-  lon: number | null;
-  nat: Nat;
+  lat: z.number().min(-90).max(90).nullable(),
+  lon: z.number().min(-180).max(180).nullable(),
+  nat: Nat,
   /** A candidate of kind "mapped": the router forwards a port to the game. */
-  mapped: boolean;
+  mapped: z.boolean(),
   /** Players this one must not be paired with: failed to connect this
    * connection. */
-  avoid: string[];
+  avoid: z.array(z.string()).max(MAX_AVOID),
   /** Players this one played recently. */
-  recent: string[];
-};
+  recent: z.array(z.string()).max(MAX_RECENT),
+});
+export type Waiter = z.infer<typeof Waiter>;
 
 /** How far apart two players may be, by how long the first has waited. */
 export const RING_KM = [1500, 5000, Infinity];

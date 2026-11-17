@@ -9,6 +9,7 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./meet": "./src/meet.ts",
     "./queue": "./src/queue.ts",
     "./types": "./src/types/index.ts",
     "./constants": "./src/types/constants.ts",

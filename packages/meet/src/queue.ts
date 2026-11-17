@@ -1,6 +1,14 @@
 import { DurableObject } from "cloudflare:workers";
-import { pairUp, type Waiter } from "./pairing";
-import { type Candidate, randomToken } from "./protocol";
+import {
+  MeetMode,
+  MeetModNames,
+  MeetQueueLabel,
+  MeetQueueLabelResult,
+  MeetQueueSummary,
+} from "@vgskins/shared/meet";
+import { z } from "zod";
+import { pairUp, Waiter } from "./pairing";
+import { Candidates, Member, Nat, randomToken } from "./protocol";
 
 /**
  * A queue: everyone searching in one mode with the same gameplay mods. Its
@@ -24,8 +32,15 @@ export const MAX_IDLE_TICKS = 1800;
 export const DIRECTORY_MS = 10_000;
 /** How long before asking the API to name the queue again after it couldn't. */
 export const LABEL_RETRY_MS = 10 * 60 * 1000;
+/** What a queue is called while the API can't name it. */
+export const UNNAMED = "These mods";
+/** storage.delete takes at most this many keys at a time. */
+export const DELETE_BATCH = 128;
 
-/** The queue for `mode` and a game's mods: 32 hex digits. */
+/** A queue's name: 32 hex digits. */
+export const QueueKey = z.string().regex(/^[0-9a-f]{32}$/);
+
+/** The queue for `mode` and a game's mods. */
 export async function queueKey(
   mode: string,
   version: string,
@@ -39,30 +54,58 @@ export async function queueKey(
   ).join("");
 }
 
-export type Entry = Waiter & { candidates: Candidate[] };
+/** A player waiting, with the addresses the other game will punch to. */
+export const Entry = Waiter.extend({ candidates: Candidates });
+export type Entry = z.infer<typeof Entry>;
 
-/** What a Player DO hears when its player is paired. */
-export type Matched = {
-  key: string;
-  mode: string;
-  token: string;
-  side: number;
-  relay: boolean;
+/** Player DO -> Queue: wait here. */
+export const JoinRequest = z.object({
+  key: QueueKey,
+  mode: MeetMode,
+  entry: Entry,
+  names: MeetModNames,
+});
+export type JoinRequest = z.infer<typeof JoinRequest>;
+
+/** The queue's name and how many are searching in it. */
+export const QueueCount = MeetQueueSummary.omit({ mode: true });
+export type QueueCount = z.infer<typeof QueueCount>;
+
+/** Queue -> Player DO: the answer to a join. */
+export const JoinResult = z.discriminatedUnion("ok", [
+  QueueCount.extend({ ok: z.literal(true) }),
+  z.object({ ok: z.literal(false), why: z.string() }),
+]);
+export type JoinResult = z.infer<typeof JoinResult>;
+
+/** Queue -> Player DO: its player is paired. */
+export const Matched = z.object({
+  key: QueueKey,
+  mode: MeetMode,
+  token: z.string(),
+  side: z.number().int().min(0).max(1),
+  relay: z.boolean(),
   /** When this player started searching, for going back to the front. */
-  since: number;
-  opponent: { id: string; name: string; candidates: Candidate[]; nat: string };
-};
+  since: z.number(),
+  opponent: Member.extend({ candidates: Candidates, nat: Nat }),
+});
+export type Matched = z.infer<typeof Matched>;
 
-type Meta = {
-  key: string;
-  mode: string;
-  label: string | null;
-  labelTried: number;
+/** Queue -> Player DO: its player's search is over. */
+export const SearchEnded = z.object({ key: QueueKey, why: z.string() });
+export type SearchEnded = z.infer<typeof SearchEnded>;
+
+const Meta = z.object({
+  key: QueueKey,
+  mode: MeetMode,
+  label: MeetQueueLabel.nullable(),
+  labelTried: z.number(),
   /** When the Directory last heard the count, and what it heard. */
-  sentAt: number;
-  sent: number;
-  ticks: number;
-};
+  sentAt: z.number(),
+  sent: z.number().int(),
+  ticks: z.number().int().min(0),
+});
+type Meta = z.infer<typeof Meta>;
 
 export class Queue extends DurableObject<MeetEnv> {
   private entries = new Map<string, Entry>();
@@ -71,19 +114,19 @@ export class Queue extends DurableObject<MeetEnv> {
   constructor(ctx: DurableObjectState, env: MeetEnv) {
     super(ctx, env);
     ctx.blockConcurrencyWhile(async () => {
-      this.meta = (await ctx.storage.get<Meta>("meta")) ?? null;
-      const stored = await ctx.storage.list<Entry>({ prefix: "w:" });
-      for (const entry of stored.values()) this.entries.set(entry.id, entry);
+      const meta = Meta.safeParse(await ctx.storage.get("meta"));
+      this.meta = meta.success ? meta.data : null;
+      const stored = await ctx.storage.list({ prefix: "w:" });
+      for (const value of stored.values()) {
+        const entry = Entry.safeParse(value);
+        if (entry.success) this.entries.set(entry.data.id, entry.data);
+      }
     });
   }
 
   /** Waits in the queue: its name and how many are searching, or why not. */
-  async join(
-    key: string,
-    mode: string,
-    entry: Entry,
-    names: string
-  ): Promise<{ ok: true; label: string; searching: number } | { ok: false; why: string }> {
+  async join(input: JoinRequest): Promise<JoinResult> {
+    const { key, mode, entry, names } = JoinRequest.parse(input);
     const meta = (this.meta ??= {
       key,
       mode,
@@ -104,17 +147,18 @@ export class Queue extends DurableObject<MeetEnv> {
     }
     await this.pair();
     await this.save();
-    return { ok: true, label: this.label(), searching: this.entries.size };
+    return { ok: true, ...this.count() };
   }
 
-  async leave(id: string): Promise<void> {
+  async leave(input: string): Promise<void> {
+    const id = Member.shape.id.parse(input);
     if (!this.entries.delete(id)) return;
     await this.ctx.storage.delete(`w:${id}`);
     await this.save();
   }
 
-  count(): { label: string; searching: number } {
-    return { label: this.label(), searching: this.entries.size };
+  count(): QueueCount {
+    return { label: this.meta?.label ?? UNNAMED, searching: this.entries.size };
   }
 
   async alarm(): Promise<void> {
@@ -126,33 +170,31 @@ export class Queue extends DurableObject<MeetEnv> {
       if (now - entry.since >= SEARCH_MS) ended.push(entry);
     }
     if (this.entries.size >= 2) meta.ticks++;
-    const tooLong = meta.ticks > MAX_IDLE_TICKS;
-    if (tooLong) {
+    if (meta.ticks > MAX_IDLE_TICKS) {
       ended.splice(0, ended.length, ...this.entries.values());
       meta.ticks = 0;
     }
-    for (const entry of ended) {
-      this.entries.delete(entry.id);
-      await this.ctx.storage.delete(`w:${entry.id}`);
-    }
+    for (const entry of ended) this.entries.delete(entry.id);
+    await this.deleteEntries(ended.map((e) => e.id));
     await Promise.all(
       ended.map((e) =>
-        this.player(e.id).searchEnded(meta.key, "Nobody to play right now. Try again later.")
+        this.player(e.id).searchEnded({
+          key: meta.key,
+          why: "Nobody to play right now. Try again later.",
+        })
       )
     );
     await this.pair();
     await this.save();
   }
 
-  private label(): string {
-    return this.meta?.label ?? "These mods";
-  }
-
   /** A name for the queue from the registry's sets ("Competitive"); null when
    * the API can't say. Cosmetic: it's what the game and the app show. */
   private async nameQueue(names: string): Promise<string | null> {
     try {
-      return await this.env.API.queueLabel(names);
+      const label = MeetQueueLabelResult.safeParse(await this.env.API.queueLabel({ names }));
+      if (!label.success) console.error("queue label", label.error.issues[0]);
+      return label.success ? label.data : null;
     } catch (error) {
       console.error("queue label", error);
       return null;
@@ -166,37 +208,36 @@ export class Queue extends DurableObject<MeetEnv> {
     const pairs = pairUp([...this.entries.values()], Date.now());
     if (pairs.length === 0) return;
     meta.ticks = 0;
-    for (const { host, joiner } of pairs) {
+    const tellAll: (() => Promise<boolean>)[] = [];
+    for (const { host, joiner, relay } of pairs) {
+      const a = this.entries.get(host.id);
+      const b = this.entries.get(joiner.id);
       this.entries.delete(host.id);
       this.entries.delete(joiner.id);
+      if (!a || !b) continue;
+      const token = randomToken();
+      const tell = (me: Entry, side: number, other: Entry): Matched => ({
+        key: meta.key,
+        mode: meta.mode,
+        token,
+        side,
+        relay,
+        since: me.since,
+        opponent: { id: other.id, name: other.name, candidates: other.candidates, nat: other.nat },
+      });
+      tellAll.push(
+        () => this.player(a.id).matched(tell(a, 0, b)),
+        () => this.player(b.id).matched(tell(b, 1, a))
+      );
     }
-    const keys = pairs.flatMap((p) => [`w:${p.host.id}`, `w:${p.joiner.id}`]);
-    // storage.delete takes at most 128 keys at a time
-    for (let i = 0; i < keys.length; i += 128)
-      await this.ctx.storage.delete(keys.slice(i, i + 128));
-    await Promise.all(
-      pairs.flatMap(({ host, joiner, relay }) => {
-        const token = randomToken();
-        const told = (me: Waiter, side: number, other: Waiter): Matched => ({
-          key: meta.key,
-          mode: meta.mode,
-          token,
-          side,
-          relay,
-          since: me.since,
-          opponent: {
-            id: other.id,
-            name: other.name,
-            candidates: (other as Entry).candidates,
-            nat: other.nat,
-          },
-        });
-        return [
-          this.player(host.id).matched(told(host, 0, joiner)),
-          this.player(joiner.id).matched(told(joiner, 1, host)),
-        ];
-      })
-    );
+    await this.deleteEntries(pairs.flatMap((p) => [p.host.id, p.joiner.id]));
+    await Promise.all(tellAll.map((t) => t()));
+  }
+
+  private async deleteEntries(ids: string[]): Promise<void> {
+    for (let i = 0; i < ids.length; i += DELETE_BATCH) {
+      await this.ctx.storage.delete(ids.slice(i, i + DELETE_BATCH).map((id) => `w:${id}`));
+    }
   }
 
   /** Saves, tells the Directory when its count is due, and sets the alarm. */
@@ -209,7 +250,7 @@ export class Queue extends DurableObject<MeetEnv> {
       meta.sent = searching;
       meta.sentAt = now;
       try {
-        await this.directory().update(meta.key, meta.mode, this.label(), searching);
+        await this.directory().update({ key: meta.key, mode: meta.mode, ...this.count() });
       } catch (error) {
         console.error("directory", error);
       }

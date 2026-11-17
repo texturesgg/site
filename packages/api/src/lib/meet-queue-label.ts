@@ -1,5 +1,5 @@
 import { codeModReleases, codeModSetMods, codeModSets, codeMods, createDb } from "@vgskins/db";
-import { byVersionDescending, rangeMatches } from "@vgskins/shared";
+import { byVersionDescending, MEET_MAX_LABEL, rangeMatches } from "@vgskins/shared";
 import { and, eq, isNull } from "drizzle-orm";
 import type { Env } from "../types";
 
@@ -10,11 +10,11 @@ import type { Env } from "../types";
  * names. Only what the game and an app show; pairing never looks at it.
  */
 
-/** The longest name. */
-export const MAX_LABEL = 48;
-
 /** Mods every online game has, left out of a name made from mods' names. */
 const PLUMBING = new Set(["tgg.netplay", "tgg.direct-connect", "tgg.http", "tgg.unlocks"]);
+
+/** The most mods read from a list. */
+const MAX_MODS = 64;
 
 export type ProfileMod = { id: string; version: string };
 
@@ -24,7 +24,7 @@ export function parseNames(names: string): ProfileMod[] {
   for (const part of names.split(",")) {
     const [id, version, ...rest] = part.trim().split(/\s+/);
     if (id && version && rest.length === 0) mods.push({ id, version });
-    if (mods.length >= 64) break;
+    if (mods.length >= MAX_MODS) break;
   }
   return mods;
 }
@@ -63,7 +63,7 @@ export function labelFor(
   let label: string;
   if (best) label = extras.length ? `${best.set.title} + ${listed}` : best.set.title;
   else label = extras.length ? listed : "No gameplay mods";
-  return label.length > MAX_LABEL ? `${label.slice(0, MAX_LABEL - 3)}...` : label;
+  return label.length > MEET_MAX_LABEL ? `${label.slice(0, MEET_MAX_LABEL - 3)}...` : label;
 }
 
 /** The queue's name for the mods in `names`, from the registry. */
