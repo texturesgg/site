@@ -165,7 +165,12 @@ function Entries({ state }: { state: CompetitionState }) {
                 >
                   {entry.name}
                 </TextLink>
-                <span {...stylex.props(styles.author)}>by {entry.author}</span>
+                <span {...stylex.props(styles.author)}>
+                  by {entry.author} ·{" "}
+                  <TextAnchor href={entry.post_url} target="_blank" rel="noreferrer">
+                    Posted on X
+                  </TextAnchor>
+                </span>
               </span>
               <span {...stylex.props(styles.count)}>
                 {entry.votes} {entry.votes === 1 ? "vote" : "votes"}
@@ -212,14 +217,14 @@ function Competition() {
               </Step>
               <Step number={2}>
                 <p>
-                  Once it&apos;s reviewed and listed, turn on Enter the competition on its page.
+                  Once it&apos;s reviewed and listed, post its link on X and tag{" "}
+                  <TextAnchor href="https://x.com/texturesgg">@texturesgg</TextAnchor>.
                 </p>
               </Step>
               <Step number={3}>
                 <p>
-                  Share it on X and tag{" "}
-                  <TextAnchor href="https://x.com/texturesgg">@texturesgg</TextAnchor> so players
-                  find it.
+                  Turn on Enter the competition on the mod&apos;s page and paste the link to your
+                  post.
                 </p>
               </Step>
             </Steps>
@@ -269,6 +274,7 @@ function Competition() {
                 Mods first released on textures.gg on or after Dec 1 can enter. Official textures.gg
                 mods can&apos;t.
               </li>
+              <li>An entry needs a post on X that links the mod and tags @texturesgg.</li>
               <li>Teams can enter. The prize goes to whoever published the mod.</li>
               <li>Your mod has to follow the terms of service. A withdrawn mod is out.</li>
               <li>Don&apos;t buy votes or ask for votes in exchange for anything.</li>

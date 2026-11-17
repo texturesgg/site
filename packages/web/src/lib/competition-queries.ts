@@ -17,7 +17,8 @@ export const competitionQuery = () =>
   });
 
 type Change =
-  | { kind: "vote" | "unvote" | "enter" | "leave"; mod: string }
+  | { kind: "vote" | "unvote" | "leave"; mod: string }
+  | { kind: "enter"; mod: string; postUrl: string }
   | { kind: "claim" | "unclaim" };
 
 async function send(change: Change) {
@@ -28,7 +29,10 @@ async function send(change: Change) {
       case "unvote":
         return api.competition.votes[":mod"].$delete({ param: { mod: change.mod } });
       case "enter":
-        return api.competition.entries[":mod"].$put({ param: { mod: change.mod } });
+        return api.competition.entries[":mod"].$put({
+          param: { mod: change.mod },
+          json: { post_url: change.postUrl },
+        });
       case "leave":
         return api.competition.entries[":mod"].$delete({ param: { mod: change.mod } });
       case "claim":

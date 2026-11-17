@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { type AuditVote, COMPETITION, competitionAuditFlags, entryIneligible } from "./competition";
+import {
+  type AuditVote,
+  COMPETITION,
+  competitionAuditFlags,
+  competitionPostUrlSchema,
+  entryIneligible,
+} from "./competition";
 
 const opens = Date.parse(COMPETITION.opens);
 const day = 24 * 60 * 60 * 1000;
@@ -16,6 +22,18 @@ describe("the competition", () => {
     expect(entryIneligible({ ...mod, listed: false })).toBe(
       "It can be entered once a release is approved."
     );
+  });
+
+  it("takes a link to a post on X, stored as an x.com link", () => {
+    const parse = (url: string) => competitionPostUrlSchema.safeParse(url).data ?? null;
+    expect(parse(" https://twitter.com/Maker_1/status/123?s=20 ")).toBe(
+      "https://x.com/Maker_1/status/123"
+    );
+    expect(parse("https://mobile.x.com/i/web/status/9")).toBe("https://x.com/i/web/status/9");
+    expect(parse("https://x.com/maker")).toBeNull();
+    expect(parse("https://x.com.evil.test/maker/status/1")).toBeNull();
+    expect(parse("x.com/maker/status/1")).toBe("https://x.com/maker/status/1");
+    expect(parse("ftp://x.com/maker/status/1")).toBeNull();
   });
 
   it("flags new accounts, bursts of them, and accounts sharing an IP", () => {

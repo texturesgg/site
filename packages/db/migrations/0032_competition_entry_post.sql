@@ -1,0 +1,1 @@
+ALTER TABLE `competition_entries` ADD `post_url` text;

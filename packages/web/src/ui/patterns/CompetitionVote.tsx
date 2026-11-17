@@ -1,10 +1,16 @@
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
-import { COMPETITION_X_HANDLE, type CompetitionState } from "@vgskins/shared/competition";
+import {
+  COMPETITION_X_HANDLE,
+  type CompetitionOwnMod,
+  type CompetitionState,
+  competitionPostUrlSchema,
+} from "@vgskins/shared/competition";
+import { useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { authClient } from "@/lib/auth-client";
 import { competitionQuery, useCompetitionChange } from "@/lib/competition-queries";
-import { AnchorButton, Button, Switch, TextLink } from "../primitives";
+import { AnchorButton, Button, Switch, TextAnchor, TextField, TextLink } from "../primitives";
 import { color, font, radius, space, text } from "../tokens.stylex";
 
 // Voting in the competition: the button on an entry, the box on an entered
@@ -27,6 +33,8 @@ const styles = stylex.create({
   count: { fontFamily: font.mono, fontSize: text.sm, color: color.text, whiteSpace: "nowrap" },
   note: { margin: 0, fontSize: text.sm, color: color.muted },
   error: { margin: 0, fontSize: text.sm, color: color.danger },
+  post: { display: "flex", flexDirection: "column", gap: space.sm },
+  postActions: { display: "flex" },
   steps: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.sm },
 });
 
@@ -141,7 +149,6 @@ function SignedInVotes({ me, open }: { me: Me; open: boolean }) {
  */
 export function CompetitionModBox({ mod }: { mod: string }) {
   const { data: state } = useQuery(competitionQuery());
-  const change = useCompetitionChange();
   if (!state) return null;
   const entry = state.entries.find((candidate) => candidate.id === mod);
   const own = state.me?.mods.find((candidate) => candidate.id === mod);
@@ -159,18 +166,68 @@ export function CompetitionModBox({ mod }: { mod: string }) {
           </p>
         </div>
       )}
-      {own && (
-        <>
-          <Switch
-            label="Enter the competition"
-            checked={own.entered}
-            disabled={change.isPending || (!own.entered && own.why !== null) || !state.open}
-            onCheckedChange={(checked) => change.mutate({ kind: checked ? "enter" : "leave", mod })}
+      {own && <OwnEntry mod={mod} own={own} open={state.open} />}
+    </div>
+  );
+}
+
+/**
+ * The owner's switch. Entering takes the link to the post on X that shares the
+ * mod and tags @texturesgg; an entry shows its post.
+ */
+function OwnEntry({ mod, own, open }: { mod: string; own: CompetitionOwnMod; open: boolean }) {
+  const change = useCompetitionChange();
+  const [posting, setPosting] = useState(false);
+  const [postUrl, setPostUrl] = useState("");
+  const parsed = competitionPostUrlSchema.safeParse(postUrl);
+  const invalid = postUrl.trim() !== "" && !parsed.success;
+  return (
+    <>
+      <Switch
+        label="Enter the competition"
+        checked={own.entered || posting}
+        disabled={change.isPending || (!own.entered && own.why !== null) || !open}
+        onCheckedChange={(checked) => {
+          if (own.entered && !checked) change.mutate({ kind: "leave", mod });
+          else setPosting(checked);
+        }}
+      />
+      {own.why && !own.entered && <p {...stylex.props(styles.note)}>{own.why}</p>}
+      {posting && !own.entered && (
+        <form
+          {...stylex.props(styles.post)}
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!parsed.success) return;
+            change.mutate(
+              { kind: "enter", mod, postUrl: parsed.data },
+              { onSuccess: () => setPosting(false) }
+            );
+          }}
+        >
+          <TextField
+            label="Link to your post on X"
+            placeholder={`https://x.com/you/status/…`}
+            description={`Post this mod's link on X and tag @${COMPETITION_X_HANDLE}, then paste the post's link here.`}
+            value={postUrl}
+            error={invalid ? parsed.error?.issues[0]?.message : undefined}
+            onChange={(event) => setPostUrl(event.currentTarget.value)}
           />
-          {own.why && !own.entered && <p {...stylex.props(styles.note)}>{own.why}</p>}
-        </>
+          <div {...stylex.props(styles.postActions)}>
+            <Button type="submit" variant="primary" disabled={!parsed.success || change.isPending}>
+              Enter
+            </Button>
+          </div>
+        </form>
+      )}
+      {own.entered && own.post_url && (
+        <p {...stylex.props(styles.note)}>
+          <TextAnchor href={own.post_url} target="_blank" rel="noreferrer">
+            Posted on X
+          </TextAnchor>
+        </p>
       )}
       {change.error && <p {...stylex.props(styles.error)}>{change.error.message}</p>}
-    </div>
+    </>
   );
 }

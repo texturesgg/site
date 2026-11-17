@@ -14,6 +14,7 @@ import {
   codeModSlugSchema,
   competitionBudget,
   competitionOpen,
+  enterCompetitionSchema,
   generateId,
 } from "@vgskins/shared";
 import { and, eq, isNull } from "drizzle-orm";
@@ -195,13 +196,21 @@ const app = new Hono<HonoEnv>()
     return c.json({ success: true }, 200);
   })
 
-  // Enter one of your mods
+  // Enter one of your mods with its post on X, or change the post
   .put(
     "/entries/:mod",
+    describeRoute({
+      tags: ["Competition"],
+      summary: "Enter a mod",
+      description:
+        "Enters one of your own mods with the post on X that shares it (EnterCompetition), or replaces the post when it's already entered. The post must be an x.com or twitter.com status link. It's stored as https://x.com/<handle>/status/<id> and nothing is fetched from X.",
+      responses: { 200: { description: "Entered" } },
+    }),
     requireAuth,
     requireCodeMods,
     limitChanges,
     zValidator("param", ModParam, validationHook),
+    zValidator("json", enterCompetitionSchema, validationHook),
     async (c) => {
       const db = createDb(c.env.DB);
       const user = c.get("user");
@@ -214,10 +223,20 @@ const app = new Hono<HonoEnv>()
       if (!owned) return c.json({ error: "Only the mod's owner can enter it." }, 403);
       const [mod] = await ownMods(db, user.id, owned.id);
       if (mod?.why) return c.json({ error: mod.why }, 409);
+      const postUrl = c.req.valid("json").post_url;
       await db
         .insert(competitionEntries)
-        .values({ competition: ID, codeModId: owned.id, enteredBy: user.id, enteredAt: new Date() })
-        .onConflictDoNothing();
+        .values({
+          competition: ID,
+          codeModId: owned.id,
+          enteredBy: user.id,
+          enteredAt: new Date(),
+          postUrl,
+        })
+        .onConflictDoUpdate({
+          target: [competitionEntries.competition, competitionEntries.codeModId],
+          set: { postUrl },
+        });
       logger.info({ userId: user.id, mod: c.req.valid("param").mod }, "Competition entry");
       return c.json({ success: true }, 200);
     }
