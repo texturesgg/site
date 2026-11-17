@@ -17,8 +17,17 @@ export async function sessionCookie(token: string) {
   return `better-auth.session_token=${encodeURIComponent(`${token}.${signature.toString("base64")}`)}`;
 }
 
-/** Insert a user with a live session and return that session's cookie. */
-export async function signIn(db: Database, id: string, role: UserRole = "user") {
+/**
+ * Insert a user with a live session and return that session's cookie. A
+ * moderator or admin has two-factor sign-in and a session that proved it,
+ * unless `twoFactor` is false.
+ */
+export async function signIn(
+  db: Database,
+  id: string,
+  role: UserRole = "user",
+  { twoFactor = role !== "user" }: { twoFactor?: boolean } = {}
+) {
   const now = new Date();
   const token = `${id}-session-token`;
   await db.insert(users).values({
@@ -27,6 +36,7 @@ export async function signIn(db: Database, id: string, role: UserRole = "user") 
     email: `${id}@example.com`,
     emailVerified: true,
     role,
+    twoFactorEnabled: twoFactor,
     createdAt: now,
     updatedAt: now,
   });
@@ -35,6 +45,7 @@ export async function signIn(db: Database, id: string, role: UserRole = "user") 
     userId: id,
     token,
     expiresAt: new Date(now.getTime() + 60 * 60 * 1000),
+    twoFactorAt: twoFactor ? now : null,
     createdAt: now,
     updatedAt: now,
   });

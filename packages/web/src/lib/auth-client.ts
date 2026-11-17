@@ -3,6 +3,7 @@ import {
   adminClient,
   deviceAuthorizationClient,
   inferAdditionalFields,
+  twoFactorClient,
 } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { API_BASE_URL } from "./config";
@@ -16,6 +17,8 @@ export const authClient = createAuthClient({
   plugins: [
     adminClient({ ac, roles }),
     deviceAuthorizationClient(),
+    // Without onTwoFactorRedirect: the sign-in dialog asks for the code itself
+    twoFactorClient(),
     inferAdditionalFields({
       user: {
         role: {

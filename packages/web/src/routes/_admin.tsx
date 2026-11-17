@@ -1,13 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as stylex from "@stylexjs/stylex";
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { api } from "@/lib/api";
+import { createFileRoute, Outlet, redirect, useRouter } from "@tanstack/react-router";
+import { api, isTwoFactorRequired } from "@/lib/api";
 import { useFeatureFlag } from "@/lib/feature-flags";
 import { authClient, type UserRole } from "@/lib/auth-client";
 import { sessionQuery } from "@/lib/session";
 import { layout } from "@/ui/patterns/layout";
 import { NavTab, NavTabs } from "@/ui/patterns/NavTabs";
 import { PageHeader } from "@/ui/patterns/PageHeader";
+import { TwoFactorGate } from "@/ui/patterns/TwoFactor";
 import { color, font, space, text } from "@/ui/tokens.stylex";
 import { parseResponse } from "hono/client";
 
@@ -69,11 +70,16 @@ const styles = stylex.create({
 
 function AdminLayout() {
   const { canViewUsers, role } = Route.useRouteContext();
-  const { data: stats } = useQuery({
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const { data: session } = useQuery(sessionQuery);
+  const { data: stats, error } = useQuery({
     queryKey: ["admin", "stats"],
     queryFn: () => parseResponse(api.admin.stats.$get()),
     refetchInterval: 30_000,
   });
+  // Every moderator action needs this session to have proved two-factor sign-in
+  const needsTwoFactor = isTwoFactorRequired(error);
   const isAdmin = role === "admin";
   const codeMods = useFeatureFlag("codeMods");
 
@@ -101,26 +107,39 @@ function AdminLayout() {
           )
         }
       />
-      <NavTabs label="Moderation sections">
-        <NavTab to="/admin" count={stats?.pendingPacks} urgent={(stats?.pendingPacks ?? 0) > 0}>
-          Review queue
-        </NavTab>
-        <NavTab
-          to="/reports"
-          count={stats?.pendingReports}
-          urgent={(stats?.pendingReports ?? 0) > 0}
-        >
-          Reports
-        </NavTab>
-        {canViewUsers && (
-          <NavTab to="/users" count={stats?.totalUsers}>
-            Users
-          </NavTab>
-        )}
-        {isAdmin && codeMods && <NavTab to="/sets">Sets</NavTab>}
-        {isAdmin && <NavTab to="/analytics">Analytics</NavTab>}
-      </NavTabs>
-      <Outlet />
+      {needsTwoFactor ? (
+        <TwoFactorGate
+          enabled={session?.user.twoFactorEnabled === true}
+          onDone={() => {
+            // The pages under it failed while the session lacked it: load them again
+            void queryClient.invalidateQueries();
+            void router.invalidate();
+          }}
+        />
+      ) : (
+        <>
+          <NavTabs label="Moderation sections">
+            <NavTab to="/admin" count={stats?.pendingPacks} urgent={(stats?.pendingPacks ?? 0) > 0}>
+              Review queue
+            </NavTab>
+            <NavTab
+              to="/reports"
+              count={stats?.pendingReports}
+              urgent={(stats?.pendingReports ?? 0) > 0}
+            >
+              Reports
+            </NavTab>
+            {canViewUsers && (
+              <NavTab to="/users" count={stats?.totalUsers}>
+                Users
+              </NavTab>
+            )}
+            {isAdmin && codeMods && <NavTab to="/sets">Sets</NavTab>}
+            {isAdmin && <NavTab to="/analytics">Analytics</NavTab>}
+          </NavTabs>
+          <Outlet />
+        </>
+      )}
     </div>
   );
 }

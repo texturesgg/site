@@ -1,10 +1,13 @@
 import * as stylex from "@stylexjs/stylex";
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { z } from "zod";
 import { useAuth } from "@/contexts/auth-context";
 import { authClient, EMAIL_PASSWORD_AUTH_ENABLED, signIn, signUp } from "@/lib/auth-client";
 import { DiscordIcon, GoogleIcon } from "../brand-icons";
 import { ChevronLeftIcon } from "../icons";
 import { Button, Dialog, TextField } from "../primitives";
+import { TwoFactorCodeForm } from "./TwoFactor";
 import { color, font, space, text } from "../tokens.stylex";
 
 const styles = stylex.create({
@@ -30,6 +33,10 @@ const styles = stylex.create({
 
 type Sent = "account" | "verification" | "reset" | null;
 
+// Email sign-in to an account with two-factor sign-in: better-auth holds the
+// session until the code arrives
+const TwoFactorRedirect = z.object({ twoFactorRedirect: z.literal(true) });
+
 /**
  * One dialog for signing in and signing up: an unknown email with a new
  * password creates the account, so nobody has to choose which they need.
@@ -49,7 +56,8 @@ export function AuthDialog() {
   const { modalState, closeAuthModal } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [step, setStep] = useState<"email" | "password">("email");
+  const [step, setStep] = useState<"email" | "password" | "code">("email");
+  const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // "account": sign-up's answer, which can't tell a new account from an existing one.
@@ -91,6 +99,10 @@ export function AuthDialog() {
     setBusy(true);
     try {
       const result = await signIn.email({ email, password });
+      if (TwoFactorRedirect.safeParse(result.data).success) {
+        setStep("code");
+        return;
+      }
       if (!result.error) {
         close();
         return;
@@ -183,6 +195,18 @@ export function AuthDialog() {
           <Button variant="primary" fullWidth onClick={close}>
             Done
           </Button>
+        </div>
+      ) : step === "code" ? (
+        <div {...stylex.props(styles.body)}>
+          <p {...stylex.props(styles.message)}>
+            Your account has two-factor sign-in. Enter the code from your authenticator app.
+          </p>
+          <TwoFactorCodeForm
+            onDone={() => {
+              void queryClient.invalidateQueries();
+              close();
+            }}
+          />
         </div>
       ) : (
         <div {...stylex.props(styles.body)}>
