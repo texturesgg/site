@@ -161,7 +161,7 @@ function Competition() {
                 </div>
               ))}
             </div>
-            <p>Paid by SaavyLab LLC, the company behind textures.gg.</p>
+            <p>Paid by Saavylab LLC, the company behind textures.gg.</p>
           </ArticleSection>
 
           <ArticleSection title="Judging">

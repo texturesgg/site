@@ -14,7 +14,7 @@ questions a lawyer should answer before they take effect.
    downloaded, or for builds in sets other people rely on?
 2. Mods are released under licenses their makers choose (GPL and others).
    How do the terms sit beside those licenses, and do we need anything for
-   official mods SaavyLab LLC publishes?
+   official mods Saavylab LLC publishes?
 3. Melee is Nintendo's. Texture packs and stage mods are derived from its
    assets, and mods hook a decompilation of its code. What do the terms need
    to say about that, and is "you need your own copy, we don't host the game"
@@ -27,7 +27,7 @@ questions a lawyer should answer before they take effect.
 6. Minimum age: the audience includes minors. Do we need a minimum age
    (13 under COPPA) or parental consent language?
 7. The mod competition (December 2026) has its own rules page. Do the terms
-   need to reference it, and does a $500 prize pool paid by SaavyLab LLC need
+   need to reference it, and does a $500 prize pool paid by Saavylab LLC need
    anything beyond those rules (eligibility, taxes, void where prohibited)?
 8. How much notice do we owe before changing the terms, and how?
 
@@ -55,7 +55,7 @@ questions a lawyer should answer before they take effect.
 
 ## Copyright and takedowns
 
-1. Register a DMCA designated agent with the US Copyright Office (SaavyLab
+1. Register a DMCA designated agent with the US Copyright Office (Saavylab
    LLC, contact@textures.gg, a mailing address) so the safe harbor applies.
    Which address do we publish?
 2. Are the notice and counter-notice requirements on the page complete and

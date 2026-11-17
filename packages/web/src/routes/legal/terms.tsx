@@ -18,7 +18,7 @@ function Terms() {
     <LegalPage title="Terms of service">
       <ArticleSection title="Who we are">
         <p>
-          textures.gg is run by SaavyLab LLC. These terms cover the website, the textures.gg app,
+          textures.gg is run by Saavylab LLC. These terms cover the website, the textures.gg app,
           the tgg command line tool, and the online play they offer. By using any of them you agree
           to these terms.
         </p>
@@ -51,7 +51,7 @@ function Terms() {
 
       <ArticleSection title="What you let us do with it">
         <p>
-          You keep ownership of what you post. You give SaavyLab LLC a worldwide, non-exclusive,
+          You keep ownership of what you post. You give Saavylab LLC a worldwide, non-exclusive,
           royalty-free license to host, store, copy, build, show, and distribute it, so the site,
           the app, and tgg can offer it to players. The license lasts while it&apos;s on
           textures.gg. Copies players already downloaded stay theirs to use.
@@ -99,7 +99,7 @@ function Terms() {
       <ArticleSection title="No warranty">
         <p>
           textures.gg, the app, tgg, and everything on them are provided as they are, without
-          warranties. SaavyLab LLC isn&apos;t liable for lost data, broken saves, or other damage
+          warranties. Saavylab LLC isn&apos;t liable for lost data, broken saves, or other damage
           from using them or anything downloaded from them, as far as the law allows.
         </p>
       </ArticleSection>

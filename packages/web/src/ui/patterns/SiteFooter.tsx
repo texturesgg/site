@@ -70,7 +70,7 @@ export function SiteFooter() {
       {legal && (
         <div {...stylex.props(layout.container, styles.inner, styles.legalRow)}>
           <div {...stylex.props(styles.legal)}>
-            <p {...stylex.props(styles.company)}>© 2026 SaavyLab LLC</p>
+            <p {...stylex.props(styles.company)}>© 2026 Saavylab LLC</p>
             <nav aria-label="Legal" {...stylex.props(styles.nav)}>
               <FooterLink to="/legal/terms">Terms</FooterLink>
               <FooterLink to="/legal/privacy">Privacy</FooterLink>

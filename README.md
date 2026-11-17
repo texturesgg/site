@@ -73,4 +73,4 @@ against local D1, R2, and Queues, with no secrets and no Cloudflare account.
 
 GPL-3.0-or-later. See `LICENSE`; `NOTICE` lists the third-party material.
 
-Copyright (C) 2026 SaavyLab LLC
+Copyright (C) 2026 Saavylab LLC

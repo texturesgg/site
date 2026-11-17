@@ -66,7 +66,7 @@ function Copyright() {
           </li>
           <li>
             a statement that you consent to the jurisdiction of the federal court for your address
-            (or, outside the US, any place where SaavyLab LLC can be found), and will accept service
+            (or, outside the US, any place where Saavylab LLC can be found), and will accept service
             from the person who sent the notice
           </li>
           <li>your physical or electronic signature</li>

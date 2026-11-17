@@ -42,7 +42,7 @@ const styles = stylex.create({
 export function LegalPage({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div {...stylex.props(layout.container, layout.page, styles.page)}>
-      <PageHeader title={title} description={`SaavyLab LLC · ${LEGAL_UPDATED}`} />
+      <PageHeader title={title} description={`Saavylab LLC · ${LEGAL_UPDATED}`} />
       <div {...stylex.props(layout.narrow)}>
         <Article>
           <p {...stylex.props(styles.draft)}>
