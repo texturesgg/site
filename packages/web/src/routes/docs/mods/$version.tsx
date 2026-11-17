@@ -76,7 +76,6 @@ function DocsLayout() {
   const release = Route.useLoaderData();
   const { version } = Route.useParams();
   const navigate = useNavigate();
-  const pages = ["README", ...release.pages.filter((page) => page !== "README")];
   const headers = release.headers.map((header) => header.slice("tgg/".length, -".h".length));
 
   return (
@@ -93,18 +92,25 @@ function DocsLayout() {
             void navigate({ to: "/docs/mods/$version", params: { version: next } })
           }
         />
-        <div {...stylex.props(styles.group)}>
-          <h2 {...stylex.props(styles.groupTitle)}>Guides</h2>
+        {release.pages.includes("README") && (
           <ul {...stylex.props(styles.list)}>
-            {pages
-              .filter((page) => release.pages.includes(page))
-              .map((page) => (
+            <li>
+              <DocsLink href={docsPagePath(version, "README")}>{docsPageLabel("README")}</DocsLink>
+            </li>
+          </ul>
+        )}
+        {release.sections.map((section) => (
+          <div key={section.title} {...stylex.props(styles.group)}>
+            <h2 {...stylex.props(styles.groupTitle)}>{section.title}</h2>
+            <ul {...stylex.props(styles.list)}>
+              {section.pages.map((page) => (
                 <li key={page}>
                   <DocsLink href={docsPagePath(version, page)}>{docsPageLabel(page)}</DocsLink>
                 </li>
               ))}
-          </ul>
-        </div>
+            </ul>
+          </div>
+        ))}
         {headers.length > 0 && (
           <div {...stylex.props(styles.group)}>
             <h2 {...stylex.props(styles.groupTitle)}>API</h2>

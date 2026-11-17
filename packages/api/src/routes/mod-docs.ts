@@ -4,6 +4,7 @@ import {
   docsCandidates,
   docsMinor,
   docsMinors,
+  docsSections,
   type ModDocsFile,
   ModDocsIndex,
   ModDocsPage,
@@ -76,7 +77,7 @@ const app = new Hono<HonoEnv>()
       tags: ["Docs"],
       summary: "The mod docs a version names",
       description:
-        "`wanted` is `latest` or a tgg-melee major.minor. Answers the newest release of those whose docs are mirrored: `{version, minor, minors, pages, headers}`, where `minors` is every major.minor with releases, newest first.",
+        "`wanted` is `latest` or a tgg-melee major.minor. Answers the newest release of those whose docs are mirrored: `{version, minor, minors, pages, sections, headers}`, where `minors` is every major.minor with releases, newest first, and `sections` groups the pages in reading order.",
       responses: {
         200: { description: "The release and its pages" },
         404: { description: "None" },
@@ -86,12 +87,19 @@ const app = new Hono<HonoEnv>()
     async (c) => {
       const resolved = await resolve(c.env, c.req.valid("param").wanted);
       if (!resolved) return c.json(notFound, 404);
+      const { version, index } = resolved;
+      // Without sections in the index, the README's links give the order.
+      const readme =
+        !index.sections && index.pages.includes("README")
+          ? await mirrored(`${encodeURIComponent(version)}/docs/README.md`)
+          : null;
       const body: ModDocsRelease = {
-        version: resolved.version,
-        minor: docsMinor(resolved.version),
+        version,
+        minor: docsMinor(version),
         minors: docsMinors(resolved.releases),
-        pages: resolved.index.pages,
-        headers: resolved.index.headers,
+        pages: index.pages,
+        sections: docsSections(index, readme),
+        headers: index.headers,
       };
       c.header("Cache-Control", CACHE);
       return c.json(body, 200);

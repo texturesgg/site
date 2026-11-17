@@ -17,6 +17,7 @@ const MIRROR: Record<string, string> = {
     pages: ["README", "hooks"],
     headers: ["tgg/mod.h"],
   }),
+  "0.1.0-rc.12/docs/README.md": "See [hooks](hooks.md).",
   "0.1.0-rc.12/docs/hooks.md": "# Hooks\n\nBefore, after and replace.",
   "0.1.0-rc.12/docs/include/tgg/mod.h": "#define TGG_MOD 1\n",
 };
@@ -52,6 +53,7 @@ it("resolves latest and a minor to the newest release with mirrored docs", async
       minor: "0.1",
       minors: ["0.2", "0.1"],
       pages: ["README", "hooks"],
+      sections: [{ title: "Guides", pages: ["hooks"] }],
       headers: ["tgg/mod.h"],
     });
   }

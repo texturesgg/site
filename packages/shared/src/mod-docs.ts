@@ -12,12 +12,20 @@ export const ModDocsHeader = z.string().regex(/^tgg\/[A-Za-z0-9_-]{1,64}\.h$/);
 /** What a docs URL asks for: `latest`, or a release's major.minor. */
 export const ModDocsWanted = z.string().regex(/^(latest|\d{1,4}\.\d{1,4})$/);
 
-/** A release's docs/index.json on the mirror. */
+/** A group of pages in reading order, for the contents (Start here, Guides, Reference). */
+export const ModDocsSection = z.object({
+  title: z.string().min(1).max(80),
+  pages: z.array(ModDocsPage).max(500),
+});
+export type ModDocsSection = z.infer<typeof ModDocsSection>;
+
+/** A release's docs/index.json on the mirror. `sections` is optional: the reading order. */
 export const ModDocsIndex = z.object({
   format: z.literal(1),
   version: z.string(),
   pages: z.array(ModDocsPage).max(500),
   headers: z.array(ModDocsHeader).max(500),
+  sections: z.array(ModDocsSection).max(50).optional(),
 });
 export type ModDocsIndex = z.infer<typeof ModDocsIndex>;
 
@@ -28,6 +36,8 @@ export const ModDocsRelease = z.object({
   /** Every major.minor with docs, newest first, for a version picker. */
   minors: z.array(z.string()),
   pages: z.array(ModDocsPage),
+  /** Every page but README, grouped in reading order. */
+  sections: z.array(ModDocsSection),
   headers: z.array(ModDocsHeader),
 });
 export type ModDocsRelease = z.infer<typeof ModDocsRelease>;
@@ -95,4 +105,36 @@ export function docsMinors(releases: string[]): string[] {
     if (!seen || compare(version, seen) > 0) newest.set(minor, version);
   }
   return [...newest.entries()].sort(([, a], [, b]) => compare(b, a)).map(([minor]) => minor);
+}
+
+/**
+ * The contents in reading order. The index's sections when it has them;
+ * otherwise one "Guides" section in the order the README links its pages.
+ * Pages neither one names come last, by name, and README is left out (it's
+ * the version's front page).
+ */
+export function docsSections(index: ModDocsIndex, readme: string | null): ModDocsSection[] {
+  const listed = new Set(index.pages.filter((page) => page !== "README"));
+  const placed = new Set<string>();
+  const take = (pages: string[]) =>
+    pages.filter((page) => listed.has(page) && !placed.has(page) && placed.add(page));
+  const sections = index.sections
+    ? index.sections.map((section) => ({ title: section.title, pages: take(section.pages) }))
+    : [
+        {
+          title: "Guides",
+          pages: take(
+            [...(readme ?? "").matchAll(/\]\((?:\.\/)?([A-Za-z0-9_-]+)\.md(?:#[^)]*)?\)/g)].map(
+              (match) => match[1]
+            )
+          ),
+        },
+      ];
+  const rest = take([...listed].sort());
+  if (rest.length > 0) {
+    const last = sections.at(-1);
+    if (last && !index.sections) last.pages.push(...rest);
+    else sections.push({ title: "More", pages: rest });
+  }
+  return sections.filter((section) => section.pages.length > 0);
 }
