@@ -23,10 +23,8 @@ const styles = stylex.create({
     fontSize: text.sm,
     color: color.muted,
   },
-  nav: { display: "flex", flexWrap: "wrap", gap: space.xs },
-  legal: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.xs },
-  company: { margin: 0, paddingInlineEnd: space.xs },
-  legalRow: { paddingTop: 0 },
+  nav: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.xs },
+  company: { paddingInline: space.xs, whiteSpace: "nowrap" },
   link: {
     display: "inline-flex",
     alignItems: "center",
@@ -60,25 +58,19 @@ export function SiteFooter() {
       <div {...stylex.props(layout.container, styles.inner)}>
         <p>textures.gg — a community archive of Super Smash Bros. Melee textures</p>
         <nav aria-label="Footer" {...stylex.props(styles.nav)}>
-          <FooterLink to="/guides">Install guide</FooterLink>
-          <FooterLink to="/download">App</FooterLink>
           <FooterLink to="/about">About</FooterLink>
           <FooterAnchor href={DISCORD_URL}>Discord</FooterAnchor>
           <FooterAnchor href={GITHUB_URL}>GitHub</FooterAnchor>
-        </nav>
-      </div>
-      {legal && (
-        <div {...stylex.props(layout.container, styles.inner, styles.legalRow)}>
-          <div {...stylex.props(styles.legal)}>
-            <p {...stylex.props(styles.company)}>© 2026 Saavylab LLC</p>
-            <nav aria-label="Legal" {...stylex.props(styles.nav)}>
+          {legal && (
+            <>
               <FooterLink to="/legal/terms">Terms</FooterLink>
               <FooterLink to="/legal/privacy">Privacy</FooterLink>
               <FooterLink to="/legal/copyright">Copyright</FooterLink>
-            </nav>
-          </div>
-        </div>
-      )}
+              <span {...stylex.props(styles.company)}>© 2026 Saavylab LLC</span>
+            </>
+          )}
+        </nav>
+      </div>
     </footer>
   );
 }
