@@ -6,16 +6,16 @@ import { requireFeatureFlag } from "@/lib/feature-flags";
 import { Article, ArticleSection, BulletList, Step, Steps } from "@/ui/patterns/Article";
 import { layout } from "@/ui/patterns/layout";
 import { PageHeader } from "@/ui/patterns/PageHeader";
-import { TextLink } from "@/ui/primitives";
+import { TextAnchor, TextLink } from "@/ui/primitives";
 import { color, font, radius, space, text } from "@/ui/tokens.stylex";
 
 // The December 2026 mod competition. A shell behind the code-mods flag: what
 // isn't decided yet shows as "To confirm", and the rules are a draft. The
-// voting itself happens on a third-party platform, not here.
+// way voting works isn't decided yet.
 
 const PRIZES = [
-  { place: "1st", amount: "$300" },
-  { place: "2nd", amount: "$200" },
+  { place: "1st", amount: "$250" },
+  { place: "2nd", amount: "$150" },
   { place: "3rd", amount: "$100" },
 ];
 
@@ -28,7 +28,8 @@ export const Route = createFileRoute("/competition")({
       { title: "Mod competition - textures.gg" },
       {
         name: "description",
-        content: "Make a Melee mod in December 2026. The top three win $300, $200 and $100.",
+        content:
+          "Make a Melee mod in December 2026. The top three share $500: $250, $150 and $100.",
       },
       { name: "robots", content: "noindex" },
     ],
@@ -106,17 +107,13 @@ function Competition() {
     <div {...stylex.props(layout.container, layout.page, styles.page)}>
       <PageHeader
         title="Mod competition"
-        description="Make a Melee mod in December. The community votes, and the top three win."
+        description="tgg-melee loads mods, stacks several at once, bundles them into sets you can share, and matches players by the mods they run. In December, make one. Players vote, and the top three share $500."
       />
       <dl {...stylex.props(styles.facts)}>
         <Fact label="Entries open">Dec 1</Fact>
-        <Fact label="Entries close">
-          <ToConfirm>date</ToConfirm>
-        </Fact>
-        <Fact label="Voting">
-          <ToConfirm>dates</ToConfirm>
-        </Fact>
-        <Fact label="First prize">$300</Fact>
+        <Fact label="Entries close">Dec 31</Fact>
+        <Fact label="Voting">Through Dec 31</Fact>
+        <Fact label="Prizes">$500</Fact>
       </dl>
 
       <div {...stylex.props(layout.narrow)}>
@@ -134,8 +131,9 @@ function Competition() {
               </Step>
               <Step number={3}>
                 <p>
-                  Post the link on X and tag <ToConfirm>account</ToConfirm>. That post is your
-                  entry.
+                  Post the link on X and tag{" "}
+                  <TextAnchor href="https://x.com/texturesgg">@texturesgg</TextAnchor>. That post is
+                  your entry.
                 </p>
               </Step>
             </Steps>
@@ -161,14 +159,14 @@ function Competition() {
                 </div>
               ))}
             </div>
-            <p>Paid by Saavylab LLC, the company behind textures.gg.</p>
+            <p>$500 in total, paid by Saavylab LLC, the company behind textures.gg.</p>
           </ArticleSection>
 
           <ArticleSection title="Judging">
             <p>
-              Players vote on <ToConfirm>voting platform</ToConfirm>, a third-party site that checks
-              each vote comes from a real account. Jayson and Santi confirm the winners from the
-              results.
+              Players vote on textures.gg through Dec 31. <ToConfirm>how voting works</ToConfirm>{" "}
+              Jayson and Santi confirm the winners from the results and announce them a few days
+              after.
             </p>
           </ArticleSection>
 
