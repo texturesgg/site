@@ -277,8 +277,8 @@ async function buildTargets(
         `build ${name}`,
         {
           retries: { limit: 2, delay: "10 seconds", backoff: "exponential" },
-          // The lite container has 1/16 of a vCPU: a mod with a big library
-          // (tgg.http compiles Mbed TLS, about 25 CPU-seconds) takes minutes
+          // Room for the biggest library (tgg.http compiles Mbed TLS, about 25
+          // CPU-seconds) on a slow or busy container
           timeout: "20 minutes",
         },
         () => build(env, release.repoName, release.commit, target, buildId)
