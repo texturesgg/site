@@ -1,10 +1,9 @@
 import { DurableObject } from "cloudflare:workers";
-import { MEET_MAX_GAMES } from "@vgskins/shared/meet";
+import { MEET_MAX_GAMES, ROOM_CODE_LENGTH } from "@vgskins/shared/meet";
 import { z } from "zod";
 import {
   Candidate,
   Candidates,
-  CODE_LENGTH,
   Member,
   Nat,
   RoomGames,
@@ -18,7 +17,7 @@ import {
 export const Seat = Member.extend({ candidates: Candidates.nullable(), nat: Nat });
 export type Seat = z.infer<typeof Seat>;
 
-const RoomCode = z.string().length(CODE_LENGTH);
+const RoomCode = z.string().length(ROOM_CODE_LENGTH);
 const MemberId = Member.shape.id;
 const RelayAddr = Candidate.shape.addr;
 const RelayBytes = z.number().min(0);

@@ -14,6 +14,23 @@ export const MeetMode = z
   .regex(/^[a-z0-9][a-z0-9/_.-]*$/);
 export type MeetMode = z.infer<typeof MeetMode>;
 
+/**
+ * Room codes: letters only, so the game's own keyboard types them without
+ * its digits page, and no look-alikes (I, L, O).
+ */
+export const ROOM_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ";
+export const ROOM_CODE_LENGTH = 4;
+
+/** A room code the way the player typed it, or null when it can't be one. */
+export function normalizeRoomCode(text: string): string | null {
+  const code = text.trim().toUpperCase().replace(/[\s-]/g, "");
+  if (code.length !== ROOM_CODE_LENGTH) return null;
+  for (const c of code) {
+    if (!ROOM_CODE_ALPHABET.includes(c)) return null;
+  }
+  return code;
+}
+
 /** The longest list of mods a game sends ("id version, ...", tgg_mod_set_names). */
 export const MEET_MAX_NAMES = 2000;
 export const MeetModNames = z.string().max(MEET_MAX_NAMES);
