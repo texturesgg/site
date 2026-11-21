@@ -1,4 +1,11 @@
-import { MEET_MAX_GAMES, MeetMode, MeetModNames, MeetQueueSummary } from "@vgskins/shared/meet";
+import {
+  MEET_MAX_GAMES,
+  MeetMode,
+  MeetModNames,
+  MeetQueueSummary,
+  ROOM_CODE_ALPHABET,
+  ROOM_CODE_LENGTH,
+} from "@vgskins/shared/meet";
 import { z } from "zod";
 
 /**
@@ -33,11 +40,6 @@ const MAX_FIELD = 64;
 const MAX_WHY = 200;
 /** The longest a connection may take to report, in ms. */
 const MAX_CONNECT_MS = 120_000;
-
-/** Codes: letters only, so the game's own keyboard types them without its digits
- * page, and no look-alikes (I, L, O). */
-export const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ";
-export const CODE_LENGTH = 4;
 
 /** A room nobody touched for this long closes, unless its host is still in it. */
 export const ROOM_IDLE_MS = 30 * 60 * 1000;
@@ -178,20 +180,10 @@ export const ServerMessage = z.discriminatedUnion("type", [
 ]);
 export type ServerMessage = z.infer<typeof ServerMessage>;
 
-/** A code the way the player typed it, or null when it can't be one. */
-export function normalizeCode(text: string): string | null {
-  const code = text.trim().toUpperCase().replace(/[\s-]/g, "");
-  if (code.length !== CODE_LENGTH) return null;
-  for (const c of code) {
-    if (!CODE_ALPHABET.includes(c)) return null;
-  }
-  return code;
-}
-
 export function randomCode(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(CODE_LENGTH));
+  const bytes = crypto.getRandomValues(new Uint8Array(ROOM_CODE_LENGTH));
   let code = "";
-  for (const b of bytes) code += CODE_ALPHABET[b % CODE_ALPHABET.length];
+  for (const b of bytes) code += ROOM_CODE_ALPHABET[b % ROOM_CODE_ALPHABET.length];
   return code;
 }
 

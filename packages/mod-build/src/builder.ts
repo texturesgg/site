@@ -11,11 +11,15 @@ const BUILD_ENV = {
   // Nix's linker wrapper would add store paths to each mod's RUNPATH, which
   // makes package bytes depend on the build machine.
   NIX_DONT_SET_RPATH_x86_64_unknown_linux_gnu: "1",
-  // One compile at a time: the lite container has 256 MiB and 1/16 of a
-  // vCPU, so parallel jobs only add memory. tgg.http's Mbed TLS takes up to
-  // 190 MB a file for Windows, so several at once don't fit.
-  CMAKE_BUILD_PARALLEL_LEVEL: "1",
+  // One compile per vCPU of BUILD_INSTANCE. tgg.http's Mbed TLS takes up to
+  // 190 MB a file for Windows, which its memory holds many times over.
+  CMAKE_BUILD_PARALLEL_LEVEL: "2",
 };
+
+// standard-3: 2 vCPU, 8 GiB. The lite instance (1/16 vCPU, 256 MiB) ran
+// tgg.http's Windows build past the Workflow's 20-minute limit. CPU is
+// billed only while compiling, so a faster build costs about the same.
+const BUILD_INSTANCE = "standard-3";
 
 // The targets the image cross-compiles for: the C compiler and the CMake
 // toolchain file (image/toolchains/) `tgg mod build` uses. Linux, the image's
@@ -92,7 +96,7 @@ export class Builder extends DurableObject<BuildEnv> {
     // destroying its container, that container still holds its workspace,
     // and tgg won't build into a directory that isn't empty.
     if (container.running) await container.destroy();
-    container.start({ image, enableInternet: false, instance: "lite" });
+    container.start({ image, enableInternet: false, instance: BUILD_INSTANCE });
     const command = buildCommand(layout, target, commit, releaseClass);
     try {
       const decoder = new TextDecoder();

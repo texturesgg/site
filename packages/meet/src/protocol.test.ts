@@ -1,11 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  checkCandidates,
-  MAX_MESSAGE_BYTES,
-  mayOffer,
-  normalizeCode,
-  parseClientMessage,
-} from "./protocol";
+import { checkCandidates, MAX_MESSAGE_BYTES, mayOffer, parseClientMessage } from "./protocol";
 import { udpServer } from "./relay";
 
 // The address check is what keeps the meeting point from being used to aim
@@ -33,15 +27,6 @@ describe("candidates", () => {
       "203.0.113.7"
     );
     expect(list.map((c) => c.addr)).toEqual(["203.0.113.7:51000", "[2001:db8::1]:51000"]);
-  });
-});
-
-describe("codes", () => {
-  it("reads codes the way people type them", () => {
-    expect(normalizeCode(" ab-cd ")).toBe("ABCD");
-    expect(normalizeCode("ABCO")).toBeNull(); // O, I and L aren't in codes
-    expect(normalizeCode("AB2D")).toBeNull(); // letters only
-    expect(normalizeCode("ABC")).toBeNull();
   });
 });
 

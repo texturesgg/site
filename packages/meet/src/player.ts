@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { MEET_MAX_GAMES, MeetMode } from "@vgskins/shared/meet";
+import { MEET_MAX_GAMES, MeetMode, normalizeRoomCode } from "@vgskins/shared/meet";
 import { z } from "zod";
 import { MAX_AVOID, MAX_RECENT } from "./pairing";
 import {
@@ -14,7 +14,6 @@ import {
   MESSAGE_BUDGET,
   MESSAGE_WINDOW_MS,
   Nat,
-  normalizeCode,
   parseClientMessage,
   RELAY_DAILY,
   RELAY_TTL_S,
@@ -306,7 +305,7 @@ export class Player extends DurableObject<MeetEnv> {
           send(ws, { type: "error", message: "Too many tries today. Try again tomorrow." });
           return;
         }
-        const code = normalizeCode(message.code);
+        const code = normalizeRoomCode(message.code);
         if (code === null) {
           send(ws, { type: "error", message: "Room codes are 4 letters." });
           return;
