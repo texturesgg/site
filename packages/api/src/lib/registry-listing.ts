@@ -11,7 +11,13 @@ import {
 import { byVersionDescending } from "@vgskins/shared";
 import { and, asc, eq, exists, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
-import { CODE_MOD_SYSTEMS, type CodeModSystem, layoutSystem } from "./code-mod-layouts";
+import {
+  CODE_MOD_SYSTEMS,
+  type CodeModSystem,
+  layoutSystem,
+  StableManifest,
+  stableLoadsOn,
+} from "./code-mod-layouts";
 
 // What the registry lists of a mod (routes/registry.ts), shared with the
 // public catalog's share cards (lib/public-catalog.ts).
@@ -95,28 +101,61 @@ export type ModRow = {
   official: boolean;
 };
 
+/** A layout of the current port: its system, target and the API it offers. */
+type PortLayout = { system: CodeModSystem; target: string; apiVersion: string | null };
+
 /**
  * The newest tgg-melee release the builder has active layouts for, and the
- * systems they cover: what a mod's `targets` are counted against.
+ * layouts it has: what a mod's `targets` are counted against.
  */
 export async function currentPort(
   db: Database
-): Promise<{ version: string | null; layouts: Map<string, CodeModSystem> }> {
+): Promise<{ version: string | null; layouts: Map<string, PortLayout> }> {
   const active = await db
     .select({
       id: codeModLayouts.id,
       target: codeModLayouts.target,
       portVersion: codeModLayouts.portVersion,
+      apiVersion: codeModLayouts.apiVersion,
     })
     .from(codeModLayouts)
     .where(eq(codeModLayouts.active, true));
   const version = active.map((layout) => layout.portVersion).sort(byVersionDescending)[0] ?? null;
-  const layouts = new Map<string, CodeModSystem>();
+  const layouts = new Map<string, PortLayout>();
   for (const layout of active) {
-    const os = layoutSystem(layout.target);
-    if (layout.portVersion === version && os !== "other") layouts.set(layout.id, os);
+    const system = layoutSystem(layout.target);
+    if (layout.portVersion === version && system !== "other") {
+      layouts.set(layout.id, { system, target: layout.target, apiVersion: layout.apiVersion });
+    }
   }
   return { version, layouts };
+}
+
+/**
+ * The systems of the current port that serve a build, as its catalogs do
+ * (routes/registry.ts): a build without a library serves every layout, a
+ * build serves its own layout, and a stable-tier build made for another
+ * layout serves each layout with its target whose API loads it.
+ */
+function buildSystems(
+  build: { layoutId: string | null; layoutTarget: string | null; manifest: unknown },
+  port: Awaited<ReturnType<typeof currentPort>>
+): CodeModSystem[] {
+  const layouts = [...port.layouts.values()];
+  if (build.layoutId === null) return layouts.map((layout) => layout.system);
+  const own = port.layouts.get(build.layoutId);
+  if (own) return [own.system];
+  const stable = StableManifest.safeParse(build.manifest);
+  if (!stable.success) return [];
+  return layouts
+    .filter(
+      (layout) =>
+        layout.target === build.layoutTarget &&
+        layout.target === stable.data.target &&
+        layout.apiVersion !== null &&
+        stableLoadsOn(stable.data, layout.apiVersion)
+    )
+    .map((layout) => layout.system);
 }
 
 /**
@@ -163,10 +202,12 @@ export async function summarize(
       .select({
         releaseId: codeModBuilds.releaseId,
         layoutId: codeModBuilds.layoutId,
+        layoutTarget: codeModLayouts.target,
         manifest: codeModBuilds.manifest,
         netplay: codeModBuilds.netplay,
       })
       .from(codeModBuilds)
+      .leftJoin(codeModLayouts, eq(codeModLayouts.id, codeModBuilds.layoutId))
       .where(
         and(inArray(codeModBuilds.releaseId, releaseIds), eq(codeModBuilds.status, "succeeded"))
       ),
@@ -195,14 +236,7 @@ export async function summarize(
     const release = latest.get(mod.id);
     if (!release) return [];
     const built = builds.filter((build) => build.releaseId === release.id);
-    // A build without a library (layout null) serves every layout.
-    const systems = new Set(
-      built.flatMap((build) =>
-        build.layoutId === null
-          ? [...port.layouts.values()]
-          : (port.layouts.get(build.layoutId) ?? [])
-      )
-    );
+    const systems = new Set(built.flatMap((build) => buildSystems(build, port)));
     const manifest = built.find((build) => build.manifest)?.manifest ?? {};
     const icon = icons.find((image) => image.releaseId === release.id);
     return [
