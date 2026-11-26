@@ -11,6 +11,7 @@ import { ASSETS_URL, DISCORD_URL } from "@/lib/config";
 import { featureFlag, useFeatureFlag } from "@/lib/feature-flags";
 import { DownloadIcon } from "@/ui/icons";
 import { Article, ArticleSection, Code, Strong } from "@/ui/patterns/Article";
+import { CommandBar } from "@/ui/patterns/InstallActions";
 import { layout } from "@/ui/patterns/layout";
 import { PageHeader } from "@/ui/patterns/PageHeader";
 import { AnchorButton, TextAnchor, TextLink } from "@/ui/primitives";
@@ -76,6 +77,9 @@ const styles = stylex.create({
     gap: space.sm,
     padding: space.md,
     borderRadius: radius.md,
+    borderWidth: "1px",
+    borderStyle: "solid",
+    borderColor: color.line,
     backgroundColor: color.surface,
     listStyle: "none",
   },
@@ -91,15 +95,6 @@ const styles = stylex.create({
   file: { fontFamily: font.mono, fontSize: text.xs, color: color.muted, overflowWrap: "anywhere" },
   actions: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: space.xxs },
   others: { display: "flex", gap: space.sm, fontSize: text.sm },
-  command: {
-    margin: 0,
-    padding: space.md,
-    overflowX: "auto",
-    borderRadius: radius.md,
-    backgroundColor: color.surface,
-    fontFamily: font.mono,
-    fontSize: text.sm,
-  },
 });
 
 function Download() {
@@ -156,11 +151,12 @@ function AppDownload() {
             <p>
               <Code>tgg</Code> installs tgg-melee and mods from a terminal. On Linux and macOS:
             </p>
-            <pre {...stylex.props(styles.command)}>
-              curl -fsSL https://textures.gg/install.sh | sh
-            </pre>
+            <CommandBar
+              command="curl -fsSL https://textures.gg/install.sh | sh"
+              surface="surface"
+            />
             <p>On Windows, in PowerShell:</p>
-            <pre {...stylex.props(styles.command)}>irm https://textures.gg/install.ps1 | iex</pre>
+            <CommandBar command="irm https://textures.gg/install.ps1 | iex" surface="surface" />
           </ArticleSection>
           <ArticleSection title="Need help?">
             <p>

@@ -77,6 +77,7 @@ function DocsLayout() {
   const { version } = Route.useParams();
   const navigate = useNavigate();
   const headers = release.headers.map((header) => header.slice("tgg/".length, -".h".length));
+  const readmeInSection = release.sections.some((section) => section.pages.includes("README"));
 
   return (
     <div {...stylex.props(layout.container, layout.page, styles.page)}>
@@ -92,7 +93,7 @@ function DocsLayout() {
             void navigate({ to: "/docs/mods/$version", params: { version: next } })
           }
         />
-        {release.pages.includes("README") && (
+        {release.pages.includes("README") && !readmeInSection && (
           <ul {...stylex.props(styles.list)}>
             <li>
               <DocsLink href={docsPagePath(version, "README")}>{docsPageLabel("README")}</DocsLink>
