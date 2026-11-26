@@ -31,6 +31,26 @@
       # flake's `windows` shell), for mods for the Windows layouts.
       mingw = pkgs.pkgsCross.mingwW64;
 
+      # Patch dynamically linked Linux SDK tools (like tgg-script) to use the
+      # container's own glibc and libgcc_s rather than /lib64/ld-linux-x86-64.so.2.
+      sdkRuntime = [
+        pkgs.glibc
+        pkgs.stdenv.cc.cc.lib
+      ];
+      patch-sdk-tools = pkgs.writeShellScript "patch-sdk-tools" ''
+        set -euo pipefail
+        root=$1
+        for f in "$root"/opt/tgg/sdks/*/tools/*; do
+          [ -f "$f" ] || continue
+          if ${pkgs.patchelf}/bin/patchelf --print-interpreter "$f" >/dev/null 2>&1; then
+            ${pkgs.patchelf}/bin/patchelf \
+              --set-interpreter "${pkgs.glibc}/lib/ld-linux-x86-64.so.2" \
+              --set-rpath "${pkgs.glibc}/lib:${pkgs.stdenv.cc.cc.lib}/lib" \
+              "$f"
+          fi
+        done
+      '';
+
       # CMake toolchain files by target triple, at /opt/tgg/toolchains/: the
       # Builder hands one to `tgg mod build` for a layout whose SDK targets
       # another system than the image's own.
@@ -39,6 +59,8 @@
         substitute ${./toolchains/x86_64-windows-gnu.cmake} \
           $out/opt/tgg/toolchains/x86_64-windows-gnu.cmake \
           --subst-var-by mcfgthreads ${mingw.windows.mcfgthreads}
+        # Pin the SDK tool runtime store paths in the image closure.
+        printf '%s\n' ${pkgs.lib.concatStringsSep " " sdkRuntime} > $out/opt/tgg/toolchains/.sdk-runtime
       '';
 
       toolchain = pkgs.buildEnv {
@@ -63,7 +85,7 @@
     in
     {
       packages.${system} = {
-        inherit tgg toolchain toolchains;
+        inherit tgg toolchain toolchains patch-sdk-tools;
 
         # Nothing but the toolchain: no distribution, no shell beyond what GCC's
         # wrapper needs, and no game headers. The builder image adds each active
