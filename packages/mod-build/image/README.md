@@ -63,8 +63,9 @@ toolchain files and build.sh's format number>`), or builds it with
    image builds unpacked under their layout ids, all repacked with the
    toolchain as one owner-writable layer (Cloudflare's image preparation fails
    on Nix's read-only store) and pushed;
-2. waits until Cloudflare has prepared the image to run (a new image has taken
-   close to an hour; the wait gives up after 90 minutes);
+2. waits until Cloudflare has prepared the image to run (`prepare.sh`, which
+   logs each check's status and reason, stops at an error, and gives up after
+   30 minutes; running the deploy again picks up where it left off);
 3. makes `code_mod_layouts` match `layouts.json`: those layouts are active,
    with who builds them (`image`, or `external` for macOS), and every other one is
    retired (no new builds; its packages stay downloadable);
