@@ -4,10 +4,10 @@ import { createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
 import { parseResponse } from "hono/client";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { useFeatureFlag } from "@/lib/feature-flags";
 import { ChevronDownIcon, FiltersIcon } from "@/ui/icons";
 import { EmptyState } from "@/ui/patterns/EmptyState";
 import { layout } from "@/ui/patterns/layout";
-import { GameSections } from "@/ui/patterns/GameSections";
 import { PageHeader } from "@/ui/patterns/PageHeader";
 import { PackGrid, PackGridSkeleton } from "@/ui/patterns/PackTile";
 import { Pagination } from "@/ui/patterns/Pagination";
@@ -151,6 +151,7 @@ function BrowsePage() {
   const { slug } = Route.useParams();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: "/games/$slug/" });
+  const codeMods = useFeatureFlag("codeMods");
 
   const sort: SortMode = search.sort ?? "hot";
   const period: Period = search.period ?? "all";
@@ -241,7 +242,7 @@ function BrowsePage() {
   return (
     <div {...stylex.props(layout.container, layout.page, styles.page)}>
       <PageHeader
-        title="Explore"
+        title={codeMods ? "Textures" : "Explore"}
         description={
           <>
             {game.name} ·{" "}
@@ -262,9 +263,7 @@ function BrowsePage() {
             />
           </div>
         }
-      >
-        <GameSections slug={game.slug} />
-      </PageHeader>
+      />
 
       <div {...stylex.props(styles.bar)}>
         <div {...stylex.props(styles.wideOnly)}>
