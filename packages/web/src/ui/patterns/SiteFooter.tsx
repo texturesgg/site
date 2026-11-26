@@ -62,7 +62,7 @@ export function SiteFooter() {
             : "textures.gg, a community archive of Super Smash Bros. Melee textures"}
         </p>
         <nav aria-label="Footer" {...stylex.props(styles.nav)}>
-          {codeMods && <FooterLink to="/docs/mods">Docs</FooterLink>}
+          <FooterLink to="/docs/mods">Docs</FooterLink>
           <FooterLink to="/about">About</FooterLink>
           <FooterAnchor href={DISCORD_URL}>Discord</FooterAnchor>
           <FooterAnchor href={GITHUB_URL}>GitHub</FooterAnchor>
