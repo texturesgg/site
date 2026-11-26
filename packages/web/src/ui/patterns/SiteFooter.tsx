@@ -51,7 +51,6 @@ function FooterAnchor({
 const FooterLink = createLink(FooterAnchor);
 
 export function SiteFooter() {
-  // The legal pages are drafts behind the code-mods flag until they're approved.
   const codeMods = useFeatureFlag("codeMods");
   return (
     <footer {...stylex.props(styles.footer)}>
@@ -67,14 +66,10 @@ export function SiteFooter() {
           <FooterLink to="/about">About</FooterLink>
           <FooterAnchor href={DISCORD_URL}>Discord</FooterAnchor>
           <FooterAnchor href={GITHUB_URL}>GitHub</FooterAnchor>
-          {codeMods && (
-            <>
-              <FooterLink to="/legal/terms">Terms</FooterLink>
-              <FooterLink to="/legal/privacy">Privacy</FooterLink>
-              <FooterLink to="/legal/copyright">Copyright</FooterLink>
-              <span {...stylex.props(styles.company)}>© 2026 Saavylab LLC</span>
-            </>
-          )}
+          <FooterLink to="/legal/terms">Terms</FooterLink>
+          <FooterLink to="/legal/privacy">Privacy</FooterLink>
+          <FooterLink to="/legal/copyright">Copyright</FooterLink>
+          <span {...stylex.props(styles.company)}>© 2026 Saavylab LLC</span>
         </nav>
       </div>
     </footer>

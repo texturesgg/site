@@ -1,14 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CONTACT_EMAIL } from "@/lib/config";
-import { requireFeatureFlag } from "@/lib/feature-flags";
 import { ArticleSection, BulletList } from "@/ui/patterns/Article";
 import { TextAnchor, TextLink } from "@/ui/primitives";
 import { LegalPage, legalHead } from "./-page";
 
 export const Route = createFileRoute("/legal/terms")({
-  loader: async ({ context }) => {
-    await requireFeatureFlag(context.queryClient, "codeMods");
-  },
   head: () => legalHead("Terms of service", "Terms governing your use of textures.gg."),
   component: Terms,
 });

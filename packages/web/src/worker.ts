@@ -546,6 +546,19 @@ const STATIC_OG: Readonly<Record<string, Omit<OgData, "url">>> = {
     description:
       "Answers to common questions about textures.gg, tgg-melee, Slippi, mod safety, ISOs, platforms, and open source.",
   },
+  "/legal/terms": {
+    title: "Terms of service - textures.gg",
+    description: "Terms governing your use of textures.gg.",
+  },
+  "/legal/privacy": {
+    title: "Privacy policy - textures.gg",
+    description: "What data textures.gg collects and how it is used.",
+  },
+  "/legal/copyright": {
+    title: "Copyright and DMCA - textures.gg",
+    description:
+      "How to request attribution fixes or submit a DMCA takedown notice on textures.gg.",
+  },
 };
 
 // ─── Route matching ─────────────────────────────────────────────
@@ -635,6 +648,9 @@ export function buildSitemapXml(data: PublicSitemap): string {
   entry(`${BASE}/guides`, "0.6");
   entry(`${BASE}/faq`, "0.5");
   entry(`${BASE}/about`, "0.3");
+  entry(`${BASE}/legal/terms`, "0.2");
+  entry(`${BASE}/legal/privacy`, "0.2");
+  entry(`${BASE}/legal/copyright`, "0.2");
 
   // Games
   for (const game of data.games) {
