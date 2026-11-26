@@ -25,7 +25,7 @@ export const Route = createFileRoute("/faq")({
 
 const TOPICS = [
   { id: "slippi", label: "Slippi Ranked & Unranked" },
-  { id: "different", label: "tgg-melee vs Dolphin & other ports" },
+  { id: "why-another-port", label: "Why another port?" },
   { id: "iso", label: "Melee ISOs" },
   { id: "mod-safety", label: "Mod classes & cheating online" },
   { id: "skins-in-slippi", label: "Using skins in Slippi" },
@@ -106,22 +106,23 @@ function Faq() {
             </p>
           </ArticleSection>
 
-          <ArticleSection
-            id="different"
-            title="How is tgg-melee different from Dolphin, Slippi, and other native ports?"
-          >
+          <ArticleSection id="why-another-port" title="Why another Melee port?">
             <p>
               Dolphin and Slippi emulate GameCube hardware. Native ports compile the Melee
               decompilation directly for PC, which cuts emulator overhead and input latency.
             </p>
             <p>
-              Most native forks bake features like netplay, training tools, or skin browsers
-              directly into the game executable, so adding or changing a feature means maintaining
-              another fork. <Code>tgg-melee</Code> takes the opposite approach: the port itself
-              ships with no gameplay changes baked in. Unlocks, competitive rules, rollback netplay,
-              replays, skins, and training drills are all mods loaded on top of a blank 1.02 port.
-              Modders can write gameplay rules, HUD overlays, custom menus, or new game modes in
-              Luau or C without forking the game.
+              Most native ports bake netplay, training tools, skins, and custom modes directly into
+              the game executable. The moment someone wants a different rule set, mode, or feature,
+              they have to fork the whole port again and maintain a separate binary.
+            </p>
+            <p>
+              <Code>tgg-melee</Code> takes the opposite approach: keep the port itself blank, plain
+              NTSC 1.02 verified against console replays across Windows, macOS (Apple Silicon), and
+              Linux, and build a real mod runtime on top. Unlocks, competitive rules, rollback
+              netplay, replays, skins, and training drills are all normal mods, and anyone can build
+              new gameplay rules, HUD overlays, custom menus, or modes in Luau (hot reload, no
+              compiler) or C without forking the game.
             </p>
           </ArticleSection>
 
