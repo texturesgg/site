@@ -99,13 +99,21 @@ export async function getTggMeleeReleases(env: Env): Promise<string[]> {
 
 export type ResolvedModDocs = { version: string; index: ModDocsIndex; releases: string[] };
 
-/** The newest release `wanted` names that has format 2 docs mirrored, or null. */
+/**
+ * The newest release `wanted` names that has format 2 docs mirrored, or null.
+ * When `latest` finds no format 2 release yet, it falls back to `main` until a
+ * format 2 release is published.
+ */
 export async function resolveModDocs(env: Env, wanted: string): Promise<ResolvedModDocs | null> {
   const releases = await getTggMeleeReleases(env);
   for (const version of docsCandidates(wanted, releases).slice(0, MAX_CANDIDATES)) {
     const index = await loadFormat2DocsIndex(env, version);
     if (!index) continue;
     return { version, index, releases };
+  }
+  if (wanted === "latest") {
+    const index = await loadFormat2DocsIndex(env, "main");
+    if (index) return { version: "main", index, releases };
   }
   return null;
 }
