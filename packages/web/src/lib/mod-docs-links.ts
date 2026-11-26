@@ -45,9 +45,16 @@ export function resolveDocsLink(
   return null;
 }
 
-/** A page's name in the docs' contents: "getting-started" is "Getting started". */
+const PAGE_LABELS: Record<string, string> = {
+  README: "Overview",
+  "scripts-getting-started": "Getting started",
+  "getting-started": "Getting started (C)",
+};
+
+/** A page's name in the docs' contents: "scripts-getting-started" is "Getting started". */
 export function docsPageLabel(page: string): string {
-  if (page === "README") return "Overview";
+  const known = PAGE_LABELS[page];
+  if (known) return known;
   const words = page.replace(/[-_]+/g, " ");
   return words.charAt(0).toUpperCase() + words.slice(1);
 }

@@ -22,11 +22,19 @@ const styles = stylex.create({
     borderStyle: "solid",
     borderColor: color.line,
   },
+  commandBarSurface: {
+    paddingBlock: space.sm,
+    paddingInline: space.md,
+    backgroundColor: color.surface,
+  },
   command: {
     fontFamily: font.mono,
     fontSize: text.xs,
     color: color.text,
     overflowWrap: "anywhere",
+  },
+  commandSurface: {
+    fontSize: text.sm,
   },
   copyButton: {
     flexShrink: 0,
@@ -50,6 +58,52 @@ const styles = stylex.create({
   },
 });
 
+/** A monospace command row with a one-click copy button. */
+export function CommandBar({
+  command,
+  surface = "bg",
+}: {
+  command: string;
+  /** Use "surface" when placed directly on the page background. */
+  surface?: "bg" | "surface";
+}) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 1800);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
+  const copy = () => {
+    if (typeof navigator === "undefined" || !navigator.clipboard) return;
+    void navigator.clipboard.writeText(command).then(() => setCopied(true));
+  };
+
+  return (
+    <div {...stylex.props(styles.commandBar, surface === "surface" && styles.commandBarSurface)}>
+      <code {...stylex.props(styles.command, surface === "surface" && styles.commandSurface)}>
+        {command}
+      </code>
+      <button
+        type="button"
+        onClick={copy}
+        aria-label={`Copy ${command}`}
+        {...stylex.props(styles.copyButton)}
+      >
+        {copied ? (
+          <>
+            <CheckIcon size={12} />
+            Copied
+          </>
+        ) : (
+          "Copy"
+        )}
+      </button>
+    </div>
+  );
+}
+
 /**
  * Install, which opens the textures.gg app on a mod or set, the way to get
  * the app for anyone who doesn't have it yet, and a copyable tgg command.
@@ -67,19 +121,6 @@ export function InstallActions({
   /** Stretch the primary action to fill its container (for boxed panels). */
   fullWidth?: boolean;
 }) {
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), 1800);
-    return () => clearTimeout(timer);
-  }, [copied]);
-
-  const copy = () => {
-    if (typeof navigator === "undefined" || !navigator.clipboard) return;
-    void navigator.clipboard.writeText(command).then(() => setCopied(true));
-  };
-
   return (
     <div {...stylex.props(styles.install)}>
       <div {...stylex.props(styles.row, fullWidth && styles.rowColumn)}>
@@ -96,24 +137,7 @@ export function InstallActions({
           Needs the <TextLink to="/download">textures.gg app</TextLink>
         </span>
       </div>
-      <div {...stylex.props(styles.commandBar)}>
-        <code {...stylex.props(styles.command)}>{command}</code>
-        <button
-          type="button"
-          onClick={copy}
-          aria-label={`Copy ${command}`}
-          {...stylex.props(styles.copyButton)}
-        >
-          {copied ? (
-            <>
-              <CheckIcon size={12} />
-              Copied
-            </>
-          ) : (
-            "Copy"
-          )}
-        </button>
-      </div>
+      <CommandBar command={command} />
     </div>
   );
 }

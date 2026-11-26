@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { headingSlug } from "@/ui/patterns/Markdown";
-import { resolveDocsLink } from "./mod-docs-links";
+import { docsPageLabel, resolveDocsLink } from "./mod-docs-links";
 
 // The docs' links are written for the repository; tgg links the site with
 // anchors from the headings, so both have to land on the right place here.
@@ -31,4 +31,11 @@ it("makes heading anchors the way GitHub does", () => {
   expect(headingSlug("When to write C")).toBe("when-to-write-c");
   expect(headingSlug("Before, after and replace")).toBe("before-after-and-replace");
   expect(headingSlug("`TGG_STATE` and rollback")).toBe("tgg_state-and-rollback");
+});
+
+it("gives Luau and C getting-started pages distinct sidebar labels", () => {
+  expect(docsPageLabel("README")).toBe("Overview");
+  expect(docsPageLabel("scripts-getting-started")).toBe("Getting started");
+  expect(docsPageLabel("getting-started")).toBe("Getting started (C)");
+  expect(docsPageLabel("files-and-assets")).toBe("Files and assets");
 });

@@ -3,11 +3,12 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { parseResponse } from "hono/client";
 import { useState } from "react";
 import { api } from "@/lib/api";
-import { useFeatureFlag } from "@/lib/feature-flags";
-import { layout } from "@/ui/patterns/layout";
-import { PageHeader } from "@/ui/patterns/PageHeader";
+import { featureFlag, useFeatureFlag } from "@/lib/feature-flags";
 import { CreatorCard } from "@/ui/patterns/CreatorCard";
+import { layout } from "@/ui/patterns/layout";
 import { PackRail, Rail } from "@/ui/patterns/PackRail";
+import { PageHeader } from "@/ui/patterns/PageHeader";
+import { SetGrid } from "@/ui/patterns/SetCard";
 import { ButtonLink, SearchField } from "@/ui/primitives";
 import { shared } from "@/ui/primitives/shared";
 import { color, font, radius, space, text, tracking } from "@/ui/tokens.stylex";
@@ -25,28 +26,32 @@ async function settled<T>(request: Promise<T>): Promise<T | undefined> {
 }
 
 export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "textures.gg - SSBM Texture Mods, Custom Skins & HD Costumes" },
-      {
-        name: "description",
-        content:
-          "Browse thousands of Super Smash Bros. Melee texture mods, custom character skins, and stage retextures. Free downloads, community uploads. the modern home for SSBM textures.",
-      },
-    ],
-  }),
   // The games are the page; the counts and rails are extras, so one that
   // fails is left out instead of taking the page down.
-  loader: async () => {
-    const [games, stats, trending, newest, favorites, creators] = await Promise.all([
-      parseResponse(api.games.$get()),
-      settled(parseResponse(api.stats.$get())),
-      settled(parseResponse(api.packs.$get({ query: { pageSize: RAIL_SIZE, sortBy: "hot" } }))),
-      settled(parseResponse(api.packs.$get({ query: { pageSize: RAIL_SIZE, sortBy: "newest" } }))),
-      settled(parseResponse(api.packs.$get({ query: { pageSize: RAIL_SIZE, sortBy: "top" } }))),
-      settled(parseResponse(api.users["top-creators"].$get({ query: {} }))),
-    ]);
+  loader: async ({ context }) => {
+    const codeModsPromise = featureFlag(context.queryClient, "codeMods").catch(() => false);
+    const [games, stats, trending, newest, favorites, creators, codeMods, sets, registryMods] =
+      await Promise.all([
+        parseResponse(api.games.$get()),
+        settled(parseResponse(api.stats.$get())),
+        settled(parseResponse(api.packs.$get({ query: { pageSize: RAIL_SIZE, sortBy: "hot" } }))),
+        settled(
+          parseResponse(api.packs.$get({ query: { pageSize: RAIL_SIZE, sortBy: "newest" } }))
+        ),
+        settled(parseResponse(api.packs.$get({ query: { pageSize: RAIL_SIZE, sortBy: "top" } }))),
+        settled(parseResponse(api.users["top-creators"].$get({ query: {} }))),
+        codeModsPromise,
+        codeModsPromise.then((on) =>
+          on ? settled(parseResponse(api.registry.sets.$get())) : undefined
+        ),
+        codeModsPromise.then((on) =>
+          on
+            ? settled(parseResponse(api.registry.mods.$get({ query: { pageSize: "100" } })))
+            : undefined
+        ),
+      ]);
     return {
+      codeMods,
       stats,
       // Largest catalog first; it is the default destination for search and "See all".
       games: [...games].sort((a, b) => b.packCount - a.packCount),
@@ -54,8 +59,26 @@ export const Route = createFileRoute("/")({
       newest: newest?.items ?? [],
       favorites: favorites?.items ?? [],
       creators: creators ?? [],
+      sets: sets ?? [],
+      registryMods: registryMods?.items ?? [],
+      modCount: registryMods?.total ?? 0,
     };
   },
+  head: ({ loaderData }) => ({
+    meta: [
+      {
+        title: loaderData?.codeMods
+          ? "textures.gg - Melee Textures, Custom Skins & Code Mods"
+          : "textures.gg - SSBM Texture Mods, Custom Skins & HD Costumes",
+      },
+      {
+        name: "description",
+        content: loaderData?.codeMods
+          ? "Browse Super Smash Bros. Melee texture packs, custom skins, and tgg-melee code mods. Free downloads, community uploads, and native online play."
+          : "Browse thousands of Super Smash Bros. Melee texture mods, custom character skins, and stage retextures. Free downloads and community uploads.",
+      },
+    ],
+  }),
   pendingComponent: HomeSkeleton,
   component: HomePage,
 });
@@ -105,6 +128,9 @@ const styles = stylex.create({
     gap: space.xxs,
     padding: space.md,
     borderRadius: radius.lg,
+    borderWidth: "1px",
+    borderStyle: "solid",
+    borderColor: color.line,
     backgroundColor: { default: color.surface, ":hover": color.raise },
     color: color.text,
     textDecoration: "none",
@@ -119,6 +145,9 @@ const styles = stylex.create({
     gap: space.md,
     padding: { default: space.md, [WIDE]: space.lg },
     borderRadius: radius.lg,
+    borderWidth: "1px",
+    borderStyle: "solid",
+    borderColor: color.line,
     backgroundColor: color.surface,
   },
   newcomerText: { display: "flex", flexDirection: "column", gap: space.xxs },
@@ -133,16 +162,38 @@ const styles = stylex.create({
 // ─── Page ───────────────────────────────────────────────────────
 
 function HomePage() {
-  const { stats, games, trending, newest, favorites, creators } = Route.useLoaderData();
-  const codeMods = useFeatureFlag("codeMods");
+  const {
+    codeMods: loadedCodeMods,
+    stats,
+    games,
+    trending,
+    newest,
+    favorites,
+    creators,
+    sets,
+    registryMods,
+    modCount,
+  } = Route.useLoaderData();
+  const codeMods = useFeatureFlag("codeMods") || loadedCodeMods;
   const primary = games[0];
   const gameNames = games.map((game) => game.name);
+
+  const modIcons = new Map<string, string>();
+  const modNames = new Map<string, string>();
+  for (const mod of registryMods) {
+    modNames.set(mod.id, mod.name);
+    if (mod.icon?.url) modIcons.set(mod.id, mod.icon.url);
+  }
 
   return (
     <div {...stylex.props(layout.container, layout.page, styles.page)}>
       <PageHeader
-        title="Texture mods and custom skins"
-        description={`A community archive for ${listNames(gameNames)}.`}
+        title={codeMods ? "Textures, skins, and code mods" : "Texture mods and custom skins"}
+        description={
+          codeMods
+            ? `Community texture packs, code mods, and native online play for ${listNames(gameNames)}.`
+            : `A community archive for ${listNames(gameNames)}.`
+        }
       >
         <div {...stylex.props(styles.heroBody)}>
           {primary && <HomeSearch gameSlug={primary.slug} gameName={primary.name} />}
@@ -156,10 +207,38 @@ function HomePage() {
                 {stats.creatorCount.toLocaleString("en-US")}
               </span>{" "}
               creators
+              {codeMods && modCount > 0 && (
+                <>
+                  {" · "}
+                  <span {...stylex.props(styles.statValue)}>
+                    {modCount.toLocaleString("en-US")}
+                  </span>{" "}
+                  code mods
+                </>
+              )}
             </p>
           )}
         </div>
       </PageHeader>
+
+      {codeMods && primary && sets.length > 0 && (
+        <section aria-labelledby="sets-heading" {...stylex.props(styles.group)}>
+          <div {...stylex.props(styles.railHead)}>
+            <h2 id="sets-heading" {...stylex.props(styles.sectionTitle)}>
+              Starter mod sets
+            </h2>
+            <ButtonLink
+              to="/games/$slug/mods"
+              params={{ slug: primary.slug }}
+              variant="text"
+              aria-label="See all code mods"
+            >
+              See all mods
+            </ButtonLink>
+          </div>
+          <SetGrid sets={sets} game={primary.slug} icons={modIcons} names={modNames} />
+        </section>
+      )}
 
       {/* A game picker only earns its space once there is more than one game. */}
       {games.length > 1 && (
