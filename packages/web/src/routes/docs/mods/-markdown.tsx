@@ -1,7 +1,15 @@
 import * as stylex from "@stylexjs/stylex";
 import { useNavigate } from "@tanstack/react-router";
 import type { ModDocsHeading, ModDocsRelease } from "@vgskins/shared/mod-docs";
-import { type ComponentProps, type ReactNode, useEffect, useMemo, useState } from "react";
+import {
+  type ComponentProps,
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { z } from "zod";
@@ -191,7 +199,7 @@ const styles = stylex.create({
     fontSize: text.md,
     lineHeight: 1.65,
     color: color.text,
-    overflowWrap: "anywhere",
+    overflowWrap: "break-word",
   },
   headingRow: {
     display: "flex",
@@ -272,6 +280,10 @@ const styles = stylex.create({
     backgroundColor: color.surface,
     fontFamily: font.mono,
     fontSize: "0.88em",
+    boxDecorationBreak: "clone",
+  },
+  inlineCodeNowrap: {
+    whiteSpace: "nowrap",
   },
   quote: {
     margin: 0,
@@ -328,6 +340,7 @@ const styles = stylex.create({
     width: "100%",
     borderCollapse: "collapse",
     fontSize: text.sm,
+    overflowWrap: "normal",
   },
   th: {
     padding: `${space.xs} ${space.sm}`,
@@ -448,6 +461,17 @@ function Callout({ kind, children }: { kind: "note" | "tip" | "warning"; childre
   );
 }
 
+const InTableContext = createContext(false);
+
+function InlineCode({ node, children }: { node?: HastNode; children?: ReactNode }) {
+  const inTable = useContext(InTableContext);
+  const raw = textOf(node);
+  const nowrap = inTable && (raw.length <= 36 || !/\s/.test(raw));
+  return (
+    <code {...stylex.props(styles.inlineCode, nowrap && styles.inlineCodeNowrap)}>{children}</code>
+  );
+}
+
 type DocsMarkdownProps = {
   children: string;
   wanted: string;
@@ -539,7 +563,9 @@ export function DocsMarkdown({ children, wanted, page, release, headings }: Docs
     ul: ({ children: c }) => <ul {...stylex.props(styles.list)}>{c}</ul>,
     ol: ({ children: c }) => <ol {...stylex.props(styles.list)}>{c}</ol>,
     a: ({ href, children: c }) => renderLink(href, c),
-    code: ({ children: c }) => <code {...stylex.props(styles.inlineCode)}>{c}</code>,
+    code: ({ node, children: c }) => (
+      <InlineCode node={node as HastNode | undefined}>{c}</InlineCode>
+    ),
     pre: ({ node }) => {
       const hast = node as HastNode | undefined;
       const codeNode = hast?.children?.find((child) => child.tagName === "code");
@@ -568,9 +594,11 @@ export function DocsMarkdown({ children, wanted, page, release, headings }: Docs
       return <blockquote {...stylex.props(styles.quote)}>{c}</blockquote>;
     },
     table: ({ children: c }) => (
-      <div {...stylex.props(styles.tableWrap)}>
-        <table {...stylex.props(styles.table)}>{c}</table>
-      </div>
+      <InTableContext.Provider value={true}>
+        <div {...stylex.props(styles.tableWrap)}>
+          <table {...stylex.props(styles.table)}>{c}</table>
+        </div>
+      </InTableContext.Provider>
     ),
     th: ({ children: c }) => <th {...stylex.props(styles.th)}>{c}</th>,
     td: ({ children: c }) => <td {...stylex.props(styles.td)}>{c}</td>,
