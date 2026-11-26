@@ -6,6 +6,8 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { authHandler, siteOrigins } from "./lib/auth";
 import {
+  getModDocsMeta,
+  getModDocsRawFile,
   getModShareData,
   getPackOpenGraphData,
   getPublicSitemapData,
@@ -172,6 +174,14 @@ export class PublicCatalogEntrypoint extends WorkerEntrypoint<Env> {
 
   getShareIcon(sha256: string) {
     return getShareIcon(this.env, sha256);
+  }
+
+  getModDocsMeta(wanted: string, page: string) {
+    return getModDocsMeta(this.env, wanted, page);
+  }
+
+  getModDocsRawFile(wanted: string, path: string) {
+    return getModDocsRawFile(this.env, wanted, path);
   }
 }
 

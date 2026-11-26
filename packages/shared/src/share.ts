@@ -5,6 +5,7 @@ import {
   codeModSetNameSchema,
   codeModSlugSchema,
 } from "./code-mods.js";
+import { ModDocsPage } from "./mod-docs.js";
 
 // What the API's public catalog (PublicCatalogEntrypoint) tells the web
 // Worker about a code mod or set, for the tags and share card a link shows.
@@ -39,6 +40,23 @@ export type SetShare = z.infer<typeof SetShareSchema>;
 /** A listing icon's bytes, or null when no approved release has it. */
 export const ShareIconSchema = z.instanceof(Uint8Array).nullable();
 
+/** Per-page metadata for a mod docs page's HTML title, description, and Open Graph tags. */
+export const ModDocsMetaSchema = z.object({
+  title: z.string(),
+  description: z.string(),
+  /** Canonical path on textures.gg (for example "/docs/mods/latest/guides/hud"). */
+  canonicalPath: z.string(),
+});
+export type ModDocsMeta = z.infer<typeof ModDocsMetaSchema>;
+
+/** A raw text docs file served directly by the web Worker (.md, llms.txt, tgg.luau). */
+export const ModDocsRawFileSchema = z.object({
+  contentType: z.string(),
+  cacheControl: z.string(),
+  body: z.string(),
+});
+export type ModDocsRawFile = z.infer<typeof ModDocsRawFileSchema>;
+
 /** Every public page the sitemap lists. */
 export const PublicSitemapSchema = z.object({
   games: z.array(z.object({ slug: z.string(), updatedAt: z.date() })),
@@ -46,8 +64,9 @@ export const PublicSitemapSchema = z.object({
     z.object({ slug: z.string(), gameSlug: z.string(), publishedAt: z.date().nullable() })
   ),
   users: z.array(z.object({ name: z.string(), updatedAt: z.date() })),
-  /** Code mods and sets: empty unless code mods are on for everyone. */
+  /** Code mods, sets, and mod docs pages: empty unless code mods are on for everyone. */
   mods: z.array(z.object({ id: codeModSlugSchema, updatedAt: z.date().nullable() })),
   sets: z.array(z.object({ name: codeModSetNameSchema })),
+  docs: z.array(ModDocsPage),
 });
 export type PublicSitemap = z.infer<typeof PublicSitemapSchema>;

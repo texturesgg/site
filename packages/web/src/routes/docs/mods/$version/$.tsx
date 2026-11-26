@@ -44,6 +44,17 @@ export const Route = createFileRoute("/docs/mods/$version/$")({
       },
       ...(loaderData?.meta ? [{ name: "description", content: loaderData.meta.description }] : []),
     ],
+    links: loaderData?.page
+      ? [
+          {
+            rel: "canonical",
+            href:
+              loaderData.page === "index"
+                ? "https://textures.gg/docs/mods/latest"
+                : `https://textures.gg/docs/mods/latest/${loaderData.page}`,
+          },
+        ]
+      : [],
   }),
   component: Page,
 });

@@ -15,6 +15,7 @@ export const Route = createFileRoute("/docs/mods/$version/api/$name")({
       { title: `${params.name}.h - Making mods - textures.gg` },
       { name: "description", content: `C SDK header tgg/${params.name}.h for tgg-melee.` },
     ],
+    links: [{ rel: "canonical", href: `https://textures.gg/docs/mods/latest/api/${params.name}` }],
   }),
   component: Header,
 });

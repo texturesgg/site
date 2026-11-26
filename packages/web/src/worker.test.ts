@@ -132,6 +132,7 @@ describe("public catalog RPC rendering", () => {
       users: [{ name: "Ciao", updatedAt: new Date("2026-08-03T00:00:00Z") }],
       mods: [{ id: "tgg.ucf", updatedAt: new Date("2026-11-11T00:00:00Z") }],
       sets: [{ name: "competitive" }],
+      docs: ["index", "start/quickstart", "guides/hud"],
     });
 
     expect(xml).toContain("https://textures.gg/games/melee");
@@ -140,6 +141,9 @@ describe("public catalog RPC rendering", () => {
     expect(xml).toContain("<lastmod>2026-08-02</lastmod>");
     expect(xml).toContain("https://textures.gg/games/melee/mods/tgg.ucf");
     expect(xml).toContain("https://textures.gg/games/melee/sets/competitive");
+    expect(xml).toContain("<loc>https://textures.gg/docs/mods/latest</loc>");
+    expect(xml).toContain("<loc>https://textures.gg/docs/mods/latest/start/quickstart</loc>");
+    expect(xml).toContain("<loc>https://textures.gg/docs/mods/latest/guides/hud</loc>");
   });
 
   it("keeps a user name from breaking out of its sitemap entry", () => {
@@ -149,6 +153,7 @@ describe("public catalog RPC rendering", () => {
       users: [{ name: "a&b</loc><x>", updatedAt: new Date("2026-08-03T00:00:00Z") }],
       mods: [],
       sets: [],
+      docs: [],
     });
 
     expect(xml).toContain("<loc>https://textures.gg/users/a%26b%3C%2Floc%3E%3Cx%3E</loc>");
@@ -230,6 +235,8 @@ describe("fetch handler", () => {
       getModShare: async () => null,
       getSetShare: async () => null,
       getShareIcon: async () => null,
+      getModDocsMeta: async () => null,
+      getModDocsRawFile: async () => null,
     },
   };
   const ctx = { waitUntil: () => undefined };
@@ -305,6 +312,8 @@ describe("code mod links", () => {
       getModShare: async () => null,
       getSetShare: async () => null,
       getShareIcon: async () => null,
+      getModDocsMeta: async () => null,
+      getModDocsRawFile: async () => null,
     },
   };
 
@@ -357,5 +366,124 @@ describe("code mod links", () => {
     const html = await response.text();
     expect(html).toContain("<title>Download the app - textures.gg</title>");
     expect(html).toContain('<link rel="canonical" href="https://textures.gg/download" />');
+  });
+
+  it("serves llms.txt, raw markdown pages, and tgg.luau directly, and 404s when unavailable", async () => {
+    const docsEnv: WorkerEnv = {
+      ...flagOff,
+      API: {
+        ...flagOff.API,
+        getModDocsRawFile: async (wanted, path) => {
+          if (wanted === "latest" && path === "llms.txt") {
+            return {
+              contentType: "text/plain; charset=utf-8",
+              cacheControl: "public, max-age=300",
+              body: "# tgg-melee mod docs\n",
+            };
+          }
+          if (wanted === "1.0" && path === "guides/hud.md") {
+            return {
+              contentType: "text/markdown; charset=utf-8",
+              cacheControl: "public, max-age=300",
+              body: "---\ntitle: Build a HUD overlay\n---\n\nHello.\n",
+            };
+          }
+          if (wanted === "latest" && path === "tgg.luau") {
+            return {
+              contentType: "text/plain; charset=utf-8",
+              cacheControl: "public, max-age=300",
+              body: "--!strict\nreturn {}\n",
+            };
+          }
+          return null;
+        },
+      },
+    };
+    const ctx = { waitUntil: () => undefined };
+
+    const llms = await worker.fetch(
+      new Request("https://textures.gg/docs/mods/llms.txt"),
+      docsEnv,
+      ctx
+    );
+    expect(llms.status).toBe(200);
+    expect(llms.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    expect(await llms.text()).toBe("# tgg-melee mod docs\n");
+
+    const md = await worker.fetch(
+      new Request("https://textures.gg/docs/mods/1.0/guides/hud.md"),
+      docsEnv,
+      ctx
+    );
+    expect(md.status).toBe(200);
+    expect(md.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
+    expect(await md.text()).toContain("Build a HUD overlay");
+
+    const types = await worker.fetch(
+      new Request("https://textures.gg/docs/mods/latest/tgg.luau"),
+      docsEnv,
+      ctx
+    );
+    expect(types.status).toBe(200);
+    expect(types.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    expect(await types.text()).toBe("--!strict\nreturn {}\n");
+
+    const legacy = await worker.fetch(
+      new Request("https://textures.gg/docs/mods/0.1/guides/hud.md"),
+      docsEnv,
+      ctx
+    );
+    expect(legacy.status).toBe(302);
+    expect(legacy.headers.get("location")).toBe("/docs/mods/latest/guides/hud.md");
+
+    const missing = await worker.fetch(
+      new Request("https://textures.gg/docs/mods/1.0/guides/missing.md"),
+      docsEnv,
+      ctx
+    );
+    expect(missing.status).toBe(404);
+    expect(missing.headers.get("content-type")).toBe("text/plain; charset=UTF-8");
+
+    const off = await worker.fetch(
+      new Request("https://textures.gg/docs/mods/llms.txt"),
+      flagOff,
+      ctx
+    );
+    expect(off.status).toBe(404);
+  });
+
+  it("gives crawlers per-page title, description, and latest canonical URL for mod docs", async () => {
+    const docsEnv: WorkerEnv = {
+      ...flagOff,
+      API: {
+        ...flagOff.API,
+        getModDocsMeta: async (wanted, page) => {
+          if (wanted === "1.0" && page === "guides/hud") {
+            return {
+              title: "Build a HUD overlay - Making mods - textures.gg",
+              description: "Draw percent, stock count, and timers on screen.",
+              canonicalPath: "/docs/mods/latest/guides/hud",
+            };
+          }
+          return null;
+        },
+      },
+    };
+    const response = await worker.fetch(
+      new Request("https://textures.gg/docs/mods/1.0/guides/hud", {
+        headers: { "user-agent": "Googlebot/2.1" },
+      }),
+      docsEnv,
+      { waitUntil: () => undefined }
+    );
+    expect(response.status).toBe(200);
+    const html = await response.text();
+    expect(html).toContain("<title>Build a HUD overlay - Making mods - textures.gg</title>");
+    expect(html).toContain(
+      '<meta name="description" content="Draw percent, stock count, and timers on screen." />'
+    );
+    expect(html).toContain(
+      '<link rel="canonical" href="https://textures.gg/docs/mods/latest/guides/hud" />'
+    );
   });
 });
