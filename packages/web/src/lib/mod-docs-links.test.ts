@@ -36,6 +36,10 @@ it("resolves nested docs links, headers, same-site links, and ignores repo-only 
     to: "site",
     href: "/docs/mods/main/api/draw",
   });
+  expect(fromHud("../../mods/api/tgg.luau")).toEqual({
+    to: "external",
+    href: expect.stringMatching(/\/api\/docs\/mods\/main\/tgg\.luau$/),
+  });
   expect(fromHud("https://textures.gg/guides")).toEqual({ to: "site", href: "/guides" });
   expect(fromHud("https://example.com/a")).toEqual({
     to: "external",

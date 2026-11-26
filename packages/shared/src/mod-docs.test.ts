@@ -8,6 +8,7 @@ import {
   docsResolveRedirect,
   ModDocsIndex,
   ModDocsPage,
+  ModDocsSearchIndex,
   ModDocsWanted,
 } from "./mod-docs";
 
@@ -67,10 +68,15 @@ it("computes prev/next separately for standard and advanced tracks and resolves 
   const redirects = {
     scripts: "concepts/sim-and-view",
     "scripts#when-to-write-c": "native/index#when-to-go-native",
+    "curated#tggfighterh": "reference/fighter",
   };
   expect(docsResolveRedirect(redirects, "scripts", "when-to-write-c")).toEqual({
     page: "native/index",
     hash: "when-to-go-native",
+  });
+  expect(docsResolveRedirect(redirects, "curated", "tggfighterh")).toEqual({
+    page: "reference/fighter",
+    hash: "",
   });
   expect(docsResolveRedirect(redirects, "scripts", "state")).toEqual({
     page: "concepts/sim-and-view",
@@ -88,4 +94,38 @@ it("computes prev/next separately for standard and advanced tracks and resolves 
       },
     })
   ).toBe("Quickstart");
+});
+
+it("validates format 2 search indices with API symbols and headings", () => {
+  expect(
+    ModDocsSearchIndex.safeParse({
+      format: 2,
+      version: "1.0.0",
+      records: [
+        {
+          id: "s:reference/fighter#set_percent",
+          kind: "symbol",
+          symbolKind: "method",
+          page: "reference/fighter",
+          anchor: "set_percent",
+          section: "Reference",
+          title: "fighter:set_percent",
+          pageTitle: "Fighter",
+          cName: "tgg_fighter_set_percent",
+          signature: "fighter:set_percent(percent: number): ()",
+          text: "Sets the fighter's percent.",
+        },
+        {
+          id: "h:guides/hud#coordinates",
+          kind: "heading",
+          page: "guides/hud",
+          anchor: "coordinates",
+          section: "Guides",
+          title: "Coordinates",
+          pageTitle: "HUD overlays",
+          text: "All draw calls use a 640 by 480 screen.",
+        },
+      ],
+    }).success
+  ).toBe(true);
 });

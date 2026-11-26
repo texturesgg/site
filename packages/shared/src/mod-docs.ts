@@ -80,6 +80,47 @@ export type ModDocsRelease = z.infer<typeof ModDocsRelease>;
 export const ModDocsFile = z.object({ version: z.string(), minor: z.string(), text: z.string() });
 export type ModDocsFile = z.infer<typeof ModDocsFile>;
 
+/** Kind of entry in docs/search.json. */
+export const ModDocsSearchKind = z.enum(["symbol", "page", "heading"]);
+export type ModDocsSearchKind = z.infer<typeof ModDocsSearchKind>;
+
+/** Symbol sub-kind for API symbol search records. */
+export const ModDocsSymbolKind = z.enum([
+  "function",
+  "method",
+  "property",
+  "event",
+  "type",
+  "constant",
+  "c_function",
+]);
+export type ModDocsSymbolKind = z.infer<typeof ModDocsSymbolKind>;
+
+/** One searchable record from docs/search.json (API symbol, page, or heading). */
+export const ModDocsSearchRecord = z.object({
+  id: z.string().min(1).max(240),
+  kind: ModDocsSearchKind,
+  symbolKind: ModDocsSymbolKind.optional(),
+  page: ModDocsPage,
+  anchor: z.string().min(1).max(160).optional(),
+  section: z.string().min(1).max(80),
+  advanced: z.boolean().optional(),
+  title: z.string().min(1).max(200),
+  pageTitle: z.string().min(1).max(160),
+  cName: z.string().max(240).optional(),
+  signature: z.string().max(400).optional(),
+  text: z.string().max(600),
+});
+export type ModDocsSearchRecord = z.infer<typeof ModDocsSearchRecord>;
+
+/** A release's format 2 docs/search.json on the mirror. */
+export const ModDocsSearchIndex = z.object({
+  format: z.literal(2),
+  version: z.string(),
+  records: z.array(ModDocsSearchRecord).max(5000),
+});
+export type ModDocsSearchIndex = z.infer<typeof ModDocsSearchIndex>;
+
 const RELEASE = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/;
 
 type Version = { text: string; parts: number[]; pre: string[] | null };
@@ -197,5 +238,6 @@ export function docsResolveRedirect(
   if (hashAt !== -1) {
     return { page: target.slice(0, hashAt), hash: target.slice(hashAt + 1) };
   }
-  return { page: target, hash: cleanHash };
+  // Exact `page#hash` match consumed the old hash; plain `page` match preserves it.
+  return { page: target, hash: exact ? "" : cleanHash };
 }

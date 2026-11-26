@@ -16,13 +16,19 @@ import {
 } from "@vgskins/shared/mod-docs";
 import { useEffect, useState } from "react";
 import { requireFeatureFlag } from "@/lib/feature-flags";
-import { docsHeaderPath, docsPagePath } from "@/lib/mod-docs-links";
+import { docsHeaderPath, docsLuauTypesUrl, docsPagePath } from "@/lib/mod-docs-links";
 import { modDocsReleaseQuery } from "@/lib/mod-docs-queries";
-import { ChevronDownIcon, ChevronRightIcon, MenuIcon } from "@/ui/icons";
+import { ChevronDownIcon, ChevronRightIcon, DownloadIcon, MenuIcon } from "@/ui/icons";
 import { layout } from "@/ui/patterns/layout";
 import { Badge, Button, Select, Sheet } from "@/ui/primitives";
 import { color, font, motion, radius, space, text } from "@/ui/tokens.stylex";
 import { orNotFound } from "./-page";
+import {
+  DocsSearchDialog,
+  DocsSearchMobileButton,
+  DocsSearchTrigger,
+  useDocsSearchShortcut,
+} from "./-search";
 
 // The mod docs shell for one version: `latest`, `main`, or a format 2 major.minor.
 // Legacy `/docs/mods/0.1/...` paths redirect to `latest`.
@@ -82,8 +88,33 @@ const styles = stylex.create({
     borderBottomStyle: "solid",
     borderBottomColor: color.line,
   },
+  mobileActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: space.xs,
+  },
   mobileVersion: {
     minWidth: "140px",
+  },
+  sideControls: {
+    display: "flex",
+    flexDirection: "column",
+    gap: space.xs,
+  },
+  typesDownload: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: space.xs,
+    padding: `6px ${space.sm}`,
+    borderRadius: radius.sm,
+    fontFamily: font.mono,
+    fontSize: text.xs,
+    color: { default: color.muted, ":hover": color.text },
+    backgroundColor: { default: "transparent", ":hover": color.surface },
+    textDecoration: "none",
+    transitionProperty: "color, background-color",
+    transitionDuration: { default: motion.fast, [REDUCED_MOTION]: "0ms" },
+    transitionTimingFunction: motion.easing,
   },
   content: {
     minWidth: 0,
@@ -233,6 +264,18 @@ function DocsNavTree({
         />
       ))}
 
+      <div {...stylex.props(styles.group)}>
+        <h2 {...stylex.props(styles.groupTitle)}>Editor types</h2>
+        <a
+          href={docsLuauTypesUrl(version, true)}
+          download="tgg.luau"
+          {...stylex.props(styles.typesDownload)}
+        >
+          <DownloadIcon size={14} />
+          <span>tgg.luau</span>
+        </a>
+      </div>
+
       {advancedSections.map((section) => (
         <div key={section.title} {...stylex.props(styles.group)}>
           <button
@@ -313,6 +356,7 @@ function DocsLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const { open: searchOpen, setOpen: setSearchOpen } = useDocsSearchShortcut();
 
   const subPath = location.pathname.replace(/^\/docs\/mods\/[^/]+\/?/, "");
   const inAdvanced =
@@ -326,36 +370,49 @@ function DocsLayout() {
   return (
     <div {...stylex.props(layout.container, layout.page, styles.page)}>
       <div {...stylex.props(styles.mobileBar)}>
-        <Sheet
-          open={sheetOpen}
-          onOpenChange={setSheetOpen}
-          title="Mod docs"
-          trigger={
-            <Button variant="secondary" icon={<MenuIcon size={16} />}>
-              Contents
-            </Button>
-          }
-        >
-          <DocsNavTree
-            version={version}
-            release={release}
-            inAdvanced={inAdvanced}
-            onNavigate={() => setSheetOpen(false)}
-          />
-        </Sheet>
+        <div {...stylex.props(styles.mobileActions)}>
+          <Sheet
+            open={sheetOpen}
+            onOpenChange={setSheetOpen}
+            title="Mod docs"
+            trigger={
+              <Button variant="secondary" icon={<MenuIcon size={16} />}>
+                Contents
+              </Button>
+            }
+          >
+            <DocsNavTree
+              version={version}
+              release={release}
+              inAdvanced={inAdvanced}
+              onNavigate={() => setSheetOpen(false)}
+            />
+          </Sheet>
+          <DocsSearchMobileButton onClick={() => setSearchOpen(true)} />
+        </div>
         <div {...stylex.props(styles.mobileVersion)}>
           <VersionPicker version={version} release={release} onSelect={switchVersion} />
         </div>
       </div>
 
       <nav aria-label="Docs" {...stylex.props(styles.sideDesktop)}>
-        <VersionPicker version={version} release={release} onSelect={switchVersion} />
+        <div {...stylex.props(styles.sideControls)}>
+          <VersionPicker version={version} release={release} onSelect={switchVersion} />
+          <DocsSearchTrigger onClick={() => setSearchOpen(true)} />
+        </div>
         <DocsNavTree version={version} release={release} inAdvanced={inAdvanced} />
       </nav>
 
       <div {...stylex.props(styles.content)}>
         <Outlet />
       </div>
+
+      <DocsSearchDialog
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        version={version}
+        release={release}
+      />
     </div>
   );
 }

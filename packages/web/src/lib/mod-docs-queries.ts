@@ -1,5 +1,5 @@
 import { queryOptions } from "@tanstack/react-query";
-import { ModDocsFile, ModDocsRelease } from "@vgskins/shared/mod-docs";
+import { ModDocsFile, ModDocsRelease, ModDocsSearchIndex } from "@vgskins/shared/mod-docs";
 import { api, apiError } from "@/lib/api";
 
 // Mirrored release docs never change; `main` updates on pushes to tgg-melee main.
@@ -40,6 +40,17 @@ export const modDocsHeaderQuery = (wanted: string, name: string) =>
       });
       if (!res.ok) throw await apiError(res);
       return ModDocsFile.parse(await res.json());
+    },
+    staleTime: wanted === "main" ? STALE_MAIN : STALE_RELEASE,
+  });
+
+export const modDocsSearchQuery = (wanted: string) =>
+  queryOptions({
+    queryKey: ["mod-docs", wanted, "search"],
+    queryFn: async () => {
+      const res = await api.docs.mods[":wanted"].search.$get({ param: { wanted } });
+      if (!res.ok) throw await apiError(res);
+      return ModDocsSearchIndex.parse(await res.json());
     },
     staleTime: wanted === "main" ? STALE_MAIN : STALE_RELEASE,
   });
