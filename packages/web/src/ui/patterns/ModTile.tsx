@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { Link } from "@tanstack/react-router";
+import type { CodeModKind, CodeModNetplay } from "@vgskins/shared";
 import { CheckIcon } from "../icons";
 import { shared } from "../primitives/shared";
 import { color, font, radius, space, text } from "../tokens.stylex";
@@ -86,7 +87,34 @@ export type ModTileData = {
   publisher: { name: string; official: boolean };
   icon: { url: string } | null;
   installs: number;
+  netplay?: CodeModNetplay | null;
+  kind?: CodeModKind | null;
 };
+
+const NETPLAY_SHORT: Record<CodeModNetplay, string> = {
+  display: "Display",
+  data: "Display",
+  offline: "Offline",
+  code: "Gameplay",
+  files: "Gameplay",
+  costumes: "Gameplay",
+};
+
+const KIND_SHORT: Record<CodeModKind, string> = {
+  script: "Script",
+  native: "Native",
+  content: "Files",
+};
+
+function tileMeta(mod: ModTileData): string {
+  const parts: string[] = [];
+  if (mod.netplay) parts.push(NETPLAY_SHORT[mod.netplay]);
+  if (mod.kind) parts.push(KIND_SHORT[mod.kind]);
+  parts.push(
+    `${mod.installs.toLocaleString("en-US")} ${mod.installs === 1 ? "install" : "installs"}`
+  );
+  return parts.join(" · ");
+}
 
 /** Who publishes a mod, with a check when textures.gg vouches for them. */
 export function Publisher({
@@ -127,9 +155,7 @@ export function ModTile({ mod, game }: { mod: ModTileData; game: string }) {
         <span {...stylex.props(styles.name)}>{mod.name}</span>
         <Publisher publisher={mod.publisher} />
         {mod.description && <p {...stylex.props(styles.description)}>{mod.description}</p>}
-        <span {...stylex.props(styles.installs)}>
-          {mod.installs.toLocaleString("en-US")} {mod.installs === 1 ? "install" : "installs"}
-        </span>
+        <span {...stylex.props(styles.installs)}>{tileMeta(mod)}</span>
       </span>
     </Link>
   );

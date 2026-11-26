@@ -440,6 +440,21 @@ export async function handleCard(
   return response;
 }
 
+const STATIC_OG: Readonly<Record<string, Omit<OgData, "url">>> = {
+  "/download": {
+    title: "Download the app - textures.gg",
+    description: "Get the textures.gg desktop app for Melee skins and mods.",
+  },
+  "/guides": {
+    title: "Install guide - textures.gg",
+    description: "How to install custom skins and texture packs in Super Smash Bros. Melee.",
+  },
+  "/about": {
+    title: "About - textures.gg",
+    description: "Community archive for Super Smash Bros. Melee skins, texture packs, and mods.",
+  },
+};
+
 // ─── Route matching ─────────────────────────────────────────────
 
 async function getOgDataForPath(
@@ -448,6 +463,12 @@ async function getOgDataForPath(
   origin: string,
   pathname: string
 ): Promise<OgData | "not-found" | null> {
+  const normalized = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+  const staticPage = STATIC_OG[normalized];
+  if (staticPage) {
+    return { ...staticPage, url: `${SITE}${normalized}` };
+  }
+
   // /games/melee/mods/:modId and /games/melee/sets/:setName (code mods are
   // Melee's only)
   const modMatch = pathname.match(/^\/games\/([^/]+)\/mods\/([^/]+)\/?$/);
@@ -508,6 +529,8 @@ export function buildSitemapXml(data: PublicSitemap): string {
 
   // Static pages
   entry(`${BASE}/`, "1.0");
+  entry(`${BASE}/download`, "0.7");
+  entry(`${BASE}/guides`, "0.6");
   entry(`${BASE}/about`, "0.3");
 
   // Games

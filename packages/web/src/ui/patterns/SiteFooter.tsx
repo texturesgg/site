@@ -52,16 +52,21 @@ const FooterLink = createLink(FooterAnchor);
 
 export function SiteFooter() {
   // The legal pages are drafts behind the code-mods flag until they're approved.
-  const legal = useFeatureFlag("codeMods");
+  const codeMods = useFeatureFlag("codeMods");
   return (
     <footer {...stylex.props(styles.footer)}>
       <div {...stylex.props(layout.container, styles.inner)}>
-        <p>textures.gg — a community archive of Super Smash Bros. Melee textures</p>
+        <p>
+          {codeMods
+            ? "textures.gg, a community archive of Melee skins and mods"
+            : "textures.gg, a community archive of Super Smash Bros. Melee textures"}
+        </p>
         <nav aria-label="Footer" {...stylex.props(styles.nav)}>
+          {codeMods && <FooterLink to="/docs/mods">Docs</FooterLink>}
           <FooterLink to="/about">About</FooterLink>
           <FooterAnchor href={DISCORD_URL}>Discord</FooterAnchor>
           <FooterAnchor href={GITHUB_URL}>GitHub</FooterAnchor>
-          {legal && (
+          {codeMods && (
             <>
               <FooterLink to="/legal/terms">Terms</FooterLink>
               <FooterLink to="/legal/privacy">Privacy</FooterLink>

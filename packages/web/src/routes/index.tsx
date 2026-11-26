@@ -3,6 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { parseResponse } from "hono/client";
 import { useState } from "react";
 import { api } from "@/lib/api";
+import { useFeatureFlag } from "@/lib/feature-flags";
 import { layout } from "@/ui/patterns/layout";
 import { PageHeader } from "@/ui/patterns/PageHeader";
 import { CreatorCard } from "@/ui/patterns/CreatorCard";
@@ -133,6 +134,7 @@ const styles = stylex.create({
 
 function HomePage() {
   const { stats, games, trending, newest, favorites, creators } = Route.useLoaderData();
+  const codeMods = useFeatureFlag("codeMods");
   const primary = games[0];
   const gameNames = games.map((game) => game.name);
 
@@ -235,13 +237,20 @@ function HomePage() {
       <aside aria-labelledby="newcomer-heading" {...stylex.props(styles.newcomer)}>
         <div {...stylex.props(styles.newcomerText)}>
           <h2 id="newcomer-heading" {...stylex.props(styles.newcomerTitle)}>
-            New to texture mods?
+            {codeMods ? "New to textures.gg?" : "New to texture mods?"}
           </h2>
           <p {...stylex.props(styles.newcomerBody)}>
-            Learn how to install a skin, or let the desktop app do it for you.
+            {codeMods
+              ? "Install skins into Slippi or play tgg-melee with mods in the desktop app."
+              : "Learn how to install a skin, or let the desktop app do it for you."}
           </p>
         </div>
         <div {...stylex.props(styles.newcomerActions)}>
+          {codeMods && primary && (
+            <ButtonLink to="/games/$slug/mods" params={{ slug: primary.slug }} variant="secondary">
+              Browse mods
+            </ButtonLink>
+          )}
           <ButtonLink to="/guides" variant="secondary">
             Install guide
           </ButtonLink>

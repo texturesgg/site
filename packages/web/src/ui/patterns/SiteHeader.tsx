@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { createLink, Link } from "@tanstack/react-router";
 import { type ComponentProps, type Ref, useState } from "react";
+import { useFeatureFlag } from "@/lib/feature-flags";
 import { MenuIcon, UploadIcon } from "../icons";
 import {
   Button,
@@ -134,6 +135,7 @@ type SiteHeaderProps = {
 
 export function SiteHeader({ user, isLoading, onSignIn, onSignOut }: SiteHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const codeMods = useFeatureFlag("codeMods");
   const canModerate = user?.role === "moderator" || user?.role === "admin";
   const close = () => setMenuOpen(false);
 
@@ -148,6 +150,14 @@ export function SiteHeader({ user, isLoading, onSignIn, onSignOut }: SiteHeaderP
             <NavLink to="/games/$slug" params={{ slug: PRIMARY_GAME_SLUG }}>
               Explore
             </NavLink>
+            {codeMods && (
+              <>
+                <NavLink to="/games/$slug/mods" params={{ slug: PRIMARY_GAME_SLUG }}>
+                  Mods
+                </NavLink>
+                <NavLink to="/docs/mods">Docs</NavLink>
+              </>
+            )}
             <NavLink to="/guides">Install</NavLink>
             <NavLink to="/download">App</NavLink>
           </nav>
@@ -206,6 +216,20 @@ export function SiteHeader({ user, isLoading, onSignIn, onSignOut }: SiteHeaderP
                 <SheetLink to="/games/$slug" params={{ slug: PRIMARY_GAME_SLUG }} onClick={close}>
                   Explore
                 </SheetLink>
+                {codeMods && (
+                  <>
+                    <SheetLink
+                      to="/games/$slug/mods"
+                      params={{ slug: PRIMARY_GAME_SLUG }}
+                      onClick={close}
+                    >
+                      Mods
+                    </SheetLink>
+                    <SheetLink to="/docs/mods" onClick={close}>
+                      Mod docs
+                    </SheetLink>
+                  </>
+                )}
                 <SheetLink to="/guides" onClick={close}>
                   Install guide
                 </SheetLink>

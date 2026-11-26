@@ -26,7 +26,7 @@ describe("listing fields", () => {
         ...base,
         icon: "icon.png",
         screenshots: ["shots/menu.png", "shots/match.PNG"],
-        tags: ["competitive", "quality-of-life"],
+        tags: ["competitive", "mode", "hud", "quality-of-life"],
         homepage: "https://example.com/mod",
       })
     );
@@ -34,7 +34,7 @@ describe("listing fields", () => {
       manifest: expect.objectContaining({
         icon: "icon.png",
         screenshots: ["shots/menu.png", "shots/match.PNG"],
-        tags: ["competitive", "quality-of-life"],
+        tags: ["competitive", "mode", "hud", "quality-of-life"],
         homepage: "https://example.com/mod",
         refusal: null,
       }),
