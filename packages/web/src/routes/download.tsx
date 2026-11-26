@@ -45,16 +45,20 @@ const megabytes = (bytes: number) => `${Math.max(0.1, bytes / 1_000_000).toFixed
 export const Route = createFileRoute("/download")({
   loader: async ({ context }) => {
     // A flag that can't be read leaves the page as it is with the flag off.
-    if (await featureFlag(context.queryClient, "codeMods").catch(() => false)) {
+    const codeMods = await featureFlag(context.queryClient, "codeMods").catch(() => false);
+    if (codeMods) {
       await context.queryClient.ensureQueryData(studioReleaseQuery);
     }
+    return { codeMods };
   },
-  head: () => ({
+  head: ({ loaderData }) => ({
     meta: [
       { title: "Download the app - textures.gg" },
       {
         name: "description",
-        content: "Get the textures.gg app to put skins into the Melee you play on Slippi.",
+        content: loaderData?.codeMods
+          ? "Get the textures.gg app to install Melee skins in Slippi and play tgg-melee with mods."
+          : "Get the textures.gg app to put skins into the Melee you play on Slippi.",
       },
     ],
   }),

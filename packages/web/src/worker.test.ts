@@ -344,4 +344,18 @@ describe("code mod links", () => {
     expect(response.status).toBe(200);
     expect(await response.text()).toContain("<title>textures.gg</title>");
   });
+
+  it("gives crawlers Open Graph tags for /download, /guides, and /about", async () => {
+    const response = await worker.fetch(
+      new Request("https://textures.gg/download", {
+        headers: { "user-agent": "Discordbot/2.0" },
+      }),
+      flagOff,
+      { waitUntil: () => undefined }
+    );
+    expect(response.status).toBe(200);
+    const html = await response.text();
+    expect(html).toContain("<title>Download the app - textures.gg</title>");
+    expect(html).toContain('<link rel="canonical" href="https://textures.gg/download" />');
+  });
 });

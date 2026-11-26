@@ -1,7 +1,10 @@
 import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
+import { PRIMARY_GAME_SLUG } from "@vgskins/shared";
 import { type MeetQueueEntry, MeetQueuesResponse, meetModeLabel } from "@vgskins/shared/meet";
 import { MEET_URL } from "@/lib/config";
+import { shared } from "../primitives/shared";
 import { color, font, radius, space, text } from "../tokens.stylex";
 
 /** How often the list refreshes; the meeting point caches it for 10 seconds. */
@@ -31,6 +34,11 @@ const styles = stylex.create({
     borderTopColor: color.line,
   },
   label: { fontSize: text.lg, fontWeight: 700 },
+  setLink: {
+    color: color.text,
+    textDecoration: { default: "none", ":hover": "underline" },
+    borderRadius: radius.sm,
+  },
   mode: { fontSize: text.sm, color: color.muted, whiteSpace: "nowrap" },
   searching: {
     marginLeft: "auto",
@@ -104,7 +112,17 @@ export function FindMatch() {
       <ul {...stylex.props(styles.list)}>
         {queues.map((queue) => (
           <li key={`${queue.mode} ${queue.label}`} {...stylex.props(styles.row)}>
-            <span {...stylex.props(styles.label)}>{queue.label}</span>
+            {queue.set ? (
+              <Link
+                to="/games/$slug/sets/$setName"
+                params={{ slug: PRIMARY_GAME_SLUG, setName: queue.set }}
+                {...stylex.props(styles.label, styles.setLink, shared.focusRing)}
+              >
+                {queue.label}
+              </Link>
+            ) : (
+              <span {...stylex.props(styles.label)}>{queue.label}</span>
+            )}
             <span {...stylex.props(styles.mode)}>
               {queue.mode_label ?? meetModeLabel(queue.mode)}
             </span>

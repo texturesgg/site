@@ -7,8 +7,10 @@ import { readSlippiDecls, type SlippiCodeDecl } from "@vgskins/shared";
 export const MOD_TAGS = [
   "competitive",
   "netplay",
+  "mode",
   "replays",
   "training",
+  "hud",
   "visual",
   "audio",
   "quality-of-life",
