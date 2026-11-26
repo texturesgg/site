@@ -12,15 +12,20 @@ import { logger } from "@vgskins/logger";
 import {
   codeModSetNameSchema,
   codeModSlugSchema,
+  type ModDocsMeta,
+  ModDocsMetaSchema,
+  type ModDocsRawFile,
+  ModDocsRawFileSchema,
   type ModShare,
-  PRIMARY_GAME_SLUG,
   ModShareSchema,
+  PRIMARY_GAME_SLUG,
   type PublicSitemap,
   PublicSitemapSchema,
   type SetShare,
   SetShareSchema,
   ShareIconSchema,
 } from "@vgskins/shared";
+import { ModDocsWanted } from "@vgskins/shared/mod-docs";
 import type { CardInput } from "./share-card/card";
 import { modCard, modDescription, setCard, setDescription } from "./share-card/view";
 
@@ -47,6 +52,8 @@ export type WorkerEnv = Pick<Env, "ENVIRONMENT" | "API_BASE_URL" | "ASSETS_BASE_
     getModShare(id: string): Promise<unknown>;
     getSetShare(name: string): Promise<unknown>;
     getShareIcon(sha256: string): Promise<unknown>;
+    getModDocsMeta(wanted: string, page: string): Promise<unknown>;
+    getModDocsRawFile(wanted: string, path: string): Promise<unknown>;
   };
 };
 
@@ -327,6 +334,87 @@ async function loadShare<T>(
 
 const NullableModShare = ModShareSchema.nullable();
 const NullableSetShare = SetShareSchema.nullable();
+const NullableModDocsMeta = ModDocsMetaSchema.nullable();
+const NullableModDocsRawFile = ModDocsRawFileSchema.nullable();
+
+export function buildDocsOpenGraphData(meta: ModDocsMeta): OgData {
+  return {
+    title: meta.title,
+    description: meta.description,
+    url: `${SITE}${meta.canonicalPath}`,
+  };
+}
+
+async function handleDocsPage(
+  api: WorkerEnv["API"],
+  rawWanted: string,
+  page: string
+): Promise<OgData | null> {
+  const wanted = ModDocsWanted.safeParse(rawWanted === "0.1" ? "latest" : rawWanted);
+  if (!wanted.success) return null;
+  const meta = await loadShare(() => api.getModDocsMeta(wanted.data, page), NullableModDocsMeta, {
+    wanted: wanted.data,
+    page,
+  });
+  return meta ? buildDocsOpenGraphData(meta) : null;
+}
+
+// ─── Raw mod docs files (.md, llms.txt, tgg.luau) ───────────────
+
+type DocsRawTarget =
+  | { kind: "redirect"; location: string }
+  | { kind: "file"; wanted: string; path: string };
+
+export function matchDocsRawPath(pathname: string): DocsRawTarget | null {
+  if (pathname === "/docs/mods/llms.txt") {
+    return { kind: "file", wanted: "latest", path: "llms.txt" };
+  }
+  const versioned = pathname.match(/^\/docs\/mods\/([^/]+)\/(.+)$/);
+  if (!versioned) return null;
+  const [, rawWanted, rest] = versioned;
+  if (rest !== "llms.txt" && rest !== "tgg.luau" && !rest.endsWith(".md")) return null;
+  if (rawWanted === "0.1") {
+    return { kind: "redirect", location: `/docs/mods/latest/${rest}` };
+  }
+  return { kind: "file", wanted: rawWanted, path: rest };
+}
+
+export async function handleDocsRawFile(
+  request: Request,
+  env: Pick<WorkerEnv, "API">,
+  target: DocsRawTarget
+): Promise<Response> {
+  if (request.method !== "GET" && request.method !== "HEAD") return notFound();
+  if (target.kind === "redirect") {
+    return new Response(null, { status: 302, headers: { location: target.location } });
+  }
+  const wanted = ModDocsWanted.safeParse(target.wanted);
+  if (!wanted.success) return notFound();
+
+  let file: ModDocsRawFile | null;
+  try {
+    file = NullableModDocsRawFile.parse(await env.API.getModDocsRawFile(wanted.data, target.path));
+  } catch (err) {
+    logger.warn({ err, wanted: wanted.data, path: target.path }, "Mod docs raw file lookup failed");
+    return new Response("Docs temporarily unavailable", {
+      status: 503,
+      headers: {
+        "content-type": "text/plain; charset=UTF-8",
+        "cache-control": "no-store",
+        "retry-after": "60",
+      },
+    });
+  }
+  if (!file) return notFound();
+
+  return new Response(request.method === "HEAD" ? null : file.body, {
+    status: 200,
+    headers: {
+      "content-type": file.contentType,
+      "cache-control": file.cacheControl,
+    },
+  });
+}
 
 async function handleModPage(
   api: WorkerEnv["API"],
@@ -469,6 +557,15 @@ async function getOgDataForPath(
     return { ...staticPage, url: `${SITE}${normalized}` };
   }
 
+  // /docs/mods, /docs/mods/:version, /docs/mods/:version/*
+  if (normalized === "/docs/mods") {
+    return handleDocsPage(api, "latest", "index");
+  }
+  const docsMatch = normalized.match(/^\/docs\/mods\/([^/]+)(?:\/(.+))?$/);
+  if (docsMatch) {
+    return handleDocsPage(api, docsMatch[1], docsMatch[2] ?? "index");
+  }
+
   // /games/melee/mods/:modId and /games/melee/sets/:setName (code mods are
   // Melee's only)
   const modMatch = pathname.match(/^\/games\/([^/]+)\/mods\/([^/]+)\/?$/);
@@ -548,12 +645,18 @@ export function buildSitemapXml(data: PublicSitemap): string {
     entry(`${BASE}/users/${encodeURIComponent(user.name)}`, "0.5", formatDate(user.updatedAt));
   }
 
-  // Code mods and sets (empty while code mods are off for people signed out)
+  // Code mods, sets, and mod docs (empty while code mods are off for people signed out)
   for (const mod of data.mods) {
     entry(`${BASE}/games/${PRIMARY_GAME_SLUG}/mods/${mod.id}`, "0.8", formatDate(mod.updatedAt));
   }
   for (const set of data.sets) {
     entry(`${BASE}/games/${PRIMARY_GAME_SLUG}/sets/${set.name}`, "0.7");
+  }
+  for (const page of data.docs) {
+    entry(
+      page === "index" ? `${BASE}/docs/mods/latest` : `${BASE}/docs/mods/latest/${page}`,
+      page === "index" ? "0.8" : "0.7"
+    );
   }
 
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>`;
@@ -615,6 +718,11 @@ export default {
         await handleCard(request, env, await caches.open("share-cards"), ctx),
         env
       );
+    }
+
+    const docsRaw = matchDocsRawPath(url.pathname);
+    if (docsRaw) {
+      return withResponseHeaders(await handleDocsRawFile(request, env, docsRaw), env);
     }
 
     // A hashed asset this deployment does not have is a 404. Static Assets'

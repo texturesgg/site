@@ -528,7 +528,14 @@ export function DocsMarkdown({ children, wanted, page, release, headings }: Docs
         {c}
       </HeadingWithCopy>
     ),
-    p: ({ children: c }) => <p {...stylex.props(styles.p)}>{c}</p>,
+    p: ({ node, children: c }) => {
+      const hast = node as HastNode | undefined;
+      const kids = (hast?.children ?? []).filter(
+        (child) => !(child.type === "text" && (child.value ?? "").trim() === "")
+      );
+      if (kids.length === 1 && kids[0]?.tagName === "img") return <>{c}</>;
+      return <p {...stylex.props(styles.p)}>{c}</p>;
+    },
     ul: ({ children: c }) => <ul {...stylex.props(styles.list)}>{c}</ul>,
     ol: ({ children: c }) => <ol {...stylex.props(styles.list)}>{c}</ol>,
     a: ({ href, children: c }) => renderLink(href, c),

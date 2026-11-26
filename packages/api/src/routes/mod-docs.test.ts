@@ -47,6 +47,7 @@ const MIRROR: Record<string, string> = {
   "1.0.0/docs/include/tgg/mod.h": "#define TGG_MOD 1\n",
   "1.0.0/docs/images/hud-overlay.webp": "RIFFwebp",
   "1.0.0/docs/tgg.luau": "--!strict\nreturn {}\n",
+  "1.0.0/docs/llms.txt": "# tgg-melee mod docs\n",
   "1.0.0/docs/search.json": JSON.stringify({
     format: 2,
     version: "1.0.0",
@@ -174,4 +175,10 @@ it("serves search.json and tgg.luau for mirrored releases", async () => {
   const dlRes = await get("/1.0/tgg.luau?download=1");
   expect(dlRes.status).toBe(200);
   expect(dlRes.headers.get("content-disposition")).toContain("attachment");
+
+  const llmsRes = await get("/1.0/llms.txt");
+  expect(llmsRes.status).toBe(200);
+  expect(llmsRes.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+  expect(await llmsRes.text()).toBe("# tgg-melee mod docs\n");
+  expect((await get("/main/llms.txt")).status).toBe(404);
 });

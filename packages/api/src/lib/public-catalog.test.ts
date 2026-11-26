@@ -1,6 +1,7 @@
 import { env } from "cloudflare:test";
 import {
   codeModBuilds,
+  codeModLayouts,
   codeModReleaseImages,
   codeModReleases,
   codeMods,
@@ -11,7 +12,10 @@ import {
 } from "@vgskins/db";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { signIn } from "../test/session";
+import { MOD_DOCS_MIRROR } from "./mod-docs-mirror";
 import {
+  getModDocsMeta,
+  getModDocsRawFile,
   getModShareData,
   getPublicSitemapData,
   getSetShareData,
@@ -98,19 +102,67 @@ beforeAll(async () => {
   await db
     .insert(codeModSetMods)
     .values({ setName: "competitive", mod: "tgg.ucf", range: "^1.0", position: 0 });
+  await db.insert(codeModLayouts).values({
+    id: "1".repeat(16),
+    api: "tgg-melee/1",
+    port: "tgg-melee",
+    target: "x86_64-linux-gnu",
+    portVersion: "1.0.0",
+    createdAt: NOW,
+  });
+  const docsMirror: Record<string, string> = {
+    "1.0.0/docs/index.json": JSON.stringify({
+      format: 2,
+      version: "1.0.0",
+      nav: [
+        { title: "Start", pages: ["start/quickstart"] },
+        { title: "Native C", advanced: true, pages: ["native/hooks"] },
+      ],
+      pages: {
+        index: { title: "Making mods", label: "Overview", description: "Intro.", headings: [] },
+        "start/quickstart": {
+          title: "Your first mod",
+          label: "Quickstart",
+          description: "Five minutes.",
+          headings: [],
+        },
+        "native/hooks": {
+          title: "Hooks",
+          description: "Game hooks.",
+          headings: [],
+        },
+      },
+      headers: ["tgg/mod.h"],
+      redirects: { hooks: "native/hooks" },
+    }),
+    "1.0.0/docs/start/quickstart.md": "---\ntitle: Your first mod\n---\n\nHello.\n",
+    "1.0.0/docs/native/hooks.md": "---\ntitle: Hooks\n---\n\nHook body.\n",
+    "1.0.0/docs/llms.txt": "# tgg-melee mod docs\n",
+    "1.0.0/docs/tgg.luau": "--!strict\nreturn {}\n",
+  };
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const url = String(input instanceof Request ? input.url : input);
+    const prefix = `${MOD_DOCS_MIRROR}/`;
+    const path = url.startsWith(prefix) ? decodeURIComponent(url.slice(prefix.length)) : "";
+    const body = docsMirror[path];
+    return body === undefined ? new Response("missing", { status: 404 }) : new Response(body);
+  });
 });
 
-it("shows no mod, set, icon or sitemap entry while code mods are off for everyone", async () => {
+it("shows no mod, set, icon, docs, or sitemap entry while code mods are off for everyone", async () => {
   codeModsForEveryone(false);
   expect(await getModShareData(env, "tgg.ucf")).toBeNull();
   expect(await getSetShareData(env, "competitive")).toBeNull();
   expect(await getShareIcon(env, ICON)).toBeNull();
+  expect(await getModDocsMeta(env, "latest", "start/quickstart")).toBeNull();
+  expect(await getModDocsRawFile(env, "latest", "llms.txt")).toBeNull();
   const sitemap = await getPublicSitemapData(env);
   expect(sitemap.mods).toEqual([]);
   expect(sitemap.sets).toEqual([]);
+  expect(sitemap.docs).toEqual([]);
 });
 
-it("describes a mod and a set for their cards once code mods are on for everyone", async () => {
+it("describes mods, sets, and mod docs once code mods are on for everyone", async () => {
   codeModsForEveryone(true);
   expect(await getModShareData(env, "tgg.ucf")).toEqual({
     id: "tgg.ucf",
@@ -133,6 +185,47 @@ it("describes a mod and a set for their cards once code mods are on for everyone
   const sitemap = await getPublicSitemapData(env);
   expect(sitemap.mods.map((mod) => mod.id)).toEqual(["tgg.ucf"]);
   expect(sitemap.sets).toEqual([{ name: "competitive" }]);
+  expect(sitemap.docs).toEqual(["index", "start/quickstart", "native/hooks"]);
+
+  expect(await getModDocsMeta(env, "1.0", "index")).toEqual({
+    title: "Making mods - textures.gg",
+    description: "Intro.",
+    canonicalPath: "/docs/mods/latest",
+  });
+  expect(await getModDocsMeta(env, "1.0", "start/quickstart")).toEqual({
+    title: "Your first mod - Making mods - textures.gg",
+    description: "Five minutes.",
+    canonicalPath: "/docs/mods/latest/start/quickstart",
+  });
+  expect(await getModDocsMeta(env, "1.0", "hooks")).toEqual({
+    title: "Hooks - Making mods - textures.gg",
+    description: "Game hooks.",
+    canonicalPath: "/docs/mods/latest/native/hooks",
+  });
+  expect(await getModDocsMeta(env, "1.0", "api/mod")).toEqual({
+    title: "mod.h - Making mods - textures.gg",
+    description: "C SDK header tgg/mod.h for tgg-melee.",
+    canonicalPath: "/docs/mods/latest/api/mod",
+  });
+  expect(await getModDocsMeta(env, "1.0", "guides/missing")).toBeNull();
+
+  expect(await getModDocsRawFile(env, "latest", "llms.txt")).toMatchObject({
+    contentType: "text/plain; charset=utf-8",
+    body: "# tgg-melee mod docs\n",
+  });
+  expect(await getModDocsRawFile(env, "latest", "tgg.luau")).toMatchObject({
+    contentType: "text/plain; charset=utf-8",
+    body: "--!strict\nreturn {}\n",
+  });
+  expect(await getModDocsRawFile(env, "1.0", "start/quickstart.md")).toMatchObject({
+    contentType: "text/markdown; charset=utf-8",
+    body: "---\ntitle: Your first mod\n---\n\nHello.\n",
+  });
+  expect(await getModDocsRawFile(env, "1.0", "hooks.md")).toMatchObject({
+    contentType: "text/markdown; charset=utf-8",
+    body: "---\ntitle: Hooks\n---\n\nHook body.\n",
+  });
+  expect(await getModDocsRawFile(env, "1.0", "missing.md")).toBeNull();
 });
 
 describe("public catalog RPC arguments", () => {

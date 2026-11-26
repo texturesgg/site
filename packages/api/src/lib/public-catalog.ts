@@ -1,5 +1,4 @@
 import {
-  codeModLayouts,
   codeModReleaseImages,
   codeModReleases,
   codeModSetMods,
@@ -10,19 +9,37 @@ import {
   packs,
   users,
 } from "@vgskins/db";
+import { logger } from "@vgskins/logger";
 import {
   codeModSetNameSchema,
   codeModSlugSchema,
+  type ModDocsMeta,
+  type ModDocsRawFile,
   type ModShare,
   type PublicSitemap,
   type SetShare,
 } from "@vgskins/shared";
+import {
+  docsResolveRedirect,
+  ModDocsHeaderName,
+  ModDocsPage,
+  ModDocsWanted,
+} from "@vgskins/shared/mod-docs";
 import { and, count, eq, isNull, max } from "drizzle-orm";
 import { z } from "zod";
 import type { Env } from "../types";
 import { codeModsEnabled } from "./feature-flags";
+import {
+  docsCacheHeader,
+  getTggMeleeReleases,
+  mirroredDocsText,
+  orderedDocsPages,
+  resolveModDocs,
+} from "./mod-docs-mirror";
 import { findUserByIdentifier, loadPack, notBanned } from "./queries";
 import { listedMods, loadModSummary } from "./registry-listing";
+
+export { getTggMeleeReleases };
 
 const PublicCatalogIdentifier = z.string().min(1).max(200);
 
@@ -114,8 +131,8 @@ export async function getPublicSitemapData(env: Env): Promise<PublicSitemap> {
     codeModsEnabled(env.FLAGS, null),
   ]);
 
-  // Mods and sets are listed only once code mods are on for everyone.
-  const [mods, sets] = codeModsPublic
+  // Mods, sets, and mod docs are listed only once code mods are on for everyone.
+  const [mods, sets, docs] = codeModsPublic
     ? await Promise.all([
         db
           .select({ id: codeMods.slug, updatedAt: max(codeModReleases.publishedAt) })
@@ -124,8 +141,14 @@ export async function getPublicSitemapData(env: Env): Promise<PublicSitemap> {
           .where(and(eq(codeModReleases.status, "approved"), isNull(codeMods.deletedAt)))
           .groupBy(codeMods.slug),
         db.select({ name: codeModSets.name }).from(codeModSets),
+        resolveModDocs(env, "latest")
+          .then((resolved) => (resolved ? orderedDocsPages(resolved.index) : []))
+          .catch((err) => {
+            logger.warn({ err }, "Failed to load latest mod docs index for sitemap");
+            return [];
+          }),
       ])
-    : [[], []];
+    : [[], [], []];
 
   return {
     games: allGames,
@@ -133,6 +156,7 @@ export async function getPublicSitemapData(env: Env): Promise<PublicSitemap> {
     users: allUsers,
     mods,
     sets,
+    docs,
   };
 }
 
@@ -205,14 +229,95 @@ export async function getShareIcon(env: Env, rawSha256: unknown): Promise<Uint8A
   return object ? new Uint8Array(await object.arrayBuffer()) : null;
 }
 
+const DocsRawPath = z.string().min(1).max(200);
+const DocsMetaPage = z.string().max(200);
+
 /**
- * Every tgg-melee release the registry has a layout for, active or retired:
- * the versions whose docs textures.gg links to.
+ * Title, description, and canonical path for a mod docs route, for search
+ * engines and link previews. Canonical URLs point at `latest`.
  */
-export async function getTggMeleeReleases(env: Env): Promise<string[]> {
-  const rows = await createDb(env.DB)
-    .select({ version: codeModLayouts.portVersion })
-    .from(codeModLayouts)
-    .where(eq(codeModLayouts.port, "tgg-melee"));
-  return rows.map((row) => row.version);
+export async function getModDocsMeta(
+  env: Env,
+  rawWanted: unknown,
+  rawPage: unknown
+): Promise<ModDocsMeta | null> {
+  const wanted = ModDocsWanted.safeParse(rawWanted);
+  const raw = DocsMetaPage.safeParse(rawPage);
+  if (!wanted.success || !raw.success) return null;
+  if (!(await codeModsEnabled(env.FLAGS, null))) return null;
+
+  const resolved = await resolveModDocs(env, wanted.data);
+  if (!resolved) return null;
+
+  const trimmed = raw.data.replace(/^\/+|\/+$/g, "");
+  if (trimmed.startsWith("api/")) {
+    const name = trimmed.slice(4);
+    if (!ModDocsHeaderName.safeParse(name).success) return null;
+    if (!resolved.index.headers.includes(`tgg/${name}.h`)) return null;
+    return {
+      title: `${name}.h - Making mods - textures.gg`,
+      description: `C SDK header tgg/${name}.h for tgg-melee.`,
+      canonicalPath: `/docs/mods/latest/api/${name}`,
+    };
+  }
+
+  let page = trimmed || "index";
+  const redirected = docsResolveRedirect(resolved.index.redirects, page, "");
+  if (redirected) page = redirected.page;
+  if (!ModDocsPage.safeParse(page).success) return null;
+  const meta = resolved.index.pages[page];
+  if (!meta) return null;
+
+  return {
+    title:
+      page === "index"
+        ? `${meta.title} - textures.gg`
+        : `${meta.title} - Making mods - textures.gg`,
+    description: meta.description,
+    canonicalPath: page === "index" ? "/docs/mods/latest" : `/docs/mods/latest/${page}`,
+  };
+}
+
+/**
+ * Raw text docs files served directly by the web Worker: `llms.txt`,
+ * `tgg.luau`, and `<page>.md`.
+ */
+export async function getModDocsRawFile(
+  env: Env,
+  rawWanted: unknown,
+  rawPath: unknown
+): Promise<ModDocsRawFile | null> {
+  const wanted = ModDocsWanted.safeParse(rawWanted);
+  const path = DocsRawPath.safeParse(rawPath);
+  if (!wanted.success || !path.success) return null;
+  if (!(await codeModsEnabled(env.FLAGS, null))) return null;
+
+  const resolved = await resolveModDocs(env, wanted.data);
+  if (!resolved) return null;
+
+  const cacheControl = docsCacheHeader(env, resolved.version);
+  const encodedVersion = encodeURIComponent(resolved.version);
+
+  if (path.data === "llms.txt") {
+    const body = await mirroredDocsText(env, `${encodedVersion}/docs/llms.txt`, resolved.version);
+    return body === null ? null : { contentType: "text/plain; charset=utf-8", cacheControl, body };
+  }
+
+  if (path.data === "tgg.luau") {
+    const body = await mirroredDocsText(env, `${encodedVersion}/docs/tgg.luau`, resolved.version);
+    return body === null ? null : { contentType: "text/plain; charset=utf-8", cacheControl, body };
+  }
+
+  if (path.data.endsWith(".md")) {
+    const rawPage = path.data.slice(0, -3).replace(/^\/+|\/+$/g, "");
+    const redirected = docsResolveRedirect(resolved.index.redirects, rawPage, "");
+    const page = redirected ? redirected.page : rawPage;
+    if (!ModDocsPage.safeParse(page).success || !(page in resolved.index.pages)) return null;
+    const body = await mirroredDocsText(env, `${encodedVersion}/docs/${page}.md`, resolved.version);
+    return body === null
+      ? null
+      : { contentType: "text/markdown; charset=utf-8", cacheControl, body };
+  }
+
+  return null;
 }
