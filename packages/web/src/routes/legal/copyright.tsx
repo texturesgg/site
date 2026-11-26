@@ -10,7 +10,10 @@ export const Route = createFileRoute("/legal/copyright")({
     await requireFeatureFlag(context.queryClient, "codeMods");
   },
   head: () =>
-    legalHead("Copyright and takedowns", "How to report your work being used on textures.gg."),
+    legalHead(
+      "Copyright and DMCA",
+      "How to request attribution fixes or submit a DMCA takedown notice on textures.gg."
+    ),
   component: Copyright,
 });
 
@@ -18,67 +21,74 @@ const mailto = `mailto:${CONTACT_EMAIL}`;
 
 function Copyright() {
   return (
-    <LegalPage title="Copyright and takedowns">
-      <ArticleSection title="Wrong or missing credit">
+    <LegalPage title="Copyright and DMCA">
+      <ArticleSection title="Attribution fixes">
         <p>
-          If a pack is yours but credited to someone else, or not credited, report it from the
-          pack&apos;s page and we&apos;ll fix it. Packs imported from ssbmtextures.com came over
-          credited to their original creators.
+          If one of your texture packs is missing credit or attributed to the wrong creator, use the
+          report button on that pack&apos;s page and moderators will correct it. Legacy packs
+          imported from ssbmtextures.com retained their original creator attributions.
         </p>
       </ArticleSection>
 
-      <ArticleSection title="Report a copyright problem">
+      <ArticleSection title="Submitting a DMCA takedown notice">
         <p>
-          If something on textures.gg uses your work without permission, email{" "}
-          <TextAnchor href={mailto}>{CONTACT_EMAIL}</TextAnchor> with:
+          If content hosted on textures.gg infringes your copyright, send a written notice under 17
+          U.S.C. &sect; 512(c)(3) to <TextAnchor href={mailto}>{CONTACT_EMAIL}</TextAnchor>{" "}
+          including:
         </p>
         <BulletList>
-          <li>the work you own</li>
-          <li>the link to each page on textures.gg that uses it</li>
-          <li>your name, address, phone number, and email</li>
+          <li>identification of the copyrighted work you claim has been infringed</li>
+          <li>the exact textures.gg URL(s) of the allegedly infringing pack, mod, or file</li>
+          <li>your full legal name, mailing address, telephone number, and email address</li>
           <li>
-            a statement that you believe in good faith the use isn&apos;t authorized by you, your
-            agent, or the law
+            a statement that you have a good-faith belief that the disputed use is not authorized by
+            the copyright owner, its agent, or the law
           </li>
           <li>
-            a statement, under penalty of perjury, that your notice is accurate and that you own the
-            work or may act for its owner
+            a statement, made under penalty of perjury, that the information in your notice is
+            accurate and that you are the copyright owner or authorized to act on their behalf
           </li>
           <li>your physical or electronic signature</li>
         </BulletList>
         <p>
-          We remove the pack or withdraw the mod and let the person who posted it know, with a copy
-          of your notice.
+          Upon receiving a complete notice, we will remove the pack or withdraw the mod release and
+          notify the uploader with a copy of the notice.
         </p>
       </ArticleSection>
 
-      <ArticleSection title="If your post was taken down">
+      <ArticleSection title="Submitting a counter-notice">
         <p>
-          If you think it was a mistake, or you had permission, email{" "}
-          <TextAnchor href={mailto}>{CONTACT_EMAIL}</TextAnchor> with:
+          If your content was removed by mistake or misidentification, you may send a counter-notice
+          under 17 U.S.C. &sect; 512(g)(3) to <TextAnchor href={mailto}>{CONTACT_EMAIL}</TextAnchor>{" "}
+          including:
         </p>
         <BulletList>
-          <li>the link to what was removed</li>
-          <li>your name, address, phone number, and email</li>
+          <li>the URL(s) of the material that was removed or disabled</li>
+          <li>your full legal name, mailing address, telephone number, and email address</li>
           <li>
-            a statement, under penalty of perjury, that you believe in good faith it was removed by
-            mistake or misidentification
+            a statement, made under penalty of perjury, that you have a good-faith belief the
+            material was removed or disabled as a result of mistake or misidentification
           </li>
           <li>
-            a statement that you consent to the jurisdiction of the federal court for your address
-            (or, outside the US, any place where Saavylab LLC can be found), and will accept service
-            from the person who sent the notice
+            a statement that you consent to the jurisdiction of the federal district court for your
+            judicial district (or, if outside the United States, any judicial district in which
+            Saavylab LLC may be found), and that you will accept service of process from the person
+            who submitted the original takedown notice
           </li>
           <li>your physical or electronic signature</li>
         </BulletList>
         <p>
-          We send it to the person who reported it. Unless they tell us they&apos;ve gone to court
-          within 10 to 14 business days, we put your post back.
+          We forward valid counter-notices to the original claimant. Unless they notify us that they
+          have filed a court action seeking to restrain the disputed activity, we will restore the
+          removed content within 10 to 14 business days.
         </p>
       </ArticleSection>
 
       <ArticleSection title="Repeat infringers">
-        <p>We ban accounts that keep posting other people&apos;s work.</p>
+        <p>
+          In accordance with the DMCA, Saavylab LLC terminates accounts determined to be repeat
+          infringers.
+        </p>
       </ArticleSection>
     </LegalPage>
   );

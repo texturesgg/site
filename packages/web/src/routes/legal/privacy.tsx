@@ -9,130 +9,153 @@ export const Route = createFileRoute("/legal/privacy")({
   loader: async ({ context }) => {
     await requireFeatureFlag(context.queryClient, "codeMods");
   },
-  head: () => legalHead("Privacy policy", "What textures.gg collects and why."),
+  head: () => legalHead("Privacy policy", "What data textures.gg collects and how it is used."),
   component: Privacy,
 });
 
 function Privacy() {
   return (
     <LegalPage title="Privacy policy">
-      <ArticleSection title="The short version">
+      <ArticleSection title="Summary">
         <p>
-          We collect what the site needs to work. We don&apos;t sell it, show ads, or use
-          third-party analytics.
+          textures.gg collects only the data required to run accounts, hosting, mod builds, and
+          online matchmaking. We do not sell user data, run third-party ad networks, or embed
+          third-party analytics trackers.
         </p>
       </ArticleSection>
 
-      <ArticleSection title="Your account">
+      <ArticleSection title="Account information">
         <BulletList>
           <li>
-            Your email, username, and profile picture. With Discord, Google, GitHub, or X sign-in
-            these come from that account.
+            <strong>Identity:</strong> your email address, username, and avatar. When you sign in
+            with Discord, Google, GitHub, or X, these come from that OAuth provider.
           </li>
           <li>
-            When you sign in with X or link it, the handle X reports for that account, which can
-            differ from the one on your profile.
+            <strong>Linked X account:</strong> if you sign in with or link X, we store the handle X
+            returns for that account, even if it differs from your textures.gg username.
           </li>
-          <li>Your password, stored only as a hash, if you sign in with email.</li>
           <li>
-            Each sign-in&apos;s IP address and browser, kept with the session. A session lasts up to
-            7 days.
+            <strong>Credentials and sessions:</strong> email/password sign-ins store a salted
+            password hash only. Active sessions record the client IP address and user agent and
+            expire after up to 7 days.
           </li>
-          <li>For moderators and admins, a two-factor secret and backup codes.</li>
-          <li>Anything you add to your profile, like a bio, pronouns, or social links.</li>
+          <li>
+            <strong>Two-factor authentication:</strong> for moderators and admins, an encrypted TOTP
+            secret and recovery backup codes.
+          </li>
+          <li>
+            <strong>Profile fields:</strong> optional bio, pronouns, and social links you add
+            yourself.
+          </li>
         </BulletList>
       </ArticleSection>
 
-      <ArticleSection title="What you post">
+      <ArticleSection title="Submissions and moderation">
         <p>
-          Packs, mods, mod source, sets, comments, likes, favorites, and reports. What you post
-          publicly is public. Reports are seen only by moderators.
+          We store the packs, mods, git source repositories, sets, comments, likes, favorites, and
+          moderation reports you submit. Public listings and comments are visible to everyone;
+          reports are visible only to moderators.
         </p>
         <p>
-          When you upload a pack, Cloudflare Turnstile checks that you&apos;re a person. It sees
-          your IP address.
-        </p>
-      </ArticleSection>
-
-      <ArticleSection title="Downloads">
-        <p>
-          We count pack downloads and first installs of mods. When you&apos;re signed in, a pack
-          download is recorded with your account. Mod installs are only counted.
+          Pack uploads use Cloudflare Turnstile for bot protection, which processes your IP address
+          during verification.
         </p>
       </ArticleSection>
 
-      <ArticleSection title="Online play">
-        <p>When you search for a match or join a room, the meeting point gets:</p>
+      <ArticleSection title="Download counts">
+        <p>
+          We track pack download counts and first-time mod install counts. Signed-in pack downloads
+          are associated with your account to deduplicate counts; mod install counts are stored
+          without linking them to individual accounts.
+        </p>
+      </ArticleSection>
+
+      <ArticleSection title="Online matchmaking and relay">
+        <p>When you queue for a match or join a room, the matchmaking service receives:</p>
         <BulletList>
-          <li>your account name</li>
-          <li>your rough location from Cloudflare, to pair you with nearby players</li>
-          <li>your IP address, to limit how often a connection can be made</li>
           <li>
-            your game&apos;s network addresses (local, public, and Tailscale), which go to the
-            player you&apos;re matched with so the games can connect directly
+            <strong>Account name:</strong> shown to the opponent or room members.
+          </li>
+          <li>
+            <strong>Approximate region:</strong> coarse location from Cloudflare to match nearby
+            players for lower latency.
+          </li>
+          <li>
+            <strong>IP address:</strong> used for connection rate limiting.
+          </li>
+          <li>
+            <strong>Network endpoints:</strong> your game&apos;s local, public, and Tailscale
+            addresses, exchanged with matched peers for direct UDP hole-punching.
           </li>
         </BulletList>
         <p>
-          These are kept only while you&apos;re searching or in the room. When two games can&apos;t
-          connect directly, the match goes through Cloudflare&apos;s relay, which sees both
-          players&apos; IP addresses. We count relayed matches per account each day.
+          Matchmaking state is ephemeral and held only while you are queued or in a room. When a
+          direct peer-to-peer connection cannot be established, traffic falls back to Cloudflare
+          TURN relays, which see both players&apos; IP addresses. We record daily per-account relay
+          usage counts for abuse prevention.
         </p>
       </ArticleSection>
 
       <ArticleSection title="Competition voting">
-        <p>When you vote in the mod competition, each vote records:</p>
+        <p>When you vote in a mod competition, each ballot stores:</p>
         <BulletList>
-          <li>your account, the mod you voted for, and when</li>
-          <li>how old your account was then and how you sign in</li>
-          <li>your linked X account and the handle X reports for it, if you linked one</li>
+          <li>your account ID, selected mod, and timestamp</li>
+          <li>account age at vote time and sign-in method</li>
+          <li>your linked X account ID and handle, if linked</li>
           <li>
-            your IP address in a scrambled form that can&apos;t be turned back into the address, and
-            your country from Cloudflare
+            a one-way hash of your IP address (not reversible to the original IP) and your country
+            code from Cloudflare
           </li>
-          <li>whether you said you follow @texturesgg. We don&apos;t check this with X.</li>
+          <li>
+            whether you confirmed following @texturesgg (self-attested; not verified against X)
+          </li>
         </BulletList>
         <p>
-          Vote counts are public. Who voted for what is seen only by admins, to keep the results
-          fair and catch fake accounts. All of it is deleted 90 days after the winners are
-          announced.
+          Aggregate vote totals are public. Individual ballots are accessible only to administrators
+          for fraud and sockpuppet review, and are deleted 90 days after winners are announced.
         </p>
       </ArticleSection>
 
       <ArticleSection title="Email">
         <p>
-          We send sign-in emails (verifying your address, resetting your password) from
-          noreply@textures.gg. Moderators get email about new reports. We don&apos;t send
-          newsletters.
+          Transactional emails (email verification and password resets) are sent from{" "}
+          <code>noreply@textures.gg</code>. Moderators also receive notifications for new reports.
+          We do not send marketing or newsletter emails.
         </p>
       </ArticleSection>
 
-      <ArticleSection title="Your browser">
+      <ArticleSection title="Cookies and local storage">
         <p>
-          A cookie keeps you signed in. Local storage remembers announcements you closed and an
-          upload you haven&apos;t finished. There are no tracking cookies.
+          We set a session cookie to keep you signed in and use browser local storage to remember
+          dismissed announcements and in-progress upload drafts. We do not use advertising or
+          cross-site tracking cookies.
         </p>
       </ArticleSection>
 
-      <ArticleSection title="Who else handles it">
+      <ArticleSection title="Infrastructure and sub-processors">
         <BulletList>
           <li>
-            Cloudflare runs the site, the database, file storage, email, Turnstile, matchmaking, and
-            the relay. Its request logs include IP addresses.
+            <strong>Cloudflare:</strong> hosts the web app, API, D1 database, R2 storage, email
+            routing, Turnstile, matchmaking Workers, and TURN relays. Standard request logs include
+            IP addresses.
           </li>
-          <li>Discord, Google, GitHub, and X, when you sign in with them or link them.</li>
+          <li>
+            <strong>OAuth providers:</strong> Discord, Google, GitHub, and X, only when you choose
+            to sign in with or link them.
+          </li>
         </BulletList>
       </ArticleSection>
 
-      <ArticleSection title="Your choices">
+      <ArticleSection title="Data access and deletion">
         <p>
-          You can change your profile and delete your comments any time. To get a copy of your data
-          or delete your account, email{" "}
+          You can edit your profile and delete your comments directly on the site. To request a copy
+          of your data or permanent account deletion, email{" "}
           <TextAnchor href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</TextAnchor>.
         </p>
       </ArticleSection>
 
-      <ArticleSection title="Changes">
-        <p>We&apos;ll update this page when what we collect changes.</p>
+      <ArticleSection title="Policy updates">
+        <p>We will update this policy whenever our data handling practices change.</p>
       </ArticleSection>
     </LegalPage>
   );

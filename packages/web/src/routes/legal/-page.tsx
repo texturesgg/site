@@ -46,7 +46,7 @@ export function LegalPage({ title, children }: { title: string; children: ReactN
       <div {...stylex.props(layout.narrow)}>
         <Article>
           <p {...stylex.props(styles.draft)}>
-            <strong>Draft.</strong> This page is waiting for review and isn&apos;t in effect yet.
+            <strong>Draft.</strong> Under review; not yet in effect.
           </p>
           {children}
         </Article>
