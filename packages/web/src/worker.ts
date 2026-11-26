@@ -541,6 +541,11 @@ const STATIC_OG: Readonly<Record<string, Omit<OgData, "url">>> = {
     title: "About - textures.gg",
     description: "Community archive for Super Smash Bros. Melee skins, texture packs, and mods.",
   },
+  "/faq": {
+    title: "FAQ - textures.gg",
+    description:
+      "Answers to common questions about textures.gg, tgg-melee, Slippi, mod safety, ISOs, platforms, and open source.",
+  },
 };
 
 // ─── Route matching ─────────────────────────────────────────────
@@ -628,6 +633,7 @@ export function buildSitemapXml(data: PublicSitemap): string {
   entry(`${BASE}/`, "1.0");
   entry(`${BASE}/download`, "0.7");
   entry(`${BASE}/guides`, "0.6");
+  entry(`${BASE}/faq`, "0.5");
   entry(`${BASE}/about`, "0.3");
 
   // Games

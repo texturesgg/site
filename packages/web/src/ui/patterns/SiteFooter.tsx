@@ -63,6 +63,7 @@ export function SiteFooter() {
         </p>
         <nav aria-label="Footer" {...stylex.props(styles.nav)}>
           <FooterLink to="/docs/mods">Docs</FooterLink>
+          <FooterLink to="/faq">FAQ</FooterLink>
           <FooterLink to="/about">About</FooterLink>
           <FooterAnchor href={DISCORD_URL}>Discord</FooterAnchor>
           <FooterAnchor href={GITHUB_URL}>GitHub</FooterAnchor>

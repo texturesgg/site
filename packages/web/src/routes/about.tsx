@@ -196,6 +196,10 @@ function About() {
 
           <ArticleSection title="Community and support">
             <p>
+              Have a question about Slippi, <Code>tgg-melee</Code>, mod safety, or ISOs? Check the{" "}
+              <TextLink to="/faq">FAQ</TextLink> first.
+            </p>
+            <p>
               Join the Discord to meet other modders, get help, share works in progress, and tell us
               what to improve. It&apos;s also the place for account, upload, or download problems,
               bug reports, and feature requests.
