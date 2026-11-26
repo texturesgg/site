@@ -354,7 +354,7 @@ describe("code mod links", () => {
     expect(await response.text()).toContain("<title>textures.gg</title>");
   });
 
-  it("gives crawlers Open Graph tags for /download, /guides, and /about", async () => {
+  it("gives crawlers Open Graph tags for /download, /guides, /faq, and /about", async () => {
     const response = await worker.fetch(
       new Request("https://textures.gg/download", {
         headers: { "user-agent": "Discordbot/2.0" },
@@ -366,6 +366,18 @@ describe("code mod links", () => {
     const html = await response.text();
     expect(html).toContain("<title>Download the app - textures.gg</title>");
     expect(html).toContain('<link rel="canonical" href="https://textures.gg/download" />');
+
+    const faq = await worker.fetch(
+      new Request("https://textures.gg/faq", {
+        headers: { "user-agent": "Discordbot/2.0" },
+      }),
+      flagOff,
+      { waitUntil: () => undefined }
+    );
+    expect(faq.status).toBe(200);
+    const faqHtml = await faq.text();
+    expect(faqHtml).toContain("<title>FAQ - textures.gg</title>");
+    expect(faqHtml).toContain('<link rel="canonical" href="https://textures.gg/faq" />');
   });
 
   it("serves llms.txt, raw markdown pages, and tgg.luau directly, and 404s when unavailable", async () => {

@@ -236,6 +236,9 @@ export function SiteHeader({ user, isLoading, onSignIn, onSignOut }: SiteHeaderP
                 <SheetLink to="/download" onClick={close}>
                   Desktop app
                 </SheetLink>
+                <SheetLink to="/faq" onClick={close}>
+                  FAQ
+                </SheetLink>
                 <SheetLink to="/about" onClick={close}>
                   About
                 </SheetLink>

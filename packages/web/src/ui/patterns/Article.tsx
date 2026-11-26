@@ -7,7 +7,7 @@ import { color, font, radius, space, text, tracking } from "../tokens.stylex";
 
 const styles = stylex.create({
   article: { display: "flex", flexDirection: "column", gap: space.xl },
-  section: { display: "flex", flexDirection: "column", gap: space.sm },
+  section: { display: "flex", flexDirection: "column", gap: space.sm, scrollMarginTop: "88px" },
   title: { margin: 0, fontSize: text.h3, fontWeight: 800, letterSpacing: tracking.tight },
   body: {
     display: "flex",
@@ -82,9 +82,17 @@ export function Article({ children }: { children: ReactNode }) {
 }
 
 /** A titled part of a prose page; the title becomes an h2. */
-export function ArticleSection({ title, children }: { title: string; children: ReactNode }) {
+export function ArticleSection({
+  id,
+  title,
+  children,
+}: {
+  id?: string;
+  title: string;
+  children: ReactNode;
+}) {
   return (
-    <section {...stylex.props(styles.section)}>
+    <section id={id} {...stylex.props(styles.section)}>
       <h2 {...stylex.props(styles.title)}>{title}</h2>
       <div {...stylex.props(styles.body)}>{children}</div>
     </section>
