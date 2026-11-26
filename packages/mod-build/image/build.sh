@@ -24,7 +24,7 @@ package=$(cd "$here/.." && pwd)
 repository="registry.cloudflare.com/${CLOUDFLARE_ACCOUNT_ID:?}/tgg-mod-builder"
 
 # Bump when the steps below change what goes into the image.
-format=3
+format=4
 # Everything that decides the image's contents names it.
 inputs=$( (echo "format $format" && cd "$here" && cat layouts.json flake.nix flake.lock toolchains/*.cmake) |
   sha256sum | cut -c1-32)
@@ -45,8 +45,10 @@ if digest=$(crane digest "$tag" 2>/dev/null); then
 else
   echo "build.sh: building $tag" >&2
   nix build "$here#image" --out-link "$stage/image" >&2
+  nix build "$here#patch-sdk-tools" --out-link "$stage/patch-sdk-tools" >&2
   mkdir -p "$stage/root" "$stage/archive"
   "$here/fetch-sdks.sh" "$stage/root" "$stage/layouts.json" >&2
+  "$stage/patch-sdk-tools" "$stage/root" >&2
   layouts=$(jq -c . "$stage/layouts.json")
 
   # The Nix image is a docker-archive: each layer a tar named in manifest.json.
