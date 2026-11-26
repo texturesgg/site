@@ -155,13 +155,11 @@ export function SiteHeader({ user, isLoading, onSignIn, onSignOut }: SiteHeaderP
               {codeMods ? "Textures" : "Explore"}
             </NavLink>
             {codeMods && (
-              <>
-                <NavLink to="/games/$slug/mods" params={{ slug: PRIMARY_GAME_SLUG }}>
-                  Mods
-                </NavLink>
-                <NavLink to="/docs/mods">Docs</NavLink>
-              </>
+              <NavLink to="/games/$slug/mods" params={{ slug: PRIMARY_GAME_SLUG }}>
+                Mods
+              </NavLink>
             )}
+            <NavLink to="/docs/mods">Docs</NavLink>
             <NavLink to="/guides">Install</NavLink>
             <NavLink to="/download">App</NavLink>
           </nav>
@@ -221,19 +219,17 @@ export function SiteHeader({ user, isLoading, onSignIn, onSignOut }: SiteHeaderP
                   {codeMods ? "Textures" : "Explore"}
                 </SheetLink>
                 {codeMods && (
-                  <>
-                    <SheetLink
-                      to="/games/$slug/mods"
-                      params={{ slug: PRIMARY_GAME_SLUG }}
-                      onClick={close}
-                    >
-                      Mods
-                    </SheetLink>
-                    <SheetLink to="/docs/mods" onClick={close}>
-                      Mod docs
-                    </SheetLink>
-                  </>
+                  <SheetLink
+                    to="/games/$slug/mods"
+                    params={{ slug: PRIMARY_GAME_SLUG }}
+                    onClick={close}
+                  >
+                    Mods
+                  </SheetLink>
                 )}
+                <SheetLink to="/docs/mods" onClick={close}>
+                  Mod docs
+                </SheetLink>
                 <SheetLink to="/guides" onClick={close}>
                   Install guide
                 </SheetLink>

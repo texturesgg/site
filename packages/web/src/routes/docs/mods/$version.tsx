@@ -15,7 +15,6 @@ import {
   ModDocsWanted,
 } from "@vgskins/shared/mod-docs";
 import { useEffect, useState } from "react";
-import { requireFeatureFlag } from "@/lib/feature-flags";
 import { docsHeaderPath, docsLuauTypesUrl, docsPagePath } from "@/lib/mod-docs-links";
 import { modDocsReleaseQuery } from "@/lib/mod-docs-queries";
 import { ChevronDownIcon, ChevronRightIcon, DownloadIcon, MenuIcon } from "@/ui/icons";
@@ -35,7 +34,6 @@ import {
 
 export const Route = createFileRoute("/docs/mods/$version")({
   loader: async ({ context, params, location }) => {
-    await requireFeatureFlag(context.queryClient, "codeMods");
     if (params.version === "0.1") {
       const rest = location.pathname.replace(/^\/docs\/mods\/0\.1\/?/, "");
       const target = rest ? `/docs/mods/latest/${rest}` : "/docs/mods/latest";

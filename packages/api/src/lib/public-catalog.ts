@@ -131,24 +131,25 @@ export async function getPublicSitemapData(env: Env): Promise<PublicSitemap> {
     codeModsEnabled(env.FLAGS, null),
   ]);
 
-  // Mods, sets, and mod docs are listed only once code mods are on for everyone.
-  const [mods, sets, docs] = codeModsPublic
-    ? await Promise.all([
-        db
+  // Mods and sets are listed only once code mods are on for everyone.
+  // Mod docs are already public as a pre-launch preview.
+  const [mods, sets, docs] = await Promise.all([
+    codeModsPublic
+      ? db
           .select({ id: codeMods.slug, updatedAt: max(codeModReleases.publishedAt) })
           .from(codeMods)
           .innerJoin(codeModReleases, eq(codeModReleases.codeModId, codeMods.id))
           .where(and(eq(codeModReleases.status, "approved"), isNull(codeMods.deletedAt)))
-          .groupBy(codeMods.slug),
-        db.select({ name: codeModSets.name }).from(codeModSets),
-        resolveModDocs(env, "latest")
-          .then((resolved) => (resolved ? orderedDocsPages(resolved.index) : []))
-          .catch((err) => {
-            logger.warn({ err }, "Failed to load latest mod docs index for sitemap");
-            return [];
-          }),
-      ])
-    : [[], [], []];
+          .groupBy(codeMods.slug)
+      : Promise.resolve([]),
+    codeModsPublic ? db.select({ name: codeModSets.name }).from(codeModSets) : Promise.resolve([]),
+    resolveModDocs(env, "latest")
+      .then((resolved) => (resolved ? orderedDocsPages(resolved.index) : []))
+      .catch((err) => {
+        logger.warn({ err }, "Failed to load latest mod docs index for sitemap");
+        return [];
+      }),
+  ]);
 
   return {
     games: allGames,
@@ -244,7 +245,6 @@ export async function getModDocsMeta(
   const wanted = ModDocsWanted.safeParse(rawWanted);
   const raw = DocsMetaPage.safeParse(rawPage);
   if (!wanted.success || !raw.success) return null;
-  if (!(await codeModsEnabled(env.FLAGS, null))) return null;
 
   const resolved = await resolveModDocs(env, wanted.data);
   if (!resolved) return null;
@@ -290,7 +290,6 @@ export async function getModDocsRawFile(
   const wanted = ModDocsWanted.safeParse(rawWanted);
   const path = DocsRawPath.safeParse(rawPath);
   if (!wanted.success || !path.success) return null;
-  if (!(await codeModsEnabled(env.FLAGS, null))) return null;
 
   const resolved = await resolveModDocs(env, wanted.data);
   if (!resolved) return null;

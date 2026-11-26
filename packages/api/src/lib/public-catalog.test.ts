@@ -149,17 +149,24 @@ beforeAll(async () => {
   });
 });
 
-it("shows no mod, set, icon, docs, or sitemap entry while code mods are off for everyone", async () => {
+it("hides mods, sets, and icons while code mods are off, but keeps mod docs public", async () => {
   codeModsForEveryone(false);
   expect(await getModShareData(env, "tgg.ucf")).toBeNull();
   expect(await getSetShareData(env, "competitive")).toBeNull();
   expect(await getShareIcon(env, ICON)).toBeNull();
-  expect(await getModDocsMeta(env, "latest", "start/quickstart")).toBeNull();
-  expect(await getModDocsRawFile(env, "latest", "llms.txt")).toBeNull();
+  expect(await getModDocsMeta(env, "latest", "start/quickstart")).toEqual({
+    title: "Your first mod - Making mods - textures.gg",
+    description: "Five minutes.",
+    canonicalPath: "/docs/mods/latest/start/quickstart",
+  });
+  expect(await getModDocsRawFile(env, "latest", "llms.txt")).toMatchObject({
+    contentType: "text/plain; charset=utf-8",
+    body: "# tgg-melee mod docs\n",
+  });
   const sitemap = await getPublicSitemapData(env);
   expect(sitemap.mods).toEqual([]);
   expect(sitemap.sets).toEqual([]);
-  expect(sitemap.docs).toEqual([]);
+  expect(sitemap.docs).toEqual(["index", "start/quickstart", "native/hooks"]);
 });
 
 it("describes mods, sets, and mod docs once code mods are on for everyone", async () => {

@@ -13,14 +13,14 @@ import { layout } from "./layout";
  */
 const ANNOUNCEMENTS = {
   current: {
-    id: "app-0.2.0",
-    message:
-      "textures.gg 0.2.0 installs lasers, shines and other fighter effects, and shows them on your fighter.",
-    link: { to: "/download", label: "Get the app" },
+    id: "code-mods-preview",
+    message: "Native Melee and Luau code mods are coming soon to textures.gg.",
+    link: { to: "/docs/mods", label: "Preview the mod docs" },
   },
   codeMods: {
-    id: "app-0.3.0",
-    message: "The textures.gg app now plays tgg-melee with mods, and it's on Windows too.",
+    id: "app-1.0.0",
+    message:
+      "textures.gg 1.0 is here: native Melee, code mods, and online play on Windows, macOS, and Linux.",
     link: { to: "/download", label: "Get the app" },
   },
 } as const;
@@ -59,7 +59,8 @@ export function Announcement() {
   if (
     dismissed.includes(announcement.id) ||
     wasDismissed(announcement.id) ||
-    pathname === announcement.link.to
+    pathname === announcement.link.to ||
+    pathname.startsWith(`${announcement.link.to}/`)
   ) {
     return null;
   }
