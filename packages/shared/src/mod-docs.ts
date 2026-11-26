@@ -1,31 +1,65 @@
 import { z } from "zod";
 
-// The mod docs: tgg-melee's docs/*.md and SDK headers as each release mirrors
-// them to dl.textures.gg/tgg-melee/<version>/docs/ (its release workflow),
-// served by textures.gg at /docs/mods/<major.minor | latest>/<page>. The game,
-// the SDK headers and tgg link those URLs, with #anchors from the headings.
+// The mod docs: tgg-melee's docs/**/*.md, images, and SDK headers as each
+// release (and CI on main) mirrors them to dl.textures.gg/tgg-melee/<version>/docs/,
+// served by textures.gg at /docs/mods/<major.minor | latest | main>/<page>.
 
-/** A docs page: a file of the docs folder without `.md` (hooks, writing-mods, README). */
-export const ModDocsPage = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
+/** A docs page: a nested path under docs/ without `.md` (index, start/quickstart, guides/hud). */
+export const ModDocsPage = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(/^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/);
+
 /** An SDK header, as the index lists it: tgg/<name>.h. */
 export const ModDocsHeader = z.string().regex(/^tgg\/[A-Za-z0-9_-]{1,64}\.h$/);
-/** What a docs URL asks for: `latest`, or a release's major.minor. */
-export const ModDocsWanted = z.string().regex(/^(latest|\d{1,4}\.\d{1,4})$/);
 
-/** A group of pages in reading order, for the contents (Start here, Guides, Reference). */
-export const ModDocsSection = z.object({
+/** The header name segment of `tgg/<name>.h`. */
+export const ModDocsHeaderName = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
+
+/** An image file under docs/images/. */
+export const ModDocsImage = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(/^[A-Za-z0-9_.-]+\.(?:webp|png|jpe?g)$/);
+
+/** What a docs URL asks for: `latest`, `main`, or a release's major.minor. */
+export const ModDocsWanted = z.string().regex(/^(latest|main|\d{1,4}\.\d{1,4})$/);
+
+/** One heading extracted by docs-index.py; the site uses `id` as given. */
+export const ModDocsHeading = z.object({
+  depth: z.number().int().min(1).max(6),
+  id: z.string().min(1).max(160),
+  text: z.string().min(1).max(200),
+});
+export type ModDocsHeading = z.infer<typeof ModDocsHeading>;
+
+/** Metadata for one docs page from frontmatter and headings. */
+export const ModDocsPageMeta = z.object({
+  title: z.string().min(1).max(120),
+  label: z.string().min(1).max(80).optional(),
+  description: z.string().min(1).max(300),
+  headings: z.array(ModDocsHeading).max(500),
+});
+export type ModDocsPageMeta = z.infer<typeof ModDocsPageMeta>;
+
+/** A group of pages in reading order, for the contents (Start, Guides, Native C). */
+export const ModDocsNavSection = z.object({
   title: z.string().min(1).max(80),
+  advanced: z.boolean().optional(),
   pages: z.array(ModDocsPage).max(500),
 });
-export type ModDocsSection = z.infer<typeof ModDocsSection>;
+export type ModDocsNavSection = z.infer<typeof ModDocsNavSection>;
 
-/** A release's docs/index.json on the mirror. `sections` is optional: the reading order. */
+/** A release's format 2 docs/index.json on the mirror. */
 export const ModDocsIndex = z.object({
-  format: z.literal(1),
+  format: z.literal(2),
   version: z.string(),
-  pages: z.array(ModDocsPage).max(500),
+  nav: z.array(ModDocsNavSection).max(50),
+  pages: z.record(ModDocsPage, ModDocsPageMeta),
   headers: z.array(ModDocsHeader).max(500),
-  sections: z.array(ModDocsSection).max(50).optional(),
+  redirects: z.record(z.string(), z.string()).default({}),
 });
 export type ModDocsIndex = z.infer<typeof ModDocsIndex>;
 
@@ -33,16 +67,16 @@ export type ModDocsIndex = z.infer<typeof ModDocsIndex>;
 export const ModDocsRelease = z.object({
   version: z.string(),
   minor: z.string(),
-  /** Every major.minor with docs, newest first, for a version picker. */
+  /** Every major.minor with format 2 docs, newest first, for a version picker. */
   minors: z.array(z.string()),
-  pages: z.array(ModDocsPage),
-  /** Every page but README, grouped in reading order. */
-  sections: z.array(ModDocsSection),
+  nav: z.array(ModDocsNavSection),
+  pages: z.record(ModDocsPage, ModDocsPageMeta),
   headers: z.array(ModDocsHeader),
+  redirects: z.record(z.string(), z.string()),
 });
 export type ModDocsRelease = z.infer<typeof ModDocsRelease>;
 
-/** GET /api/docs/mods/:wanted/pages/:page and .../headers/:name: one file. */
+/** GET /api/docs/mods/:wanted/page and .../headers/:name: one file. */
 export const ModDocsFile = z.object({ version: z.string(), minor: z.string(), text: z.string() });
 export type ModDocsFile = z.infer<typeof ModDocsFile>;
 
@@ -74,18 +108,19 @@ function compare(a: Version, b: Version): number {
   return 0;
 }
 
-/** A release's major.minor: "0.1" for 0.1.0-rc.12. */
+/** A release's major.minor: "1.0" for 1.0.0-rc.1, and "main" for main. */
 export function docsMinor(version: string): string {
+  if (version === "main") return "main";
   return version.split(".").slice(0, 2).join(".");
 }
 
 /**
- * The releases a docs URL could show, best first: for `latest` every release,
- * for a major.minor that minor's. Releases come before prereleases (a later
- * prerelease of the next patch doesn't take the docs from a release), then
- * newest first. The caller shows the first one that has its docs mirrored.
+ * The releases a docs URL could show, best first: `main` resolves directly,
+ * `latest` tries every release, and a major.minor tries that minor's. Releases
+ * come before prereleases, then newest first.
  */
 export function docsCandidates(wanted: string, releases: string[]): string[] {
+  if (wanted === "main") return ["main"];
   const versions = releases
     .map(parse)
     .filter((version): version is Version => version !== null)
@@ -107,34 +142,60 @@ export function docsMinors(releases: string[]): string[] {
   return [...newest.entries()].sort(([, a], [, b]) => compare(b, a)).map(([minor]) => minor);
 }
 
+/** Short label for a page in the sidebar and prev/next links. */
+export function docsPageLabel(page: string, pages: Record<string, ModDocsPageMeta>): string {
+  const meta = pages[page];
+  if (meta) return meta.label ?? meta.title;
+  return page;
+}
+
+/** The nav section containing `page`, if any. */
+export function docsPageSection(
+  page: string,
+  nav: readonly ModDocsNavSection[]
+): ModDocsNavSection | undefined {
+  return nav.find((section) => section.pages.includes(page));
+}
+
 /**
- * The contents in reading order. The index's sections when it has them;
- * otherwise one "Guides" section in the order the README links its pages.
- * Pages neither one names come last, by name, and README is left out (it's
- * the version's front page).
+ * Previous and next pages in reading order. Standard (non-advanced) sections
+ * form one continuous path; advanced sections (Native C) form their own path
+ * so readers do not fall into native C at the end of Reference.
  */
-export function docsSections(index: ModDocsIndex, readme: string | null): ModDocsSection[] {
-  const listed = new Set(index.pages.filter((page) => page !== "README"));
-  const placed = new Set<string>();
-  const take = (pages: string[]) =>
-    pages.filter((page) => listed.has(page) && !placed.has(page) && placed.add(page));
-  const sections = index.sections
-    ? index.sections.map((section) => ({ title: section.title, pages: take(section.pages) }))
-    : [
-        {
-          title: "Guides",
-          pages: take(
-            [...(readme ?? "").matchAll(/\]\((?:\.\/)?([A-Za-z0-9_-]+)\.md(?:#[^)]*)?\)/g)].map(
-              (match) => match[1]
-            )
-          ),
-        },
-      ];
-  const rest = take([...listed].sort());
-  if (rest.length > 0) {
-    const last = sections.at(-1);
-    if (last && !index.sections) last.pages.push(...rest);
-    else sections.push({ title: "More", pages: rest });
+export function docsPrevNext(
+  page: string,
+  nav: readonly ModDocsNavSection[]
+): { prev: string | null; next: string | null } {
+  const current = docsPageSection(page, nav);
+  if (!current) return { prev: null, next: null };
+  const inAdvanced = Boolean(current.advanced);
+  const track = nav
+    .filter((section) => Boolean(section.advanced) === inAdvanced)
+    .flatMap((section) => section.pages);
+  const idx = track.indexOf(page);
+  if (idx === -1) return { prev: null, next: null };
+  return {
+    prev: idx > 0 ? track[idx - 1] : null,
+    next: idx + 1 < track.length ? track[idx + 1] : null,
+  };
+}
+
+/**
+ * Resolve a redirect for `page` and optional `hash` (without leading `#`).
+ * Exact `page#hash` entries take precedence over plain `page` entries.
+ */
+export function docsResolveRedirect(
+  redirects: Record<string, string>,
+  page: string,
+  hash = ""
+): { page: string; hash: string } | null {
+  const cleanHash = hash.replace(/^#/, "");
+  const exact = cleanHash ? redirects[`${page}#${cleanHash}`] : undefined;
+  const target = exact ?? redirects[page];
+  if (!target) return null;
+  const hashAt = target.indexOf("#");
+  if (hashAt !== -1) {
+    return { page: target.slice(0, hashAt), hash: target.slice(hashAt + 1) };
   }
-  return sections.filter((section) => section.pages.length > 0);
+  return { page: target, hash: cleanHash };
 }

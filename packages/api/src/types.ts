@@ -17,6 +17,10 @@ export type Env = Omit<ApiEnv, "EMAIL" | "PROCESSING_QUEUE"> & {
   // The bearer token of the external mod builder (routes/external-builds.ts);
   // unset turns those routes off.
   MOD_BUILDER_TOKEN?: string;
+
+  // Optional override for the mod docs mirror base URL (defaults to
+  // https://dl.textures.gg/tgg-melee), allowing local built docs in dev.
+  MOD_DOCS_MIRROR?: string;
 };
 
 export type HonoEnv = {

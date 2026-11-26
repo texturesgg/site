@@ -76,3 +76,16 @@ export const motion = stylex.defineVars({
   normal: "200ms",
   easing: "cubic-bezier(0.2, 0, 0, 1)",
 });
+
+/** Syntax highlighting tokens tuned to the Gallery palette (docs code frames). */
+export const syntax = stylex.defineVars({
+  comment: "#8E897E",
+  keyword: "#F5C84B",
+  string: "#8FD9A0",
+  number: "#E6A87C",
+  fn: "#8DC6F2",
+  type: "#D4B4F5",
+  operator: "#C4BEB4",
+  punctuation: "#A8A39A",
+  property: "#E8D6A7",
+});
