@@ -8,7 +8,6 @@ import { api } from "@/lib/api";
 import { requireFeatureFlag } from "@/lib/feature-flags";
 import { EmptyState } from "@/ui/patterns/EmptyState";
 import { FindMatch } from "@/ui/patterns/FindMatch";
-import { GameSections } from "@/ui/patterns/GameSections";
 import { layout } from "@/ui/patterns/layout";
 import { ModGrid } from "@/ui/patterns/ModTile";
 import { PageHeader } from "@/ui/patterns/PageHeader";
@@ -202,10 +201,10 @@ function Mods() {
   return (
     <div {...stylex.props(layout.container, layout.page, styles.page)}>
       <PageHeader
-        title="Explore"
+        title="Mods"
         description={
           <>
-            {game.name} · <span {...stylex.props(styles.count)}>{count}</span>
+            {game.name} · tgg-melee · <span {...stylex.props(styles.count)}>{count}</span>
           </>
         }
         actions={
@@ -220,9 +219,7 @@ function Mods() {
             </div>
           )
         }
-      >
-        <GameSections slug={game.slug} />
-      </PageHeader>
+      />
 
       {game.slug === PRIMARY_GAME_SLUG && !filtering && <FindMatch />}
 

@@ -1,5 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { createFileRoute } from "@tanstack/react-router";
+import { PRIMARY_GAME_SLUG } from "@vgskins/shared";
+import { featureFlag, useFeatureFlag } from "@/lib/feature-flags";
 import {
   Article,
   ArticleSection,
@@ -12,22 +14,30 @@ import {
 } from "@/ui/patterns/Article";
 import { layout } from "@/ui/patterns/layout";
 import { PageHeader } from "@/ui/patterns/PageHeader";
-import { Tabs, TextAnchor, TextLink } from "@/ui/primitives";
+import { type TabItem, Tabs, TextAnchor, TextLink } from "@/ui/primitives";
 import { color, font, space, text } from "@/ui/tokens.stylex";
 
-type Method = "desktop" | "dtw";
+type Method = "desktop" | "mods" | "dtw";
 
 export const Route = createFileRoute("/guides")({
   validateSearch: (search: Record<string, unknown>): { method?: Method } => ({
-    method: search.method === "dtw" ? "dtw" : undefined,
+    method: search.method === "dtw" || search.method === "mods" ? search.method : undefined,
   }),
-  head: () => ({
+  loader: async ({ context }) => ({
+    codeMods: await featureFlag(context.queryClient, "codeMods").catch(() => false),
+  }),
+  head: ({ loaderData }) => ({
     meta: [
-      { title: "How to install texture mods - textures.gg" },
+      {
+        title: loaderData?.codeMods
+          ? "Install guides - textures.gg"
+          : "How to install texture mods - textures.gg",
+      },
       {
         name: "description",
-        content:
-          "Learn how to apply texture mods to Super Smash Bros. Melee using the textures.gg desktop app or DAT Texture Wizard.",
+        content: loaderData?.codeMods
+          ? "How to install Melee skins, set up tgg-melee, and play with mod sets using the textures.gg app or DAT Texture Wizard."
+          : "Learn how to apply texture mods to Super Smash Bros. Melee using the textures.gg desktop app or DAT Texture Wizard.",
       },
     ],
   }),
@@ -49,32 +59,55 @@ const styles = stylex.create({
 });
 
 function Guides() {
-  const { method = "desktop" } = Route.useSearch();
+  const codeMods = useFeatureFlag("codeMods");
+  const { method } = Route.useSearch();
   const navigate = Route.useNavigate();
+
+  const active: Method = method === "mods" && !codeMods ? "desktop" : (method ?? "desktop");
+
+  const items: TabItem<Method>[] = codeMods
+    ? [
+        { value: "desktop", label: "Skins in the app", panel: <DesktopGuide codeMods /> },
+        { value: "mods", label: "Mods and tgg-melee", panel: <ModsGuide /> },
+        { value: "dtw", label: "DAT Texture Wizard", panel: <DtwGuide /> },
+      ]
+    : [
+        {
+          value: "desktop",
+          label: "The app (recommended)",
+          panel: <DesktopGuide codeMods={false} />,
+        },
+        { value: "dtw", label: "DAT Texture Wizard", panel: <DtwGuide /> },
+      ];
+
   return (
     <div {...stylex.props(layout.container, layout.page, styles.page)}>
       <PageHeader
-        title="How to install texture mods"
-        description="There are two ways to get texture mods into Melee. The app does it all for you, or DAT Texture Wizard works if you'd rather do it by hand."
+        title={codeMods ? "Install guides" : "How to install texture mods"}
+        description={
+          codeMods
+            ? "Install skins into your Melee ISO, set up tgg-melee with mod sets, or patch textures by hand with DAT Texture Wizard."
+            : "There are two ways to get texture mods into Melee. The app does it all for you, or DAT Texture Wizard works if you'd rather do it by hand."
+        }
       />
       <div {...stylex.props(layout.narrow)}>
         <Tabs<Method>
           label="Installation method"
-          value={method}
+          value={active}
           onValueChange={(next) =>
-            navigate({ search: { method: next === "dtw" ? "dtw" : undefined }, replace: true })
+            navigate({
+              search: { method: next === "desktop" ? undefined : next },
+              replace: true,
+            })
           }
-          items={[
-            { value: "desktop", label: "The app (recommended)", panel: <DesktopGuide /> },
-            { value: "dtw", label: "DAT Texture Wizard", panel: <DtwGuide /> },
-          ]}
+          items={items}
         />
       </div>
     </div>
   );
 }
 
-function DesktopGuide() {
+function DesktopGuide({ codeMods }: { codeMods: boolean }) {
   return (
     <Article>
       <ArticleSection title="What you'll need">
@@ -87,8 +120,8 @@ function DesktopGuide() {
 
       <ArticleSection title="Getting the app">
         <p>
-          Grab it from the <TextLink to="/download">download page</TextLink>. It runs on macOS and
-          Linux, and Windows is coming soon.
+          Grab it from the <TextLink to="/download">download page</TextLink>. It runs on Windows,
+          macOS, and Linux.
         </p>
       </ArticleSection>
 
@@ -112,8 +145,10 @@ function DesktopGuide() {
           </Step>
           <Step number={3}>
             <p>
-              <Strong>Hit Add and install.</Strong> The skin goes straight into your ISO, and it
-              stays in your library if you want it again later.
+              <Strong>Hit Add and install.</Strong>{" "}
+              {codeMods
+                ? "The skin applies in tgg-melee, and you can also write it into your Slippi ISO. It stays in your library if you want it again later."
+                : "The skin goes straight into your ISO, and it stays in your library if you want it again later."}
             </p>
           </Step>
         </Steps>
@@ -121,8 +156,83 @@ function DesktopGuide() {
 
       <ArticleSection title="That's it">
         <p>
-          Load up Slippi and play. Changed your mind? <Strong>Undo</Strong> puts back what was
-          there, and <Strong>Restore vanilla</Strong> brings any costume back to the original.
+          Load up {codeMods ? "tgg-melee or Slippi" : "Slippi"} and play. Changed your mind?{" "}
+          <Strong>Undo</Strong> puts back what was there, and <Strong>Restore vanilla</Strong>{" "}
+          brings any costume back to the original.
+        </p>
+      </ArticleSection>
+    </Article>
+  );
+}
+
+function ModsGuide() {
+  return (
+    <Article>
+      <ArticleSection title="What you'll need">
+        <BulletList>
+          <li>A clean Melee NTSC 1.02 ISO (the same disc Slippi uses)</li>
+          <li>
+            The <TextLink to="/download">textures.gg app</TextLink> (Windows, macOS, or Linux)
+          </li>
+          <li>A controller (GameCube adapter or any SDL controller)</li>
+        </BulletList>
+      </ArticleSection>
+
+      <ArticleSection title="First-time setup">
+        <Steps>
+          <Step number={1}>
+            <p>
+              <Strong>Open the app and confirm your Melee disc.</Strong> The app searches your
+              folders for a clean NTSC 1.02 ISO, or lets you pick one. Nothing is downloaded until
+              you click the button.
+            </p>
+          </Step>
+          <Step number={2}>
+            <p>
+              <Strong>Pick starter sets.</Strong> Choose any of <Strong>Competitive</Strong> (rules,
+              legal stages, and netplay), <Strong>Practice</Strong> (drills, trainers, and save
+              states), and <Strong>Replays</Strong>. You can add or remove mods at any time on the{" "}
+              <Strong>Mods</Strong> page.
+            </p>
+          </Step>
+          <Step number={3}>
+            <p>
+              <Strong>Click Download and set up.</Strong> The app downloads <Code>tgg-melee</Code>{" "}
+              and the mods in your chosen sets, then takes you straight to <Strong>Play</Strong>.
+            </p>
+          </Step>
+        </Steps>
+      </ArticleSection>
+
+      <ArticleSection title="Installing more mods and sets">
+        <p>
+          Browse{" "}
+          <TextLink to="/games/$slug/mods" params={{ slug: PRIMARY_GAME_SLUG }}>
+            Mods
+          </TextLink>{" "}
+          on the site or inside the app. Clicking <Strong>Install in app</Strong> on any mod or set
+          page opens it directly in the desktop app.
+        </p>
+        <p>
+          Prefer the terminal? The <Code>tgg</Code> CLI on the{" "}
+          <TextLink to="/download">download page</TextLink> installs the port, sets, and individual
+          mods with <Code>tgg mod install</Code>.
+        </p>
+      </ArticleSection>
+
+      <ArticleSection title="Playing online and offline">
+        <p>
+          On <Strong>Play</Strong>, pick your active set and choose <Strong>Find a match</Strong>{" "}
+          (requires signing in to textures.gg), <Strong>Play with a friend</Strong> (share a room
+          code or link for 2 to 4 players), or <Strong>Play offline</Strong>. Display and training
+          mods stay out of the way so they never block matchmaking.
+        </p>
+      </ArticleSection>
+
+      <ArticleSection title="Want to make a mod?">
+        <p>
+          Read the <TextLink to="/docs/mods">mod docs</TextLink> to write a Luau script mod with
+          live hot reload and publish it to textures.gg.
         </p>
       </ArticleSection>
     </Article>
@@ -209,7 +319,7 @@ function DtwGuide() {
       <ArticleSection title="You're done">
         <p>
           Load the ISO in Slippi or Dolphin to see your textures. If something looks wrong, check
-          that each .dat file went to the right target; that's the most common mistake.
+          that each .dat file went to the right target; that&apos;s the most common mistake.
         </p>
       </ArticleSection>
     </Article>

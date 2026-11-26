@@ -1,6 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { byVersionDescending, type CodeModKind, PRIMARY_GAME_SLUG } from "@vgskins/shared";
+import {
+  byVersionDescending,
+  type CodeModKind,
+  type CodeModNetplay,
+  PRIMARY_GAME_SLUG,
+} from "@vgskins/shared";
 import { type InferResponseType, parseResponse } from "hono/client";
 import type { ReactNode } from "react";
 import { useAuth } from "@/contexts/auth-context";
@@ -14,9 +19,10 @@ import { CompetitionModBox } from "@/ui/patterns/CompetitionVote";
 import { InstallActions } from "@/ui/patterns/InstallActions";
 import { layout } from "@/ui/patterns/layout";
 import { Markdown } from "@/ui/patterns/Markdown";
-import { ModEyebrow, ModHeader } from "@/ui/patterns/ModHeader";
+import { ModEyebrow } from "@/ui/patterns/ModHeader";
 import { Publisher } from "@/ui/patterns/ModTile";
-import { color, font, radius, space, text } from "@/ui/tokens.stylex";
+import { Badge } from "@/ui/primitives";
+import { color, font, radius, space, text, tracking } from "@/ui/tokens.stylex";
 import { PublisherControls } from "../-publisher";
 import { MakerReleases, type MakerMod } from "../-releases";
 
@@ -66,62 +72,177 @@ export const Route = createFileRoute("/games/$slug/mods/$modId/")({
 });
 
 const WIDE = "@media (min-width: 1024px)";
+const MEDIUM = "@media (min-width: 768px)";
 
 const SYSTEM_NAMES = { linux: "Linux", windows: "Windows", macos: "macOS" } as const;
 
+const KIND_SHORT: Record<CodeModKind, string> = {
+  script: "Script",
+  native: "Native",
+  content: "Files",
+};
+
 /** What each kind of mod is, in a line. */
 const KIND_LINES: Record<CodeModKind, string> = {
-  script: "Script. One package that runs the same on every system.",
-  native: "Native. Compiled code, built for each system.",
+  script: "Luau script. Runs the same on every system.",
+  native: "Native C library, built for each system.",
   content: "Files only, no code.",
 };
 
+const NETPLAY_SHORT: Record<CodeModNetplay, string> = {
+  display: "Display",
+  data: "Display",
+  offline: "Offline",
+  code: "Gameplay",
+  files: "Gameplay",
+  costumes: "Gameplay",
+};
+
+const TAG_TO_CATEGORY: Record<string, "rules" | "training" | "replays" | "hud" | "modes"> = {
+  competitive: "rules",
+  training: "training",
+  replays: "replays",
+  hud: "hud",
+  visual: "hud",
+  mode: "modes",
+};
+
 const styles = stylex.create({
-  // The pack page's frame: on wide screens the work on the left and the
-  // header in a side column; on phones the header first.
-  page: {
-    display: { default: "flex", [WIDE]: "grid" },
+  page: { display: "flex", flexDirection: "column", gap: space.xl },
+  hero: {
+    display: "grid",
+    gridTemplateColumns: { default: "minmax(0, 1fr)", [WIDE]: "minmax(0, 1fr) 340px" },
+    gap: { default: space.lg, [WIDE]: space.xl },
+    alignItems: "start",
+    paddingBottom: space.xl,
+    borderBottomWidth: "1px",
+    borderBottomStyle: "solid",
+    borderBottomColor: color.line,
+  },
+  heroLead: { display: "flex", flexDirection: "column", gap: space.md, minWidth: 0 },
+  identity: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: { default: space.md, [MEDIUM]: space.lg },
+    minWidth: 0,
+  },
+  icon: {
+    flexShrink: 0,
+    width: { default: "64px", [MEDIUM]: "80px" },
+    height: { default: "64px", [MEDIUM]: "80px" },
+    borderRadius: radius.lg,
+    objectFit: "cover",
+    backgroundColor: color.surface,
+  },
+  letter: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: text.h2,
+    fontWeight: 800,
+    color: color.accentText,
+  },
+  titleBlock: { display: "flex", flexDirection: "column", gap: space.xs, minWidth: 0 },
+  titleRow: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: space.sm },
+  title: {
+    margin: 0,
+    fontSize: { default: text.h2, [MEDIUM]: text.h1 },
+    fontWeight: 800,
+    letterSpacing: tracking.tight,
+    lineHeight: 1.08,
+    overflowWrap: "anywhere",
+  },
+  version: { fontFamily: font.mono, fontSize: text.sm, color: color.muted },
+  byline: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: space.sm,
+    margin: 0,
+    fontSize: text.md,
+    color: color.muted,
+  },
+  badges: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: space.xs },
+  description: {
+    margin: 0,
+    maxWidth: "64ch",
+    fontSize: text.lg,
+    lineHeight: 1.5,
+    color: color.muted,
+  },
+  installBox: {
+    display: "flex",
     flexDirection: "column",
-    gridTemplateColumns: "minmax(0, 1fr) 400px",
-    alignItems: { default: "stretch", [WIDE]: "start" },
+    gap: space.md,
+    padding: space.lg,
+    borderRadius: radius.lg,
+    backgroundColor: color.surface,
+    borderWidth: "1px",
+    borderStyle: "solid",
+    borderColor: color.line,
+  },
+  installMeta: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: space.sm,
+    fontSize: text.xs,
+    color: color.muted,
+  },
+  body: {
+    display: "grid",
+    gridTemplateColumns: { default: "minmax(0, 1fr)", [WIDE]: "minmax(0, 1fr) 340px" },
     gap: { default: space.xl, [WIDE]: space.xxl },
+    alignItems: "start",
   },
-  side: {
-    order: { default: 1, [WIDE]: 2 },
+  main: { display: "flex", flexDirection: "column", gap: space.xxl, minWidth: 0 },
+  rail: { display: "flex", flexDirection: "column", gap: space.lg, minWidth: 0 },
+  railCard: {
     display: "flex",
     flexDirection: "column",
-    gap: space.lg,
-    minWidth: 0,
+    gap: space.md,
+    padding: space.lg,
+    borderRadius: radius.lg,
+    backgroundColor: color.surface,
+    borderWidth: "1px",
+    borderStyle: "solid",
+    borderColor: color.line,
   },
-  main: {
-    order: { default: 2, [WIDE]: 1 },
-    display: "flex",
-    flexDirection: "column",
-    gap: space.xxl,
-    minWidth: 0,
+  railTitle: {
+    margin: 0,
+    fontSize: text.sm,
+    fontWeight: 700,
+    color: color.muted,
   },
-  icon: { width: "80px", height: "80px", borderRadius: radius.lg, objectFit: "cover" },
-  description: { margin: 0, fontSize: text.lg, lineHeight: 1.5, color: color.muted },
-  support: { margin: 0, fontSize: text.sm, color: color.muted },
-  supportLink: { color: color.accentText, textDecoration: "underline", textUnderlineOffset: "2px" },
-  link: { color: color.text, textDecoration: { default: "none", ":hover": "underline" } },
-  // After the header, which is order 1 (ModHeader).
   facts: {
-    order: 2,
     display: "grid",
     gridTemplateColumns: "auto minmax(0, 1fr)",
-    columnGap: space.lg,
+    columnGap: space.md,
     rowGap: space.sm,
     margin: 0,
-    paddingTop: space.lg,
-    borderTopWidth: 1,
-    borderTopStyle: "solid",
-    borderTopColor: color.line,
     fontSize: text.sm,
   },
   term: { color: color.muted },
   value: { margin: 0, overflowWrap: "anywhere" },
   mono: { fontFamily: font.mono },
+  chips: { display: "flex", flexWrap: "wrap", gap: space.xs },
+  chipLink: {
+    display: "inline-flex",
+    alignItems: "center",
+    paddingBlock: space.xs,
+    paddingInline: space.sm,
+    borderRadius: radius.pill,
+    backgroundColor: color.raise,
+    color: color.text,
+    fontSize: text.xs,
+    fontWeight: 600,
+    lineHeight: 1.1,
+    textDecoration: { default: "none", ":hover": "underline" },
+  },
+  support: { margin: 0, fontSize: text.sm, color: color.muted },
+  supportLink: { color: color.accentText, textDecoration: "underline", textUnderlineOffset: "2px" },
+  link: { color: color.text, textDecoration: { default: "none", ":hover": "underline" } },
   section: { display: "flex", flexDirection: "column", gap: space.md },
   heading: { margin: 0, fontSize: text.h3, fontWeight: 800 },
   shots: {
@@ -137,7 +258,26 @@ const styles = stylex.create({
     borderRadius: radius.md,
     backgroundColor: color.surface,
   },
-  release: { display: "flex", flexDirection: "column", gap: space.xs },
+  readmeFallback: {
+    margin: 0,
+    padding: space.lg,
+    borderRadius: radius.lg,
+    backgroundColor: color.surface,
+    fontSize: text.md,
+    lineHeight: 1.55,
+    color: color.muted,
+  },
+  releaseList: { display: "flex", flexDirection: "column", gap: space.md },
+  release: {
+    display: "flex",
+    flexDirection: "column",
+    gap: space.xs,
+    paddingTop: space.md,
+    borderTopWidth: "1px",
+    borderTopStyle: "solid",
+    borderTopColor: color.line,
+  },
+  releaseFirst: { paddingTop: 0, borderTopWidth: 0 },
   releaseHead: { display: "flex", alignItems: "baseline", gap: space.sm },
   releaseVersion: { fontSize: text.lg, fontWeight: 700 },
   muted: { margin: 0, fontSize: text.sm, color: color.muted },
@@ -154,7 +294,6 @@ const styles = stylex.create({
   },
   withdrawnTitle: { fontWeight: 700 },
   report: {
-    order: 3,
     fontSize: text.sm,
     color: { default: color.muted, ":hover": color.text },
   },
@@ -180,80 +319,147 @@ function ModPage() {
 
   return (
     <div {...stylex.props(layout.container, layout.page, styles.page)}>
-      <div {...stylex.props(styles.side)}>
-        <ModHeader
-          eyebrow={
-            <ModEyebrow to="/games/$slug/mods" params={{ slug: game.slug }}>
-              Mod · {game.name}
-            </ModEyebrow>
-          }
-          title={name}
-          byline={listing ? <Byline listing={listing} /> : maker?.owner && <>by {maker.owner}</>}
-        >
-          {listing?.icon && <img src={listing.icon.url} alt="" {...stylex.props(styles.icon)} />}
+      <header {...stylex.props(styles.hero)}>
+        <div {...stylex.props(styles.heroLead)}>
+          <ModEyebrow to="/games/$slug/mods" params={{ slug: game.slug }}>
+            Mods · {game.name}
+          </ModEyebrow>
+          <div {...stylex.props(styles.identity)}>
+            {listing?.icon ? (
+              <img src={listing.icon.url} alt="" {...stylex.props(styles.icon)} />
+            ) : (
+              <span aria-hidden="true" {...stylex.props(styles.icon, styles.letter)}>
+                {name.slice(0, 1).toUpperCase()}
+              </span>
+            )}
+            <div {...stylex.props(styles.titleBlock)}>
+              <div {...stylex.props(styles.titleRow)}>
+                <h1 {...stylex.props(styles.title)}>{name}</h1>
+                {version && <span {...stylex.props(styles.version)}>v{version}</span>}
+              </div>
+              <p {...stylex.props(styles.byline)}>
+                {listing ? <Byline listing={listing} /> : maker?.owner && <>by {maker.owner}</>}
+                {listing && (
+                  <span {...stylex.props(styles.mono)}>
+                    · {listing.installs.toLocaleString("en-US")}{" "}
+                    {listing.installs === 1 ? "install" : "installs"}
+                  </span>
+                )}
+              </p>
+              {listing && (listing.netplay || listing.kind) && (
+                <div {...stylex.props(styles.badges)}>
+                  {listing.netplay && (
+                    <Badge tone={listing.netplay === "offline" ? "neutral" : "accent"}>
+                      {NETPLAY_SHORT[listing.netplay]}
+                    </Badge>
+                  )}
+                  {listing.kind && <Badge tone="neutral">{KIND_SHORT[listing.kind]}</Badge>}
+                </div>
+              )}
+            </div>
+          </div>
           {description && <p {...stylex.props(styles.description)}>{description}</p>}
-          {withdrawn && <WithdrawnNotice release={withdrawn} whole={!listing} />}
-          {listing && (
+        </div>
+
+        {listing && (
+          <div {...stylex.props(styles.installBox)}>
             <InstallActions
               href={appLinks.mod(listing.id)}
               label={`Install ${name}`}
               command={`tgg mod install ${listing.id}`}
+              fullWidth
             />
-          )}
-          {supportLinks.length > 0 && (
-            <p {...stylex.props(styles.support)}>
-              Support {listing?.author}:{" "}
-              {supportLinks.map((link, index) => (
-                <span key={link.url}>
-                  {index > 0 && " · "}
-                  <a
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    {...stylex.props(styles.supportLink)}
-                  >
-                    {supportLinkLabel(link)}
-                  </a>
-                </span>
-              ))}
-            </p>
-          )}
-        </ModHeader>
-        {listing && <CompetitionModBox mod={listing.id} />}
-        {listing && <Facts listing={listing} game={game.slug} sets={sets} />}
-        {(listing || maker) && (
-          <a
-            href={reportHref(listing?.id ?? maker?.slug ?? "", name, version)}
-            {...stylex.props(styles.report)}
-          >
-            Report this mod
-          </a>
-        )}
-        {listing && maker && user?.role === "admin" && (
-          <PublisherControls
-            modId={maker.id}
-            author={listing.author}
-            publisher={listing.publisher}
-          />
-        )}
-      </div>
-
-      <div {...stylex.props(styles.main)}>
-        {listing && listing.screenshots.length > 0 && (
-          <div {...stylex.props(styles.shots)}>
-            {listing.screenshots.map((shot) => (
-              <a key={shot.url} href={shot.url} target="_blank" rel="noreferrer">
-                <img src={shot.url} alt="" loading="lazy" {...stylex.props(styles.shot)} />
-              </a>
-            ))}
+            <div {...stylex.props(styles.installMeta)}>
+              <span>Updated {formatDate(listing.updatedAt)}</span>
+              <span>
+                {listing.releases.length} {listing.releases.length === 1 ? "release" : "releases"}
+              </span>
+            </div>
           </div>
         )}
-        {listing?.readme && <Markdown>{listing.readme}</Markdown>}
-        {showReleases ? (
-          <MakerReleases mod={maker} canReview={canReview} canRebuild={user?.role === "admin"} />
-        ) : (
-          listing && <Changelog releases={listing.releases} />
-        )}
+      </header>
+
+      {withdrawn && <WithdrawnNotice release={withdrawn} whole={!listing} />}
+
+      <div {...stylex.props(styles.body)}>
+        <div {...stylex.props(styles.main)}>
+          {listing && listing.screenshots.length > 0 && (
+            <section {...stylex.props(styles.section)}>
+              <div {...stylex.props(styles.shots)}>
+                {listing.screenshots.map((shot) => (
+                  <a key={shot.url} href={shot.url} target="_blank" rel="noreferrer">
+                    <img src={shot.url} alt="" loading="lazy" {...stylex.props(styles.shot)} />
+                  </a>
+                ))}
+              </div>
+            </section>
+          )}
+          {listing?.readme ? (
+            <section {...stylex.props(styles.section)}>
+              <Markdown>{listing.readme}</Markdown>
+            </section>
+          ) : (
+            !listing?.screenshots.length &&
+            description && (
+              <p {...stylex.props(styles.readmeFallback)}>
+                {description} Browse the{" "}
+                <Link
+                  to="/games/$slug/mods/$modId/source"
+                  params={{ slug: game.slug, modId: listing?.id ?? maker?.slug ?? "" }}
+                  {...stylex.props(styles.link)}
+                >
+                  source files
+                </Link>{" "}
+                to see how it works.
+              </p>
+            )
+          )}
+          {showReleases ? (
+            <MakerReleases mod={maker} canReview={canReview} canRebuild={user?.role === "admin"} />
+          ) : (
+            listing && <Changelog releases={listing.releases} />
+          )}
+        </div>
+
+        <aside {...stylex.props(styles.rail)}>
+          {listing && <CompetitionModBox mod={listing.id} />}
+          {listing && <Facts listing={listing} game={game.slug} sets={sets} />}
+          {supportLinks.length > 0 && (
+            <div {...stylex.props(styles.railCard)}>
+              <p {...stylex.props(styles.support)}>
+                Support {listing?.author}:{" "}
+                {supportLinks.map((link, index) => (
+                  <span key={link.url}>
+                    {index > 0 && " · "}
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      {...stylex.props(styles.supportLink)}
+                    >
+                      {supportLinkLabel(link)}
+                    </a>
+                  </span>
+                ))}
+              </p>
+            </div>
+          )}
+          {listing && maker && user?.role === "admin" && (
+            <PublisherControls
+              modId={maker.id}
+              author={listing.author}
+              publisher={listing.publisher}
+            />
+          )}
+          {(listing || maker) && (
+            <a
+              href={reportHref(listing?.id ?? maker?.slug ?? "", name, version)}
+              {...stylex.props(styles.report)}
+            >
+              Report this mod
+            </a>
+          )}
+        </aside>
       </div>
     </div>
   );
@@ -301,7 +507,7 @@ function reportHref(id: string, name: string, version: string | undefined): stri
   return `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
-/** Who publishes it, linking to their profile when it's the maker's own name, and when it last changed. */
+/** Who publishes it, linking to their profile when it's the maker's own name. */
 function Byline({ listing }: { listing: Listing }) {
   const own = listing.publisher.name === listing.author;
   return (
@@ -342,101 +548,127 @@ function Facts({
 }) {
   const inSets = sets.filter((set) => listing.sets.includes(set.name));
   return (
-    <dl {...stylex.props(styles.facts)}>
-      <Fact term="Version">
-        <span {...stylex.props(styles.mono)}>{listing.version}</span> ·{" "}
-        {formatDate(listing.updatedAt)}
-      </Fact>
-      {listing.kind && <Fact term="Kind">{KIND_LINES[listing.kind]}</Fact>}
-      <Fact term="Works on">
-        {listing.targets.length
-          ? listing.targets.map((target) => SYSTEM_NAMES[target]).join(", ")
-          : "Not built for the latest tgg-melee yet"}
-      </Fact>
-      {listing.oneVersion && (
-        <Fact term="Game version">
-          Works only on the tgg-melee version it was built for. Each new version needs a new build.
+    <section {...stylex.props(styles.railCard)} aria-label="Mod details">
+      <h2 {...stylex.props(styles.railTitle)}>Details</h2>
+      <dl {...stylex.props(styles.facts)}>
+        {listing.kind && <Fact term="Kind">{KIND_LINES[listing.kind]}</Fact>}
+        {listing.netplay && <Fact term="Netplay">{NETPLAY_LABELS[listing.netplay]}</Fact>}
+        <Fact term="Works on">
+          {listing.targets.length
+            ? listing.targets.map((target) => SYSTEM_NAMES[target]).join(", ")
+            : "Not built for the latest tgg-melee yet"}
         </Fact>
-      )}
-      {listing.netplay && <Fact term="Netplay">{NETPLAY_LABELS[listing.netplay]}</Fact>}
-      <Fact term="Installs">
-        <span {...stylex.props(styles.mono)}>{listing.installs.toLocaleString("en-US")}</span>
-      </Fact>
-      {inSets.length > 0 && (
-        <Fact term="In sets">
-          {inSets.map((set, index) => (
-            <span key={set.name}>
-              {index > 0 && ", "}
-              <Link
-                to="/games/$slug/sets/$setName"
-                params={{ slug: game, setName: set.name }}
-                {...stylex.props(styles.link)}
-              >
-                {set.title}
-              </Link>
+        {listing.oneVersion && (
+          <Fact term="Game version">
+            Works only on the tgg-melee version it was built for. Each new version needs a new
+            build.
+          </Fact>
+        )}
+        {inSets.length > 0 && (
+          <Fact term="In sets">
+            <span {...stylex.props(styles.chips)}>
+              {inSets.map((set) => (
+                <Link
+                  key={set.name}
+                  to="/games/$slug/sets/$setName"
+                  params={{ slug: game, setName: set.name }}
+                  {...stylex.props(styles.chipLink)}
+                >
+                  {set.title}
+                </Link>
+              ))}
             </span>
-          ))}
-        </Fact>
-      )}
-      {listing.depends.length > 0 && (
-        <Fact term="Needs">
-          {listing.depends.map((dependency, index) => (
-            <span key={dependency.id}>
-              {index > 0 && ", "}
-              <Link
-                to="/games/$slug/mods/$modId"
-                params={{ slug: game, modId: dependency.id }}
-                {...stylex.props(styles.link, styles.mono)}
-              >
-                {dependency.id}
-              </Link>{" "}
-              {dependency.range}
+          </Fact>
+        )}
+        {listing.tags.length > 0 && (
+          <Fact term="Tags">
+            <span {...stylex.props(styles.chips)}>
+              {listing.tags.map((tag) => {
+                const category = TAG_TO_CATEGORY[tag];
+                return category ? (
+                  <Link
+                    key={tag}
+                    to="/games/$slug/mods"
+                    params={{ slug: game }}
+                    search={{ category }}
+                    {...stylex.props(styles.chipLink)}
+                  >
+                    {tag}
+                  </Link>
+                ) : (
+                  <Badge key={tag} tone="neutral">
+                    {tag}
+                  </Badge>
+                );
+              })}
             </span>
-          ))}
-        </Fact>
-      )}
-      {listing.license && <Fact term="License">{listing.license}</Fact>}
-      {listing.homepage && (
-        <Fact term="Homepage">
-          <a
-            href={listing.homepage}
-            target="_blank"
-            rel="noopener noreferrer nofollow ugc"
+          </Fact>
+        )}
+        {listing.depends.length > 0 && (
+          <Fact term="Needs">
+            {listing.depends.map((dependency, index) => (
+              <span key={dependency.id}>
+                {index > 0 && ", "}
+                <Link
+                  to="/games/$slug/mods/$modId"
+                  params={{ slug: game, modId: dependency.id }}
+                  {...stylex.props(styles.link, styles.mono)}
+                >
+                  {dependency.id}
+                </Link>{" "}
+                {dependency.range}
+              </span>
+            ))}
+          </Fact>
+        )}
+        {listing.license && <Fact term="License">{listing.license}</Fact>}
+        {listing.homepage && (
+          <Fact term="Homepage">
+            <a
+              href={listing.homepage}
+              target="_blank"
+              rel="noopener noreferrer nofollow ugc"
+              {...stylex.props(styles.link)}
+            >
+              {listing.homepage.replace(/^https?:\/\//, "")}
+            </a>
+          </Fact>
+        )}
+        <Fact term="Source">
+          <Link
+            to="/games/$slug/mods/$modId/source"
+            params={{ slug: game, modId: listing.id }}
             {...stylex.props(styles.link)}
           >
-            {listing.homepage.replace(/^https?:\/\//, "")}
-          </a>
+            Browse files
+          </Link>
         </Fact>
-      )}
-      <Fact term="Source">
-        <Link
-          to="/games/$slug/mods/$modId/source"
-          params={{ slug: game, modId: listing.id }}
-          {...stylex.props(styles.link)}
-        >
-          Browse
-        </Link>
-      </Fact>
-      <Fact term="Id">
-        <span {...stylex.props(styles.mono)}>{listing.id}</span>
-      </Fact>
-    </dl>
+        <Fact term="Id">
+          <span {...stylex.props(styles.mono)}>{listing.id}</span>
+        </Fact>
+      </dl>
+    </section>
   );
 }
 
 function Changelog({ releases }: { releases: Listing["releases"] }) {
   return (
     <section {...stylex.props(styles.section)}>
-      <h2 {...stylex.props(styles.heading)}>Changelog</h2>
-      {releases.map((release) => (
-        <article key={release.version} {...stylex.props(styles.release)}>
-          <div {...stylex.props(styles.releaseHead)}>
-            <span {...stylex.props(styles.releaseVersion, styles.mono)}>{release.version}</span>
-            <span {...stylex.props(styles.muted)}>{formatDate(release.date)}</span>
-          </div>
-          {release.changelog && <Markdown>{release.changelog}</Markdown>}
-        </article>
-      ))}
+      <h2 {...stylex.props(styles.heading)}>Releases</h2>
+      <div {...stylex.props(styles.releaseList)}>
+        {releases.map((release, index) => (
+          <article
+            key={release.version}
+            {...stylex.props(styles.release, index === 0 && styles.releaseFirst)}
+          >
+            <div {...stylex.props(styles.releaseHead)}>
+              <span {...stylex.props(styles.releaseVersion, styles.mono)}>{release.version}</span>
+              <span {...stylex.props(styles.muted)}>{formatDate(release.date)}</span>
+            </div>
+            {release.changelog && <Markdown>{release.changelog}</Markdown>}
+          </article>
+        ))}
+      </div>
     </section>
   );
 }

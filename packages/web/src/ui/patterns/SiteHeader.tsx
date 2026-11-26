@@ -147,8 +147,12 @@ export function SiteHeader({ user, isLoading, onSignIn, onSignOut }: SiteHeaderP
             textures<span {...stylex.props(styles.logoAccent)}>.gg</span>
           </Link>
           <nav aria-label="Main" {...stylex.props(styles.nav)}>
-            <NavLink to="/games/$slug" params={{ slug: PRIMARY_GAME_SLUG }}>
-              Explore
+            <NavLink
+              to="/games/$slug"
+              params={{ slug: PRIMARY_GAME_SLUG }}
+              activeOptions={{ exact: true, includeSearch: false }}
+            >
+              {codeMods ? "Textures" : "Explore"}
             </NavLink>
             {codeMods && (
               <>
@@ -214,7 +218,7 @@ export function SiteHeader({ user, isLoading, onSignIn, onSignOut }: SiteHeaderP
             >
               <nav aria-label="Main" {...stylex.props(styles.sheetNav)}>
                 <SheetLink to="/games/$slug" params={{ slug: PRIMARY_GAME_SLUG }} onClick={close}>
-                  Explore
+                  {codeMods ? "Textures" : "Explore"}
                 </SheetLink>
                 {codeMods && (
                   <>
