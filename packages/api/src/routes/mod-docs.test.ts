@@ -85,6 +85,14 @@ beforeAll(async () => {
   }
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
     const url = String(input instanceof Request ? input.url : input);
+    if (url.startsWith("http://127.0.0.1:8798/")) {
+      const path = decodeURIComponent(url.slice("http://127.0.0.1:8798/".length));
+      if (!path.startsWith("main/") && !path.startsWith("0.1.0-rc.12/")) {
+        return new Response("missing", { status: 404 });
+      }
+      const body = MIRROR[path];
+      return body === undefined ? new Response("missing", { status: 404 }) : new Response(body);
+    }
     const prefixes = [`${MOD_DOCS_MIRROR}/`, "http://127.0.0.1:8799/"];
     const prefix = prefixes.find((p) => url.startsWith(p));
     const path = prefix ? url.slice(prefix.length) : "";
@@ -154,6 +162,26 @@ it("honors MOD_DOCS_MIRROR env override with no-store caching", async () => {
   const res = await get("/main", { ...env, MOD_DOCS_MIRROR: "http://127.0.0.1:8799" });
   expect(res.status).toBe(200);
   expect(res.headers.get("cache-control")).toBe("no-store");
+});
+
+it("falls back latest to main when no tagged release has format 2 docs yet", async () => {
+  const res = await get("/latest", { ...env, MOD_DOCS_MIRROR: "http://127.0.0.1:8798" });
+  expect(res.status).toBe(200);
+  expect(await res.json()).toMatchObject({
+    version: "main",
+    minor: "main",
+    minors: [],
+  });
+
+  const pageRes = await get("/latest/page?path=start/quickstart", {
+    ...env,
+    MOD_DOCS_MIRROR: "http://127.0.0.1:8798",
+  });
+  expect(pageRes.status).toBe(200);
+  expect(await pageRes.json()).toMatchObject({
+    version: "main",
+    minor: "main",
+  });
 });
 
 it("serves search.json and tgg.luau for mirrored releases", async () => {
