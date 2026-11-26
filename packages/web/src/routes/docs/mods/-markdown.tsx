@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { useNavigate } from "@tanstack/react-router";
 import type { ModDocsHeading, ModDocsRelease } from "@vgskins/shared/mod-docs";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ComponentProps, type ReactNode, useEffect, useMemo, useState } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { z } from "zod";
@@ -13,6 +13,7 @@ import { CodeBlock, CodeTabs, type CodeTabSpec } from "./-code";
 
 type MdastNode = {
   type: string;
+  depth?: number;
   value?: string;
   lang?: string | null;
   meta?: string | null;
@@ -22,6 +23,11 @@ type MdastNode = {
     hProperties?: Record<string, string>;
   };
 };
+
+function mdastText(node: MdastNode): string {
+  if (typeof node.value === "string") return node.value;
+  return node.children?.map(mdastText).join("") ?? "";
+}
 
 const FENCE_ATTR = /\b(title|tab)="([^"]+)"/g;
 
@@ -41,17 +47,24 @@ const CALLOUT_MARKER = /^\[!(NOTE|TIP|WARNING)\]\s*/i;
 
 /**
  * Remark plugin for docs markdown extensions:
+ * - Assigns heading `id`s directly from the format 2 index in document order
+ *   (outside React render so StrictMode double-rendering never shifts cursors).
  * - Parses `title="..."` and `tab="..."` on fenced code blocks.
  * - Groups adjacent `tab="..."` fences into one `tgg-code-tabs` node.
  * - Detects GitHub alert callouts (`> [!NOTE]`, `> [!TIP]`, `> [!WARNING]`).
  */
-function remarkDocsExtensions() {
+function remarkDocsExtensions(headings: readonly ModDocsHeading[] = []) {
   return (tree: MdastNode) => {
-    transformChildren(tree);
+    const state = { cursor: 0 };
+    transformChildren(tree, headings, state);
   };
 }
 
-function transformChildren(parent: MdastNode) {
+function transformChildren(
+  parent: MdastNode,
+  headings: readonly ModDocsHeading[],
+  state: { cursor: number }
+) {
   const children = parent.children;
   if (!children || children.length === 0) return;
 
@@ -59,6 +72,30 @@ function transformChildren(parent: MdastNode) {
   let i = 0;
   while (i < children.length) {
     const node = children[i];
+
+    if (node.type === "heading" && typeof node.depth === "number" && node.depth >= 2) {
+      const expected = headings[state.cursor];
+      let id: string | undefined;
+      if (expected && expected.depth === node.depth) {
+        state.cursor++;
+        id = expected.id;
+      } else {
+        const label = mdastText(node).trim();
+        id = label ? headingSlug(label) : undefined;
+      }
+      if (id) {
+        node.data = {
+          ...node.data,
+          hProperties: {
+            ...node.data?.hProperties,
+            id,
+          },
+        };
+      }
+      next.push(node);
+      i++;
+      continue;
+    }
 
     // Group adjacent fenced code blocks that carry tab="...".
     if (node.type === "code") {
@@ -127,7 +164,7 @@ function transformChildren(parent: MdastNode) {
       }
     }
 
-    transformChildren(node);
+    transformChildren(node, headings, state);
     next.push(node);
     i++;
   }
@@ -422,20 +459,13 @@ type DocsMarkdownProps = {
 export function DocsMarkdown({ children, wanted, page, release, headings }: DocsMarkdownProps) {
   const navigate = useNavigate();
   const pageUrl = docsPagePath(wanted, page);
-
-  // Assign heading IDs directly from the format 2 index in document order so
-  // the index is the single source of truth; fall back to headingSlug only if
-  // a heading wasn't present in the index.
-  let headingCursor = 0;
-  const resolveHeadingId = (depth: number, node: HastNode | undefined): string | undefined => {
-    const expected = headings[headingCursor];
-    if (expected && expected.depth === depth) {
-      headingCursor++;
-      return expected.id;
-    }
-    const label = textOf(node).trim();
-    return label ? headingSlug(label) : undefined;
-  };
+  const remarkPlugins = useMemo(
+    () =>
+      [remarkGfm, [remarkDocsExtensions, headings]] as ComponentProps<
+        typeof ReactMarkdown
+      >["remarkPlugins"],
+    [headings]
+  );
 
   const renderLink = (href: string | undefined, content: ReactNode) => {
     const target: MarkdownLink = href ? resolveDocsLink(href, wanted, page, release) : null;
@@ -468,33 +498,33 @@ export function DocsMarkdown({ children, wanted, page, release, headings }: Docs
   };
 
   const components: Components & Record<string, unknown> = {
-    h1: ({ node, children: c }) => (
-      <HeadingWithCopy tag="h2" id={resolveHeadingId(2, node as HastNode)} urlPath={pageUrl}>
+    h1: ({ id, children: c }) => (
+      <HeadingWithCopy tag="h2" id={id} urlPath={pageUrl}>
         {c}
       </HeadingWithCopy>
     ),
-    h2: ({ node, children: c }) => (
-      <HeadingWithCopy tag="h2" id={resolveHeadingId(2, node as HastNode)} urlPath={pageUrl}>
+    h2: ({ id, children: c }) => (
+      <HeadingWithCopy tag="h2" id={id} urlPath={pageUrl}>
         {c}
       </HeadingWithCopy>
     ),
-    h3: ({ node, children: c }) => (
-      <HeadingWithCopy tag="h3" id={resolveHeadingId(3, node as HastNode)} urlPath={pageUrl}>
+    h3: ({ id, children: c }) => (
+      <HeadingWithCopy tag="h3" id={id} urlPath={pageUrl}>
         {c}
       </HeadingWithCopy>
     ),
-    h4: ({ node, children: c }) => (
-      <HeadingWithCopy tag="h4" id={resolveHeadingId(4, node as HastNode)} urlPath={pageUrl}>
+    h4: ({ id, children: c }) => (
+      <HeadingWithCopy tag="h4" id={id} urlPath={pageUrl}>
         {c}
       </HeadingWithCopy>
     ),
-    h5: ({ node, children: c }) => (
-      <HeadingWithCopy tag="h4" id={resolveHeadingId(5, node as HastNode)} urlPath={pageUrl}>
+    h5: ({ id, children: c }) => (
+      <HeadingWithCopy tag="h4" id={id} urlPath={pageUrl}>
         {c}
       </HeadingWithCopy>
     ),
-    h6: ({ node, children: c }) => (
-      <HeadingWithCopy tag="h4" id={resolveHeadingId(6, node as HastNode)} urlPath={pageUrl}>
+    h6: ({ id, children: c }) => (
+      <HeadingWithCopy tag="h4" id={id} urlPath={pageUrl}>
         {c}
       </HeadingWithCopy>
     ),
@@ -551,7 +581,7 @@ export function DocsMarkdown({ children, wanted, page, release, headings }: Docs
 
   return (
     <div {...stylex.props(styles.root)}>
-      <ReactMarkdown remarkPlugins={[remarkGfm, remarkDocsExtensions]} components={components}>
+      <ReactMarkdown remarkPlugins={remarkPlugins} components={components}>
         {children}
       </ReactMarkdown>
     </div>

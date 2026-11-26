@@ -10,6 +10,7 @@ import {
   ModDocsIndex,
   ModDocsPage,
   type ModDocsRelease,
+  ModDocsSearchIndex,
   ModDocsWanted,
 } from "@vgskins/shared/mod-docs";
 import { Hono } from "hono";
@@ -29,6 +30,8 @@ export const MOD_DOCS_MIRROR = "https://dl.textures.gg/tgg-melee";
 const MAX_CANDIDATES = 8;
 /** The largest text docs file served. */
 const MAX_FILE_BYTES = 1024 * 1024;
+/** The largest search.json served. */
+const MAX_SEARCH_BYTES = 2 * 1024 * 1024;
 /** The largest image served from docs/images/. */
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
@@ -63,11 +66,16 @@ async function fetchMirror(env: Env, path: string, version: string): Promise<Res
 }
 
 /** A UTF-8 file from the mirror, or null when it isn't there. */
-async function mirroredText(env: Env, path: string, version: string): Promise<string | null> {
+async function mirroredText(
+  env: Env,
+  path: string,
+  version: string,
+  maxBytes = MAX_FILE_BYTES
+): Promise<string | null> {
   const response = await fetchMirror(env, path, version);
   if (!response) return null;
   const text = await response.text();
-  if (text.length > MAX_FILE_BYTES) throw new Error(`The docs mirror's ${path} is too large`);
+  if (text.length > maxBytes) throw new Error(`The docs mirror's ${path} is too large`);
   return text;
 }
 
@@ -255,6 +263,83 @@ const app = new Hono<HonoEnv>()
           "Cache-Control": isMutableMirror(c.env, resolved.version)
             ? cacheHeader(c.env, resolved.version)
             : "public, max-age=86400",
+        },
+      });
+    }
+  )
+  .get(
+    "/:wanted/search",
+    describeRoute({
+      tags: ["Docs"],
+      summary: "The search index for a docs version",
+      description: "Format 2 docs/search.json containing API symbols, pages, and headings.",
+      responses: {
+        200: { description: "The search index" },
+        404: { description: "No search index" },
+      },
+    }),
+    zValidator("param", Wanted, validationHook),
+    async (c) => {
+      const { wanted } = c.req.valid("param");
+      const resolved = await resolve(c.env, wanted);
+      if (!resolved) return c.json(notFound, 404);
+      const text = await mirroredText(
+        c.env,
+        `${encodeURIComponent(resolved.version)}/docs/search.json`,
+        resolved.version,
+        MAX_SEARCH_BYTES
+      );
+      if (text === null) return c.json(notFound, 404);
+      let raw: unknown;
+      try {
+        raw = JSON.parse(text);
+      } catch {
+        logger.warn({ version: resolved.version }, "A mirrored docs search index isn't JSON");
+        return c.json(notFound, 404);
+      }
+      const parsed = ModDocsSearchIndex.safeParse(raw);
+      if (!parsed.success) {
+        logger.warn(
+          { version: resolved.version, issues: parsed.error.issues },
+          "A mirrored docs search index isn't format 2"
+        );
+        return c.json(notFound, 404);
+      }
+      c.header("Cache-Control", cacheHeader(c.env, resolved.version));
+      return c.json(parsed.data, 200);
+    }
+  )
+  .get(
+    "/:wanted/tgg.luau",
+    describeRoute({
+      tags: ["Docs"],
+      summary: "Luau type definitions for the resolved version",
+      description: "`tgg.luau` as mirrored beside the docs for luau-lsp and editors.",
+      responses: {
+        200: { description: "The Luau definitions file" },
+        404: { description: "Not available" },
+      },
+    }),
+    zValidator("param", Wanted, validationHook),
+    async (c) => {
+      const { wanted } = c.req.valid("param");
+      const resolved = await resolve(c.env, wanted);
+      if (!resolved) return c.json(notFound, 404);
+      const text = await mirroredText(
+        c.env,
+        `${encodeURIComponent(resolved.version)}/docs/tgg.luau`,
+        resolved.version
+      );
+      if (text === null) return c.json(notFound, 404);
+      const download = c.req.query("download") === "1";
+      return new Response(text, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Content-Disposition": download
+            ? 'attachment; filename="tgg.luau"'
+            : 'inline; filename="tgg.luau"',
+          "Cache-Control": cacheHeader(c.env, resolved.version),
         },
       });
     }

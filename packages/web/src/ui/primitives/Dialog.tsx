@@ -21,6 +21,9 @@ const styles = stylex.create({
     padding: space.lg,
     borderRadius: radius.xl,
   },
+  dialogWide: {
+    width: "min(640px, calc(100vw - 32px))",
+  },
   header: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: space.md },
   title: {
     margin: 0,
@@ -99,14 +102,17 @@ export function Dialog({
   trigger,
   title,
   description,
+  wide = false,
   children,
-}: OverlayProps) {
+}: OverlayProps & { wide?: boolean }) {
   return (
     <BaseDialog.Root open={open} onOpenChange={onOpenChange}>
       {trigger && <BaseDialog.Trigger render={trigger} />}
       <BaseDialog.Portal>
         <BaseDialog.Backdrop {...stylex.props(styles.backdrop)} />
-        <BaseDialog.Popup {...stylex.props(shared.floatingPanel, styles.dialogPopup)}>
+        <BaseDialog.Popup
+          {...stylex.props(shared.floatingPanel, styles.dialogPopup, wide && styles.dialogWide)}
+        >
           <div {...stylex.props(styles.header)}>
             <BaseDialog.Title {...stylex.props(styles.title)}>{title}</BaseDialog.Title>
             <BaseDialog.Close render={<IconButton label="Close" icon={<CloseIcon />} />} />

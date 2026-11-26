@@ -46,6 +46,26 @@ const MIRROR: Record<string, string> = {
     "---\ntitle: Your first mod\ndescription: Five minutes.\n---\n\n## Install\n",
   "1.0.0/docs/include/tgg/mod.h": "#define TGG_MOD 1\n",
   "1.0.0/docs/images/hud-overlay.webp": "RIFFwebp",
+  "1.0.0/docs/tgg.luau": "--!strict\nreturn {}\n",
+  "1.0.0/docs/search.json": JSON.stringify({
+    format: 2,
+    version: "1.0.0",
+    records: [
+      {
+        id: "s:reference/fighter#set_percent",
+        kind: "symbol",
+        symbolKind: "method",
+        page: "reference/fighter",
+        anchor: "set_percent",
+        section: "Reference",
+        title: "fighter:set_percent",
+        pageTitle: "Fighter",
+        cName: "tgg_fighter_set_percent",
+        signature: "fighter:set_percent(percent: number): ()",
+        text: "Sets the fighter's percent.",
+      },
+    ],
+  }),
   "main/docs/index.json": JSON.stringify({ ...FORMAT_2_INDEX, version: "main" }),
   "main/docs/start/quickstart.md":
     "---\ntitle: Your first mod\ndescription: Main.\n---\n\nMain copy.\n",
@@ -133,4 +153,25 @@ it("honors MOD_DOCS_MIRROR env override with no-store caching", async () => {
   const res = await get("/main", { ...env, MOD_DOCS_MIRROR: "http://127.0.0.1:8799" });
   expect(res.status).toBe(200);
   expect(res.headers.get("cache-control")).toBe("no-store");
+});
+
+it("serves search.json and tgg.luau for mirrored releases", async () => {
+  const searchRes = await get("/1.0/search");
+  expect(searchRes.status).toBe(200);
+  expect(await searchRes.json()).toMatchObject({
+    format: 2,
+    version: "1.0.0",
+    records: [{ title: "fighter:set_percent", cName: "tgg_fighter_set_percent" }],
+  });
+  expect((await get("/main/search")).status).toBe(404);
+
+  const typesRes = await get("/1.0/tgg.luau");
+  expect(typesRes.status).toBe(200);
+  expect(typesRes.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+  expect(typesRes.headers.get("content-disposition")).toContain("inline");
+  expect(await typesRes.text()).toBe("--!strict\nreturn {}\n");
+
+  const dlRes = await get("/1.0/tgg.luau?download=1");
+  expect(dlRes.status).toBe(200);
+  expect(dlRes.headers.get("content-disposition")).toContain("attachment");
 });

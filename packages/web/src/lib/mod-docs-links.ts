@@ -22,6 +22,12 @@ export function docsImageUrl(wanted: string, file: string): string {
   return `${API_BASE_URL}/api/docs/mods/${encodeURIComponent(wanted)}/images/${encodeURIComponent(file)}`;
 }
 
+/** The API URL serving the mirrored Luau type declarations (`tgg.luau`). */
+export function docsLuauTypesUrl(wanted: string, download = false): string {
+  const base = `${API_BASE_URL}/api/docs/mods/${encodeURIComponent(wanted)}/tgg.luau`;
+  return download ? `${base}?download=1` : base;
+}
+
 /** Normalize a POSIX relative path against a base directory (e.g. "guides" + "../concepts/a.md"). */
 function resolveRelative(baseDir: string, rel: string): string {
   const stack = baseDir ? baseDir.split("/").filter(Boolean) : [];
@@ -39,6 +45,7 @@ function pageDir(page: string): string {
 }
 
 const HEADER_SUFFIX = /(?:^|\/)(?:mods\/)?include\/(tgg\/([A-Za-z0-9_-]+)\.h)$/;
+const LUAU_TYPES_SUFFIX = /(?:^|\/)(?:mods\/api|luau)\/tgg\.luau$/;
 const SITE_ORIGIN = /^https:\/\/textures\.gg(\/.*)$/;
 
 /**
@@ -66,6 +73,10 @@ export function resolveDocsLink(
   const headerMatch = HEADER_SUFFIX.exec(rawPath);
   if (headerMatch && release.headers.includes(headerMatch[1])) {
     return { to: "site", href: `${docsHeaderPath(wanted, headerMatch[2])}${hash}` };
+  }
+
+  if (LUAU_TYPES_SUFFIX.test(rawPath)) {
+    return { to: "external", href: docsLuauTypesUrl(wanted) };
   }
 
   if (rawPath.endsWith(".md")) {
