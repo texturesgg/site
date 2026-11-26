@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { color, shadow } from "./tokens.stylex";
+import { color, shadow, syntax } from "./tokens.stylex";
 
 // Alternative palettes over the Gallery tokens. See docs/DESIGN_SYSTEM.md.
 // Apply a theme to <html>, never to a wrapper, so portals receive it too.
@@ -25,4 +25,17 @@ export const paper = stylex.createTheme(color, {
 /** Paper's popover shadow; the Gallery one is too heavy on a light ground. */
 export const paperShadow = stylex.createTheme(shadow, {
   popover: "0 24px 60px rgba(28, 27, 25, 0.18)",
+});
+
+/** Paper's syntax palette over light surfaces. */
+export const paperSyntax = stylex.createTheme(syntax, {
+  comment: "#6E685D",
+  keyword: "#8A5E00",
+  string: "#236835",
+  number: "#9A4D18",
+  fn: "#1F5B8A",
+  type: "#6B3FA0",
+  operator: "#4F4B43",
+  punctuation: "#5C574E",
+  property: "#6F5219",
 });

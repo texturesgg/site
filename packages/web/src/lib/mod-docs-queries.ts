@@ -2,9 +2,9 @@ import { queryOptions } from "@tanstack/react-query";
 import { ModDocsFile, ModDocsRelease } from "@vgskins/shared/mod-docs";
 import { api, apiError } from "@/lib/api";
 
-// The mod docs pages read the API's copy of tgg-melee's mirrored docs.
-// Mirrored files never change, so a page keeps what it fetched.
-const STALE = 1000 * 60 * 5;
+// Mirrored release docs never change; `main` updates on pushes to tgg-melee main.
+const STALE_RELEASE = 1000 * 60 * 5;
+const STALE_MAIN = 1000 * 30;
 
 export const modDocsReleaseQuery = (wanted: string) =>
   queryOptions({
@@ -14,18 +14,21 @@ export const modDocsReleaseQuery = (wanted: string) =>
       if (!res.ok) throw await apiError(res);
       return ModDocsRelease.parse(await res.json());
     },
-    staleTime: STALE,
+    staleTime: wanted === "main" ? STALE_MAIN : STALE_RELEASE,
   });
 
 export const modDocsPageQuery = (wanted: string, page: string) =>
   queryOptions({
     queryKey: ["mod-docs", wanted, "page", page],
     queryFn: async () => {
-      const res = await api.docs.mods[":wanted"].pages[":page"].$get({ param: { wanted, page } });
+      const res = await api.docs.mods[":wanted"].page.$get({
+        param: { wanted },
+        query: { path: page },
+      });
       if (!res.ok) throw await apiError(res);
       return ModDocsFile.parse(await res.json());
     },
-    staleTime: STALE,
+    staleTime: wanted === "main" ? STALE_MAIN : STALE_RELEASE,
   });
 
 export const modDocsHeaderQuery = (wanted: string, name: string) =>
@@ -38,5 +41,5 @@ export const modDocsHeaderQuery = (wanted: string, name: string) =>
       if (!res.ok) throw await apiError(res);
       return ModDocsFile.parse(await res.json());
     },
-    staleTime: STALE,
+    staleTime: wanted === "main" ? STALE_MAIN : STALE_RELEASE,
   });

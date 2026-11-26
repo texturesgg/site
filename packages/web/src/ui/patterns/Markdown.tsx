@@ -57,19 +57,41 @@ const styles = stylex.create({
   },
   quote: {
     margin: 0,
-    paddingLeft: space.md,
-    borderLeftWidth: 3,
-    borderLeftStyle: "solid",
-    borderLeftColor: color.line,
-    color: color.muted,
-  },
-  table: { borderCollapse: "collapse", fontSize: text.sm },
-  cell: {
-    padding: `${space.xxs} ${space.sm}`,
-    borderWidth: 1,
+    padding: `${space.sm} ${space.md}`,
+    borderWidth: "1px",
     borderStyle: "solid",
     borderColor: color.line,
+    borderRadius: radius.md,
+    backgroundColor: color.surface,
+    color: color.muted,
+  },
+  tableWrap: {
+    width: "100%",
+    overflowX: "auto",
+    borderWidth: "1px",
+    borderStyle: "solid",
+    borderColor: color.line,
+    borderRadius: radius.md,
+  },
+  table: { width: "100%", borderCollapse: "collapse", fontSize: text.sm },
+  th: {
+    padding: `${space.xs} ${space.sm}`,
+    borderBottomWidth: "1px",
+    borderBottomStyle: "solid",
+    borderBottomColor: color.lineStrong,
+    backgroundColor: color.surface,
+    color: color.text,
+    fontWeight: 700,
     textAlign: "left",
+    whiteSpace: "nowrap",
+  },
+  td: {
+    padding: `${space.xs} ${space.sm}`,
+    borderBottomWidth: "1px",
+    borderBottomStyle: "solid",
+    borderBottomColor: color.line,
+    textAlign: "left",
+    verticalAlign: "top",
   },
   hr: { width: "100%", margin: 0, border: "none", borderTop: `1px solid ${color.line}` },
 });
@@ -111,9 +133,13 @@ const components: Components = {
     </pre>
   ),
   blockquote: ({ children }) => <blockquote {...stylex.props(styles.quote)}>{children}</blockquote>,
-  table: ({ children }) => <table {...stylex.props(styles.table)}>{children}</table>,
-  th: ({ children }) => <th {...stylex.props(styles.cell)}>{children}</th>,
-  td: ({ children }) => <td {...stylex.props(styles.cell)}>{children}</td>,
+  table: ({ children }) => (
+    <div {...stylex.props(styles.tableWrap)}>
+      <table {...stylex.props(styles.table)}>{children}</table>
+    </div>
+  ),
+  th: ({ children }) => <th {...stylex.props(styles.th)}>{children}</th>,
+  td: ({ children }) => <td {...stylex.props(styles.td)}>{children}</td>,
   hr: () => <hr {...stylex.props(styles.hr)} />,
   // Images in a README would load from anywhere; the listing's screenshots
   // are where a mod shows itself, so an image is its alt text.

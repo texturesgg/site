@@ -88,8 +88,8 @@ function isSocialBot(userAgent: string | null): boolean {
 // Code mod ids have dots (tgg.ucf), so a mod page or its source and review
 // pages can end in what looks like a file extension.
 const MOD_PAGE = /^\/games\/[^/]+\/mods\/[^/]+(\/[^.]*)?$/;
-// Docs pages name a version (/docs/mods/0.1/hooks), which isn't a file either.
-const DOCS_PAGE = /^\/docs\/mods(\/[^/]*){0,3}$/;
+// Docs pages name a version (/docs/mods/1.0/guides/hud), which isn't a static asset.
+const DOCS_PAGE = /^\/docs\/mods(?:\/[^/]+(?:\/[^/.]+)*)?$/;
 
 /** Whether a path names a file (an asset), not a page. */
 export function isFilePath(pathname: string): boolean {

@@ -4,8 +4,9 @@ import {
   docsCandidates,
   docsMinor,
   docsMinors,
-  docsSections,
   type ModDocsFile,
+  ModDocsHeaderName,
+  ModDocsImage,
   ModDocsIndex,
   ModDocsPage,
   type ModDocsRelease,
@@ -18,56 +19,118 @@ import { getTggMeleeReleases } from "../lib/public-catalog";
 import { validationHook } from "../lib/validation";
 import type { Env, HonoEnv } from "../types";
 
-// The mod docs as tgg-melee's releases mirror them, for the site's docs pages
-// (the mirror sends no CORS headers). A docs URL names `latest` or a
-// major.minor; it shows the newest release of those whose docs are mirrored.
+// The mod docs as tgg-melee's releases (and CI on main) mirror them, served by
+// the site's docs reader (the mirror sends no CORS headers). Only format 2
+// indices are accepted; older format 1 releases are ignored.
 
-/** Where each release's docs are: <version>/docs/index.json, <page>.md, include/tgg/<name>.h. */
+/** Default mirror base URL: <version>/docs/index.json, <page>.md, images/<file>, include/tgg/<name>.h. */
 export const MOD_DOCS_MIRROR = "https://dl.textures.gg/tgg-melee";
 /** How many releases a docs URL tries, newest first, before it's not found. */
 const MAX_CANDIDATES = 8;
-/** The largest docs file served. */
+/** The largest text docs file served. */
 const MAX_FILE_BYTES = 1024 * 1024;
-const CACHE = "public, max-age=300";
+/** The largest image served from docs/images/. */
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
-/** A file from the mirror, or null when it isn't there. Mirrored files never change. */
-async function mirrored(path: string): Promise<string | null> {
-  const response = await fetch(`${MOD_DOCS_MIRROR}/${path}`, {
-    cf: { cacheEverything: true, cacheTtlByStatus: { "200-299": 86400, "404": 300 } },
-  });
+function mirrorBase(env: Env): string {
+  return (env.MOD_DOCS_MIRROR ?? MOD_DOCS_MIRROR).replace(/\/+$/, "");
+}
+
+function isMutableMirror(env: Env, version: string): boolean {
+  return version === "main" || Boolean(env.MOD_DOCS_MIRROR);
+}
+
+function cacheHeader(env: Env, version: string): string {
+  if (env.MOD_DOCS_MIRROR) return "no-store";
+  return version === "main" ? "public, max-age=60" : "public, max-age=300";
+}
+
+async function fetchMirror(env: Env, path: string, version: string): Promise<Response | null> {
+  const url = `${mirrorBase(env)}/${path}`;
+  const init: RequestInit = env.MOD_DOCS_MIRROR
+    ? {}
+    : {
+        cf: {
+          cacheEverything: true,
+          cacheTtlByStatus:
+            version === "main" ? { "200-299": 60, "404": 30 } : { "200-299": 86400, "404": 300 },
+        },
+      };
+  const response = await fetch(url, init);
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`The docs mirror answered ${response.status} for ${path}`);
+  return response;
+}
+
+/** A UTF-8 file from the mirror, or null when it isn't there. */
+async function mirroredText(env: Env, path: string, version: string): Promise<string | null> {
+  const response = await fetchMirror(env, path, version);
+  if (!response) return null;
   const text = await response.text();
   if (text.length > MAX_FILE_BYTES) throw new Error(`The docs mirror's ${path} is too large`);
   return text;
 }
 
+/** Fetch and validate a format 2 index for a single release or `main`. */
+async function loadFormat2Index(env: Env, version: string): Promise<ModDocsIndex | null> {
+  const text = await mirroredText(env, `${encodeURIComponent(version)}/docs/index.json`, version);
+  if (text === null) return null;
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    logger.warn({ version }, "A mirrored docs index isn't JSON");
+    return null;
+  }
+  const parsed = ModDocsIndex.safeParse(raw);
+  if (!parsed.success) {
+    logger.warn({ version, issues: parsed.error.issues }, "A mirrored docs index isn't format 2");
+    return null;
+  }
+  return parsed.data;
+}
+
 type Resolved = { version: string; index: ModDocsIndex; releases: string[] };
 
-/** The newest release `wanted` names that has its docs mirrored, or null. */
+/** The newest release `wanted` names that has format 2 docs mirrored, or null. */
 async function resolve(env: Env, wanted: string): Promise<Resolved | null> {
   const releases = await getTggMeleeReleases(env);
   for (const version of docsCandidates(wanted, releases).slice(0, MAX_CANDIDATES)) {
-    const text = await mirrored(`${encodeURIComponent(version)}/docs/index.json`);
-    if (text === null) continue;
-    let raw: unknown;
-    try {
-      raw = JSON.parse(text);
-    } catch {
-      logger.warn({ version }, "A mirrored docs index isn't JSON");
-      continue;
-    }
-    const index = ModDocsIndex.safeParse(raw);
-    if (!index.success) {
-      logger.warn({ version, issues: index.error.issues }, "A mirrored docs index doesn't parse");
-      continue;
-    }
-    return { version, index: index.data, releases };
+    const index = await loadFormat2Index(env, version);
+    if (!index) continue;
+    return { version, index, releases };
   }
   return null;
 }
 
+/** Every major.minor with at least one format 2 docs index, newest first. */
+async function format2Minors(
+  env: Env,
+  releases: string[],
+  knownVersion?: string
+): Promise<string[]> {
+  const knownMinor = knownVersion && knownVersion !== "main" ? docsMinor(knownVersion) : null;
+  const minors = docsMinors(releases);
+  const checks = await Promise.all(
+    minors.map(async (minor) => {
+      if (minor === knownMinor) return minor;
+      const latestInMinor = docsCandidates(minor, releases)[0];
+      if (!latestInMinor) return null;
+      const index = await loadFormat2Index(env, latestInMinor);
+      return index ? minor : null;
+    })
+  );
+  return checks.filter((minor): minor is string => minor !== null);
+}
+
+function imageContentType(file: string): string {
+  if (file.endsWith(".webp")) return "image/webp";
+  if (file.endsWith(".png")) return "image/png";
+  return "image/jpeg";
+}
+
 const Wanted = z.object({ wanted: ModDocsWanted });
+const PageQuery = z.object({ path: ModDocsPage });
 const notFound = { error: "No docs for that version" };
 
 const app = new Hono<HonoEnv>()
@@ -77,9 +140,9 @@ const app = new Hono<HonoEnv>()
       tags: ["Docs"],
       summary: "The mod docs a version names",
       description:
-        "`wanted` is `latest` or a tgg-melee major.minor. Answers the newest release of those whose docs are mirrored: `{version, minor, minors, pages, sections, headers}`, where `minors` is every major.minor with releases, newest first, and `sections` groups the pages in reading order.",
+        "`wanted` is `latest`, `main`, or a tgg-melee major.minor. Answers the newest format 2 docs index and the list of available minors.",
       responses: {
-        200: { description: "The release and its pages" },
+        200: { description: "The release and its format 2 index" },
         404: { description: "None" },
       },
     }),
@@ -88,44 +151,47 @@ const app = new Hono<HonoEnv>()
       const resolved = await resolve(c.env, c.req.valid("param").wanted);
       if (!resolved) return c.json(notFound, 404);
       const { version, index } = resolved;
-      // Without sections in the index, the README's links give the order.
-      const readme =
-        !index.sections && index.pages.includes("README")
-          ? await mirrored(`${encodeURIComponent(version)}/docs/README.md`)
-          : null;
+      const minors = await format2Minors(c.env, resolved.releases, version);
       const body: ModDocsRelease = {
         version,
         minor: docsMinor(version),
-        minors: docsMinors(resolved.releases),
+        minors,
+        nav: index.nav,
         pages: index.pages,
-        sections: docsSections(index, readme),
         headers: index.headers,
+        redirects: index.redirects,
       };
-      c.header("Cache-Control", CACHE);
+      c.header("Cache-Control", cacheHeader(c.env, version));
       return c.json(body, 200);
     }
   )
   .get(
-    "/:wanted/pages/:page",
+    "/:wanted/page",
     describeRoute({
       tags: ["Docs"],
       summary: "One docs page",
       description: "The page's markdown, from the release `wanted` resolves to.",
       responses: { 200: { description: "The page" }, 404: { description: "No such page" } },
     }),
-    zValidator("param", Wanted.extend({ page: ModDocsPage }), validationHook),
+    zValidator("param", Wanted, validationHook),
+    zValidator("query", PageQuery, validationHook),
     async (c) => {
-      const { wanted, page } = c.req.valid("param");
+      const { wanted } = c.req.valid("param");
+      const { path } = c.req.valid("query");
       const resolved = await resolve(c.env, wanted);
-      if (!resolved || !resolved.index.pages.includes(page)) return c.json(notFound, 404);
-      const text = await mirrored(`${encodeURIComponent(resolved.version)}/docs/${page}.md`);
+      if (!resolved || !(path in resolved.index.pages)) return c.json(notFound, 404);
+      const text = await mirroredText(
+        c.env,
+        `${encodeURIComponent(resolved.version)}/docs/${path}.md`,
+        resolved.version
+      );
       if (text === null) return c.json(notFound, 404);
       const body: ModDocsFile = {
         version: resolved.version,
         minor: docsMinor(resolved.version),
         text,
       };
-      c.header("Cache-Control", CACHE);
+      c.header("Cache-Control", cacheHeader(c.env, resolved.version));
       return c.json(body, 200);
     }
   )
@@ -137,15 +203,17 @@ const app = new Hono<HonoEnv>()
       description: "`tgg/<name>.h` as the release `wanted` resolves to shipped it.",
       responses: { 200: { description: "The header" }, 404: { description: "No such header" } },
     }),
-    zValidator("param", Wanted.extend({ name: ModDocsPage }), validationHook),
+    zValidator("param", Wanted.extend({ name: ModDocsHeaderName }), validationHook),
     async (c) => {
       const { wanted, name } = c.req.valid("param");
       const resolved = await resolve(c.env, wanted);
       if (!resolved || !resolved.index.headers.includes(`tgg/${name}.h`)) {
         return c.json(notFound, 404);
       }
-      const text = await mirrored(
-        `${encodeURIComponent(resolved.version)}/docs/include/tgg/${name}.h`
+      const text = await mirroredText(
+        c.env,
+        `${encodeURIComponent(resolved.version)}/docs/include/tgg/${name}.h`,
+        resolved.version
       );
       if (text === null) return c.json(notFound, 404);
       const body: ModDocsFile = {
@@ -153,8 +221,42 @@ const app = new Hono<HonoEnv>()
         minor: docsMinor(resolved.version),
         text,
       };
-      c.header("Cache-Control", CACHE);
+      c.header("Cache-Control", cacheHeader(c.env, resolved.version));
       return c.json(body, 200);
+    }
+  )
+  .get(
+    "/:wanted/images/:file",
+    describeRoute({
+      tags: ["Docs"],
+      summary: "One docs screenshot or image",
+      description: "An image from docs/images/<file> for the resolved release.",
+      responses: { 200: { description: "The image" }, 404: { description: "No such image" } },
+    }),
+    zValidator("param", Wanted.extend({ file: ModDocsImage }), validationHook),
+    async (c) => {
+      const { wanted, file } = c.req.valid("param");
+      const resolved = await resolve(c.env, wanted);
+      if (!resolved) return c.json(notFound, 404);
+      const response = await fetchMirror(
+        c.env,
+        `${encodeURIComponent(resolved.version)}/docs/images/${file}`,
+        resolved.version
+      );
+      if (!response) return c.json(notFound, 404);
+      const bytes = await response.arrayBuffer();
+      if (bytes.byteLength > MAX_IMAGE_BYTES) {
+        return c.json({ error: "Docs image is too large" }, 502);
+      }
+      return new Response(bytes, {
+        status: 200,
+        headers: {
+          "Content-Type": imageContentType(file),
+          "Cache-Control": isMutableMirror(c.env, resolved.version)
+            ? cacheHeader(c.env, resolved.version)
+            : "public, max-age=86400",
+        },
+      });
     }
   );
 

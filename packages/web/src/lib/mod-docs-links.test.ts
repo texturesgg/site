@@ -1,41 +1,70 @@
 import { expect, it } from "vitest";
-import { headingSlug } from "@/ui/patterns/Markdown";
-import { docsPageLabel, resolveDocsLink } from "./mod-docs-links";
+import {
+  docsPagePath,
+  resolveDocsImage,
+  resolveDocsLink,
+  stripDocsFrontmatter,
+} from "./mod-docs-links";
 
-// The docs' links are written for the repository; tgg links the site with
-// anchors from the headings, so both have to land on the right place here.
-const release = { pages: ["README", "hooks", "scripts"], headers: ["tgg/mod.h"] };
-const resolve = (href: string) => resolveDocsLink(href, "latest", "hooks", release);
+const release = {
+  pages: {
+    index: { title: "Making mods", label: "Overview", description: "Intro.", headings: [] },
+    "start/quickstart": {
+      title: "Your first mod",
+      label: "Quickstart",
+      description: "Start.",
+      headings: [],
+    },
+    "guides/hud": { title: "HUD overlays", description: "Draw.", headings: [] },
+    "guides/screens": { title: "Menus and screens", description: "Screens.", headings: [] },
+    "concepts/sim-and-view": { title: "Sim and view", description: "Scripts.", headings: [] },
+    "native/hooks": { title: "Hooks", description: "Hooks.", headings: [] },
+  },
+  headers: ["tgg/mod.h", "tgg/draw.h"],
+};
 
-it("sends docs links to their page here and leaves the rest", () => {
-  expect(resolve("scripts.md#when-to-write-c")).toEqual({
+it("resolves nested docs links, headers, same-site links, and ignores repo-only paths", () => {
+  const fromHud = (href: string) => resolveDocsLink(href, "main", "guides/hud", release);
+  expect(fromHud("screens.md")).toEqual({ to: "site", href: "/docs/mods/main/guides/screens" });
+  expect(fromHud("../concepts/sim-and-view.md#state")).toEqual({
     to: "site",
-    href: "/docs/mods/latest/scripts#when-to-write-c",
+    href: "/docs/mods/main/concepts/sim-and-view#state",
   });
-  expect(resolve("README.md")).toEqual({ to: "site", href: "/docs/mods/latest" });
-  expect(resolve("#statics")).toEqual({ to: "site", href: "/docs/mods/latest/hooks#statics" });
-  expect(resolve("../mods/include/tgg/mod.h")).toEqual({
+  expect(fromHud("../index.md")).toEqual({ to: "site", href: "/docs/mods/main" });
+  expect(fromHud("#shapes")).toEqual({ to: "site", href: "/docs/mods/main/guides/hud#shapes" });
+  expect(fromHud("../../mods/include/tgg/draw.h")).toEqual({
     to: "site",
-    href: "/docs/mods/latest/api/mod",
+    href: "/docs/mods/main/api/draw",
   });
-  expect(resolve("https://example.com/a")).toEqual({
+  expect(fromHud("https://textures.gg/guides")).toEqual({ to: "site", href: "/guides" });
+  expect(fromHud("https://example.com/a")).toEqual({
     to: "external",
     href: "https://example.com/a",
   });
-  expect(resolve("missing.md")).toBeNull();
-  expect(resolve("../mods/examples")).toBeNull();
-  expect(resolve("javascript:alert(1)")).toBeNull();
+  expect(fromHud("missing.md")).toBeNull();
+  expect(fromHud("../../mods/examples")).toBeNull();
+  expect(fromHud("javascript:alert(1)")).toBeNull();
+  expect(docsPagePath("1.0", "index")).toBe("/docs/mods/1.0");
+  expect(docsPagePath("1.0", "guides/hud")).toBe("/docs/mods/1.0/guides/hud");
 });
 
-it("makes heading anchors the way GitHub does", () => {
-  expect(headingSlug("When to write C")).toBe("when-to-write-c");
-  expect(headingSlug("Before, after and replace")).toBe("before-after-and-replace");
-  expect(headingSlug("`TGG_STATE` and rollback")).toBe("tgg_state-and-rollback");
+it("resolves relative docs images under docs/images/ and rejects everything else", () => {
+  expect(resolveDocsImage("../images/hud-overlay.webp", "main", "guides/hud")).toMatch(
+    /\/api\/docs\/mods\/main\/images\/hud-overlay\.webp$/
+  );
+  expect(resolveDocsImage("images/hud-overlay.webp", "1.0", "index")).toMatch(
+    /\/api\/docs\/mods\/1\.0\/images\/hud-overlay\.webp$/
+  );
+  expect(resolveDocsImage("https://evil.example/a.png", "main", "guides/hud")).toBeNull();
+  expect(resolveDocsImage("../images/bad.svg", "main", "guides/hud")).toBeNull();
+  expect(resolveDocsImage("../../secret.png", "main", "guides/hud")).toBeNull();
 });
 
-it("gives Luau and C getting-started pages distinct sidebar labels", () => {
-  expect(docsPageLabel("README")).toBe("Overview");
-  expect(docsPageLabel("scripts-getting-started")).toBe("Getting started");
-  expect(docsPageLabel("getting-started")).toBe("Getting started (C)");
-  expect(docsPageLabel("files-and-assets")).toBe("Files and assets");
+it("strips YAML frontmatter and optional leading H1", () => {
+  expect(
+    stripDocsFrontmatter("---\ntitle: Hooks\ndescription: Desc.\n---\n\n# Hooks\n\nBody text.")
+  ).toBe("Body text.");
+  expect(
+    stripDocsFrontmatter("---\ntitle: Quickstart\ndescription: Desc.\n---\n\nLead paragraph.")
+  ).toBe("Lead paragraph.");
 });
