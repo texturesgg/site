@@ -42,6 +42,7 @@ crane auth login registry.cloudflare.com \
 
 if digest=$(crane digest "$tag" 2>/dev/null); then
   echo "build.sh: $tag exists" >&2
+  image="$repository@$digest"
 else
   echo "build.sh: building $tag" >&2
   nix build "$here#image" --out-link "$stage/image" >&2
@@ -65,16 +66,23 @@ else
   chmod -R u+w "$stage/root"
   tar --sort=name --owner=0 --group=0 --numeric-owner --mtime=@0 \
     -C "$stage/root" -cf "$stage/layer.tar" .
-  pushed=$(crane append --oci-empty-base -f "$stage/layer.tar" -t "$tag")
+  # Push the unmutated layer to a scratch tag so $tag is only ever written
+  # once (with platform, cmd, env, and labels), and take the final digest
+  # directly from crane mutate instead of re-reading $tag through the
+  # registry's eventually-consistent tag cache.
+  pushed=$(crane append --oci-empty-base -f "$stage/layer.tar" -t "$repository:staging-$inputs")
   env_flags=()
   while IFS= read -r line; do env_flags+=(--env "$line"); done < <(jq -r '.config.Env[]' "$config")
-  crane mutate "$pushed" --set-platform linux/amd64 \
+  image=$(crane mutate "$pushed" --set-platform linux/amd64 \
     --cmd "$(jq -r '.config.Cmd | join(",")' "$config")" \
     --workdir "$(jq -r .config.WorkingDir "$config")" "${env_flags[@]}" \
-    --label "gg.textures.layouts=$(base64 -w0 <<<"$layouts")" -t "$tag" >&2
-  digest=$(crane digest "$tag")
+    --label "gg.textures.layouts=$(base64 -w0 <<<"$layouts")" -t "$tag")
+  [[ "$image" == "$repository@sha256:"* ]] || {
+    echo "build.sh: unexpected crane mutate output: $image" >&2
+    exit 1
+  }
+  echo "$image" >&2
 fi
-image="$repository@$digest"
 
 "$here/prepare.sh" "$image"
 
