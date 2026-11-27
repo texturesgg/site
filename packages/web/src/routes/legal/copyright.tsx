@@ -1,14 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CONTACT_EMAIL } from "@/lib/config";
-import { requireFeatureFlag } from "@/lib/feature-flags";
 import { ArticleSection, BulletList } from "@/ui/patterns/Article";
 import { TextAnchor } from "@/ui/primitives";
 import { LegalPage, legalHead } from "./-page";
 
 export const Route = createFileRoute("/legal/copyright")({
-  loader: async ({ context }) => {
-    await requireFeatureFlag(context.queryClient, "codeMods");
-  },
   head: () =>
     legalHead(
       "Copyright and DMCA",
