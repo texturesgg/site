@@ -1,13 +1,21 @@
-import { codeModReleases, codeModSetMods, codeModSets, codeMods, createDb } from "@vgskins/db";
+import {
+  codeModBuilds,
+  codeModReleases,
+  codeModSetMods,
+  codeModSets,
+  codeMods,
+  createDb,
+} from "@vgskins/db";
 import {
   byVersionDescending,
+  type CodeModNetplay,
   MEET_MAX_LABEL,
   type MeetQueueInfo,
   type MeetStandingQueue,
   MEET_STANDING_MAX,
   rangeMatches,
 } from "@vgskins/shared";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull } from "drizzle-orm";
 import type { Env } from "../types";
 
 /**
@@ -101,10 +109,30 @@ type Registry = {
   modNames: Map<string, string>;
 };
 
+/** Whether a package's derived netplay class counts (tgg-mod's `Netplay::counts`). */
+function netplayCounts(netplay: CodeModNetplay): boolean {
+  return netplay !== "data" && netplay !== "display" && netplay !== "offline";
+}
+
+/**
+ * Whether an approved release counts for netplay: not marked display or offline
+ * on the release itself, and when succeeded builds report a derived netplay
+ * class (as scripts and content mods do while leaving `release.class` null), at
+ * least one of them counts.
+ */
+function releaseCounts(
+  releaseClass: "display" | "offline" | null,
+  netplays: readonly CodeModNetplay[] | undefined
+): boolean {
+  if (releaseClass !== null) return false;
+  if (!netplays || netplays.length === 0) return true;
+  return netplays.some(netplayCounts);
+}
+
 /** Every set with its mods, each at the newest approved release its range takes. */
 async function loadRegistry(env: Env): Promise<Registry> {
   const db = createDb(env.DB);
-  const [setRows, releases] = await Promise.all([
+  const [setRows, releases, builds] = await Promise.all([
     db
       .select({
         set: codeModSets.name,
@@ -118,6 +146,7 @@ async function loadRegistry(env: Env): Promise<Registry> {
       .orderBy(asc(codeModSets.name), asc(codeModSetMods.position)),
     db
       .select({
+        id: codeModReleases.id,
         slug: codeMods.slug,
         name: codeMods.name,
         version: codeModReleases.version,
@@ -126,7 +155,30 @@ async function loadRegistry(env: Env): Promise<Registry> {
       .from(codeModReleases)
       .innerJoin(codeMods, eq(codeMods.id, codeModReleases.codeModId))
       .where(and(eq(codeModReleases.status, "approved"), isNull(codeMods.deletedAt))),
+    db
+      .select({
+        releaseId: codeModBuilds.releaseId,
+        netplay: codeModBuilds.netplay,
+      })
+      .from(codeModBuilds)
+      .innerJoin(codeModReleases, eq(codeModReleases.id, codeModBuilds.releaseId))
+      .innerJoin(codeMods, eq(codeMods.id, codeModReleases.codeModId))
+      .where(
+        and(
+          eq(codeModReleases.status, "approved"),
+          isNull(codeMods.deletedAt),
+          eq(codeModBuilds.status, "succeeded"),
+          isNotNull(codeModBuilds.netplay)
+        )
+      ),
   ]);
+  const netplaysByRelease = new Map<string, CodeModNetplay[]>();
+  for (const build of builds) {
+    if (!build.netplay) continue;
+    const list = netplaysByRelease.get(build.releaseId);
+    if (list) list.push(build.netplay);
+    else netplaysByRelease.set(build.releaseId, [build.netplay]);
+  }
   const modNames = new Map(releases.map((r) => [r.slug, r.name]));
   const sets: Registry["sets"] = new Map();
   for (const row of setRows) {
@@ -142,7 +194,7 @@ async function loadRegistry(env: Env): Promise<Registry> {
     set.mods.push({
       mod: row.mod,
       range: row.range,
-      counted: newest ? newest.class === null : false,
+      counted: newest ? releaseCounts(newest.class, netplaysByRelease.get(newest.id)) : false,
       version: newest?.version ?? null,
     });
     sets.set(row.set, set);
