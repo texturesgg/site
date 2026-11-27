@@ -76,27 +76,7 @@ else
 fi
 image="$repository@$digest"
 
-# Wait for Cloudflare to prepare the image to run, so a deploy never waits.
-# Without an API token (on a workstation), the cf CLI's login asks instead.
-prepare() {
-  if [ -n "${CLOUDFLARE_API_TOKEN:-}" ]; then
-    curl -fsS -X POST \
-      -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json" \
-      --data "$(jq -cn --arg image "$image" '{image: $image}')" \
-      "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/containers/image-preparations" |
-      jq -r '.result.status // .status'
-  else
-    cf containers images prepare --image "$image" 2>/dev/null | sed -n '/^{/,/^}/p' | jq -r .status
-  fi
-}
-status=pending
-# Preparing a new image has taken close to an hour.
-for _ in $(seq 540); do
-  status=$(prepare)
-  [ "$status" = "ready" ] && break
-  sleep 10
-done
-[ "$status" = "ready" ] || { echo "build.sh: image preparation did not finish ($status)" >&2; exit 1; }
+"$here/prepare.sh" "$image"
 
 # The layouts ride on the image as a base64 label (crane's labels split on commas).
 crane config "$image" | jq '.config.Labels["gg.textures.layouts"] | @base64d | fromjson' >"$out"
