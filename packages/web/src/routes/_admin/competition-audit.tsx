@@ -267,7 +267,7 @@ function VoterRow({
   const votedAt = Date.parse(voter.voted_at);
   const ageDays = Math.floor((votedAt - Date.parse(voter.account_created_at)) / DAY_MS);
   return (
-    <tr {...stylex.props(voter.voided && styles.voided)}>
+    <tr {...stylex.props((voter.voided || voter.banned) && styles.voided)}>
       <td {...stylex.props(styles.td)}>{voter.user.name}</td>
       <td {...stylex.props(styles.td, styles.mono)}>{new Date(votedAt).toLocaleString()}</td>
       <td {...stylex.props(styles.td, styles.mono)}>
@@ -286,6 +286,8 @@ function VoterRow({
           <span title={voter.voided.reason}>
             Voided{voter.voided.by ? ` by ${voter.voided.by}` : ""}. {voter.voided.reason}
           </span>
+        ) : voter.banned ? (
+          <span>Banned (not counted)</span>
         ) : (
           <span {...stylex.props(styles.flags)}>
             {voter.flags.map((flag) => (

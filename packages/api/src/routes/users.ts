@@ -23,6 +23,7 @@ import { isModerator, optionalAuth, requireAuth } from "../lib/auth";
 import { LEGACY_PLACEHOLDER_USER_ID } from "../lib/legacy";
 import { findUserByIdentifier, notBanned } from "../lib/queries";
 import { usernameError } from "../lib/username";
+import { recordXHandle } from "../lib/x-handles";
 import {
   PaginationQuery,
   paginationResponse,
@@ -183,6 +184,7 @@ const app = new Hono<HonoEnv>()
           if (res.ok) {
             const profile = (await res.json()) as { data: { username: string } };
             updates.twitterHandle = profile.data.username;
+            await recordXHandle(db, account.accountId, profile.data.username);
           } else {
             // Never log the bearer token; the status alone identifies the cause.
             logger.warn(

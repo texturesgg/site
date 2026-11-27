@@ -249,6 +249,8 @@ export const competitionVoterSchema = z.object({
   ip: z.string(),
   country: z.string().nullable(),
   flags: z.array(competitionFlagSchema),
+  /** Whether the voter's account is currently banned (excluded from counts). */
+  banned: z.boolean(),
   voided: z.object({ at: z.string(), by: z.string().nullable(), reason: z.string() }).nullable(),
 });
 export type CompetitionVoter = z.infer<typeof competitionVoterSchema>;
