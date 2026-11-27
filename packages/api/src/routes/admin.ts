@@ -822,8 +822,7 @@ const app = new Hono<HonoEnv>()
     }
   )
   // Create or replace a mod set (/api/registry/sets). Its version goes up when
-  // its list or a range changes. There is no delete: installers compare set
-  // versions, so a name must never start over at a lower one.
+  // its list or a range changes.
   .put(
     "/code-mods/sets/:name",
     requireAuth,
@@ -837,14 +836,18 @@ const app = new Hono<HonoEnv>()
       const { name } = c.req.valid("param");
       const input = c.req.valid("json");
 
+      // D1 caps a single SQL statement at 100 bound parameters, so chunk both
+      // the slug lookup and the multi-row insert (5 columns per row).
       const ids = input.mods.map((mod) => mod.id);
-      const found = ids.length
-        ? await db
-            .select({ slug: codeMods.slug })
-            .from(codeMods)
-            .where(and(inArray(codeMods.slug, ids), isNull(codeMods.deletedAt)))
-        : [];
-      const missing = ids.filter((id) => !found.some((mod) => mod.slug === id));
+      const found = new Set<string>();
+      for (let i = 0; i < ids.length; i += 50) {
+        const rows = await db
+          .select({ slug: codeMods.slug })
+          .from(codeMods)
+          .where(and(inArray(codeMods.slug, ids.slice(i, i + 50)), isNull(codeMods.deletedAt)));
+        for (const row of rows) found.add(row.slug);
+      }
+      const missing = ids.filter((id) => !found.has(id));
       if (missing.length) {
         return c.json({ error: `Not in the registry: ${missing.join(", ")}` }, 400);
       }
@@ -894,11 +897,11 @@ const app = new Hono<HonoEnv>()
         leftOut: mod.left_out ?? false,
         position,
       }));
-      if (rows.length) {
-        await db.batch([write, clear, db.insert(codeModSetMods).values(rows)]);
-      } else {
-        await db.batch([write, clear]);
+      const inserts = [];
+      for (let i = 0; i < rows.length; i += 15) {
+        inserts.push(db.insert(codeModSetMods).values(rows.slice(i, i + 15)));
       }
+      await db.batch([write, clear, ...inserts]);
 
       logger.info({ userId: user.id, set: name, version }, "Mod set saved");
       return c.json(
@@ -912,6 +915,30 @@ const app = new Hono<HonoEnv>()
         },
         existing ? 200 : 201
       );
+    }
+  )
+  // Delete a mod set and its mod list (code_mod_set_mods cascades on delete).
+  .delete(
+    "/code-mods/sets/:name",
+    requireAuth,
+    requireAdmin,
+    requireCodeMods,
+    zValidator("param", z.object({ name: codeModSetNameSchema }), validationHook),
+    async (c) => {
+      const user = c.get("user");
+      const db = createDb(c.env.DB);
+      const { name } = c.req.valid("param");
+
+      const deleted = await db
+        .delete(codeModSets)
+        .where(eq(codeModSets.name, name))
+        .returning({ name: codeModSets.name });
+      if (deleted.length === 0) {
+        return c.json({ error: "Set not found" }, 404);
+      }
+
+      logger.info({ userId: user.id, set: name }, "Mod set deleted");
+      return c.json({ deleted: name }, 200);
     }
   )
   // List users with their auth providers (moderator + admin)

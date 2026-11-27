@@ -118,6 +118,7 @@ function SetEditor({
   const [list, setList] = useState<SetMod[]>(set?.mods ?? []);
   const [queue, setQueue] = useState(set?.queue ?? false);
   const [adding, setAdding] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const nameError =
     !set && name ? codeModSetNameSchema.safeParse(name).error?.issues[0]?.message : undefined;
@@ -143,6 +144,19 @@ function SetEditor({
     onSuccess: async () => {
       await router.invalidate();
       onDone?.();
+    },
+  });
+
+  const remove = useMutation({
+    mutationFn: async () => {
+      if (!set) return;
+      const res = await api.admin["code-mods"].sets[":name"].$delete({
+        param: { name: set.name },
+      });
+      if (!res.ok) throw await apiError(res);
+    },
+    onSuccess: async () => {
+      await router.invalidate();
     },
   });
 
@@ -274,6 +288,7 @@ function SetEditor({
       )}
 
       {save.error && <p {...stylex.props(styles.error)}>{save.error.message}</p>}
+      {remove.error && <p {...stylex.props(styles.error)}>{remove.error.message}</p>}
       {!parsed.success && (set ? dirty : title !== "" || list.length > 0) && (
         <p {...stylex.props(styles.error)}>{parsed.error.issues[0]?.message}</p>
       )}
@@ -281,7 +296,12 @@ function SetEditor({
         <Button
           variant="primary"
           disabled={
-            !dirty || !parsed.success || (!set && !!nameError) || (!set && !name) || save.isPending
+            !dirty ||
+            !parsed.success ||
+            (!set && !!nameError) ||
+            (!set && !name) ||
+            save.isPending ||
+            remove.isPending
           }
           onClick={() => save.mutate()}
         >
@@ -293,6 +313,33 @@ function SetEditor({
             {listChanged ? `Saves as version ${nextVersion}` : "Same version"}
           </span>
         )}
+        {set &&
+          (confirmDelete ? (
+            <>
+              <Button
+                variant="danger"
+                disabled={remove.isPending || save.isPending}
+                onClick={() => remove.mutate()}
+              >
+                {remove.isPending ? "Deleting…" : "Confirm delete"}
+              </Button>
+              <Button
+                variant="ghost"
+                disabled={remove.isPending}
+                onClick={() => setConfirmDelete(false)}
+              >
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="ghost"
+              disabled={save.isPending}
+              onClick={() => setConfirmDelete(true)}
+            >
+              Delete
+            </Button>
+          ))}
       </div>
     </section>
   );

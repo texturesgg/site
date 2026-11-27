@@ -9,7 +9,8 @@ import {
   createDb,
   games,
 } from "@vgskins/db";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
+import { registrySetSchema } from "@vgskins/shared";
 import { Hono } from "hono";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { signIn } from "../test/session";
@@ -49,6 +50,13 @@ function putSet(name: string, body: unknown, cookie = admin) {
     method: "PUT",
     headers: { cookie, "Content-Type": "application/json" },
     body: JSON.stringify(body),
+  });
+}
+
+function deleteSet(name: string, cookie = admin) {
+  return get(`/api/admin/code-mods/sets/${name}`, {
+    method: "DELETE",
+    headers: { cookie },
   });
 }
 
@@ -368,6 +376,39 @@ describe("sets", () => {
   it("leaves sets to admins", async () => {
     const response = await putSet("mine", { title: "Mine", mods: [] }, player);
     expect(response.status).toBe(403);
+    expect((await deleteSet("competitive", player)).status).toBe(403);
+  });
+
+  it("saves sets with more than 20 mods without hitting D1 bind-parameter limits", async () => {
+    const slugs = Array.from({ length: 30 }, (_, i) => `tgg.bulk-${i}`);
+    try {
+      for (const slug of slugs) {
+        await addMod(slug, [{ version: "1.0.0", status: "approved", layout: null }]);
+      }
+
+      const saved = await putSet("bulk-set", {
+        title: "Bulk set",
+        description: "More than 20 mods",
+        mods: slugs.map((id) => ({ id, range: "^1.0" })),
+      });
+      expect(saved.status).toBe(201);
+
+      const sets = registrySetSchema.array().parse(await (await get("/api/registry/sets")).json());
+      const bulk = sets.find((s) => s.name === "bulk-set");
+      expect(bulk?.mods).toHaveLength(30);
+      expect(bulk?.mods[29]).toEqual({ id: "tgg.bulk-29", range: "^1.0" });
+
+      // DELETE removes the set and cascades its mods.
+      const removed = await deleteSet("bulk-set");
+      expect(removed.status).toBe(200);
+      expect(await removed.json()).toEqual({ deleted: "bulk-set" });
+      expect((await deleteSet("bulk-set")).status).toBe(404);
+
+      const after = registrySetSchema.array().parse(await (await get("/api/registry/sets")).json());
+      expect(after.some((s) => s.name === "bulk-set")).toBe(false);
+    } finally {
+      await db.delete(codeMods).where(inArray(codeMods.slug, slugs));
+    }
   });
 });
 
