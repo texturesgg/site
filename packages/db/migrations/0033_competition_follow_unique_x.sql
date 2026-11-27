@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `competition_follow_x_idx` ON `competition_follow_claims` (`competition`,`x_account_id`);

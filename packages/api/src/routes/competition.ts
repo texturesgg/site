@@ -9,7 +9,6 @@ import {
 import { logger } from "@vgskins/logger";
 import {
   COMPETITION,
-  COMPETITION_BASE_VOTES,
   type CompetitionState,
   codeModSlugSchema,
   competitionBudget,
@@ -24,10 +23,10 @@ import { z } from "zod";
 import { optionalAuth, requireAuth } from "../lib/auth";
 import {
   cantVote,
+  castVote,
   closedReason,
   dropEntryVotes,
   entryBySlug,
-  hasClaimed,
   ipHash,
   linkedX,
   listEntries,
@@ -35,7 +34,6 @@ import {
   ownMods,
   trimVotes,
   voterSnapshot,
-  votesOf,
 } from "../lib/competition";
 import { requireCodeMods } from "../lib/feature-flags";
 import { getClientIp, rateLimitByUser } from "../lib/rate-limit";
@@ -102,29 +100,21 @@ const app = new Hono<HonoEnv>()
         return c.json({ error: "You can't vote for your own mod." }, 403);
       }
 
-      const [votes, claimed] = await Promise.all([votesOf(db, user.id), hasClaimed(db, user.id)]);
       const slug = c.req.valid("param").mod;
-      if (votes.some((vote) => vote.slug === slug)) return c.json({ success: true }, 200);
-      if (votes.length >= competitionBudget(claimed)) {
+      const snapshot = await voterSnapshot(db, user.id);
+      const outcome = await castVote(db, {
+        id: generateId(),
+        codeModId: entry.id,
+        userId: user.id,
+        ...snapshot,
+        ipHash: await ipHash(c.env.BETTER_AUTH_SECRET, getClientIp(c)),
+        country: Place.parse(c.req.raw.cf ?? {}).country ?? null,
+        createdAt: new Date(),
+      });
+      if (outcome === "budget_full") {
         return c.json({ error: "You've used all your votes. Take one back to move it." }, 409);
       }
-
-      const snapshot = await voterSnapshot(db, user.id);
-      await db
-        .insert(competitionVotes)
-        .values({
-          id: generateId(),
-          competition: ID,
-          codeModId: entry.id,
-          userId: user.id,
-          bonus: votes.length >= COMPETITION_BASE_VOTES,
-          ...snapshot,
-          ipHash: await ipHash(c.env.BETTER_AUTH_SECRET, getClientIp(c)),
-          country: Place.parse(c.req.raw.cf ?? {}).country ?? null,
-          createdAt: new Date(),
-        })
-        .onConflictDoNothing();
-      logger.info({ userId: user.id, mod: slug }, "Competition vote");
+      if (outcome === "inserted") logger.info({ userId: user.id, mod: slug }, "Competition vote");
       return c.json({ success: true }, 200);
     }
   )
@@ -171,10 +161,27 @@ const app = new Hono<HonoEnv>()
     if (why) return c.json({ error: why }, 403);
     const x = await linkedX(db, user.id);
     if (!x) return c.json({ error: "Link your X account first." }, 409);
-    await db
+    const inserted = await db
       .insert(competitionFollowClaims)
       .values({ competition: ID, userId: user.id, xAccountId: x.accountId, claimedAt: new Date() })
-      .onConflictDoNothing();
+      .onConflictDoNothing()
+      .returning({ userId: competitionFollowClaims.userId });
+    if (inserted.length === 0) {
+      const [ownClaim] = await db
+        .select({ xAccountId: competitionFollowClaims.xAccountId })
+        .from(competitionFollowClaims)
+        .where(
+          and(
+            eq(competitionFollowClaims.competition, ID),
+            eq(competitionFollowClaims.userId, user.id)
+          )
+        );
+      if (ownClaim?.xAccountId === x.accountId) return c.json({ success: true }, 200);
+      if (ownClaim) {
+        return c.json({ error: "You already claimed extra votes with another X account." }, 409);
+      }
+      return c.json({ error: "This X account has already been used to claim extra votes." }, 409);
+    }
     return c.json({ success: true }, 200);
   })
 

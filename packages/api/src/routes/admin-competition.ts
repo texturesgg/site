@@ -57,6 +57,8 @@ const app = new Hono<HonoEnv>()
             modId: competitionVotes.codeModId,
             userId: competitionVotes.userId,
             userName: users.name,
+            userBanned: users.banned,
+            userBanExpires: users.banExpires,
             bonus: competitionVotes.bonus,
             accountCreatedAt: competitionVotes.accountCreatedAt,
             signInMethods: competitionVotes.signInMethods,
@@ -85,10 +87,13 @@ const app = new Hono<HonoEnv>()
           .from(competitionAnnouncements)
           .where(eq(competitionAnnouncements.competition, ID)),
       ]);
+      const now = Date.now();
+      const isBanned = (vote: (typeof votes)[number]) =>
+        Boolean(vote.userBanned) && (!vote.userBanExpires || vote.userBanExpires.getTime() > now);
       const claimed = new Set(claims.map((claim) => claim.userId));
       const flags = competitionAuditFlags(
         votes
-          .filter((vote) => vote.voidedAt === null)
+          .filter((vote) => vote.voidedAt === null && !isBanned(vote))
           .map((vote) => ({
             id: vote.id,
             modId: vote.modId,
@@ -117,6 +122,7 @@ const app = new Hono<HonoEnv>()
               ip: vote.ipHash.slice(0, 8),
               country: vote.country,
               flags: flags.get(vote.id) ?? [],
+              banned: isBanned(vote),
               voided:
                 vote.voidedAt && vote.voidReason
                   ? {
@@ -196,7 +202,7 @@ const app = new Hono<HonoEnv>()
     if (competitionOpen(Date.now()) || Date.now() < Date.parse(COMPETITION.closes)) {
       return c.json({ error: "Voting hasn't closed yet." }, 409);
     }
-    const entries = await listEntries(db, new URL(c.req.url).origin);
+    const entries = await listEntries(db, new URL(c.req.url).origin, { live: true });
     const mods = await db
       .select({ id: codeMods.id, slug: codeMods.slug })
       .from(codeMods)

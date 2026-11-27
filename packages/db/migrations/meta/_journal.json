@@ -232,6 +232,13 @@
       "when": 1794902353914,
       "tag": "0032_competition_entry_post",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1795760647017,
+      "tag": "0033_competition_follow_unique_x",
+      "breakpoints": true
     }
   ]
 }

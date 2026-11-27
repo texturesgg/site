@@ -865,7 +865,10 @@ export const competitionFollowClaims = sqliteTable(
     xAccountId: text("x_account_id").notNull(),
     claimedAt: integer("claimed_at", { mode: "timestamp_ms" }).notNull(),
   },
-  (table) => [primaryKey({ columns: [table.competition, table.userId] })]
+  (table) => [
+    primaryKey({ columns: [table.competition, table.userId] }),
+    uniqueIndex("competition_follow_x_idx").on(table.competition, table.xAccountId),
+  ]
 );
 
 // When a competition's winners were announced. Its votes and follow claims go

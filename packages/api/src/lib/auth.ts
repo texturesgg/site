@@ -1,4 +1,5 @@
 import { createDb, schema } from "@vgskins/db";
+import { competitionBudget, competitionOpen } from "@vgskins/shared";
 import { ac, roles, type UserRole } from "@vgskins/shared/permissions";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -19,6 +20,7 @@ import {
   twoFactorRequired,
   twoFactorVerified,
 } from "./two-factor";
+import { trimVotes } from "./competition";
 import { uniqueUsername } from "./username";
 import { recordXHandle } from "./x-handles";
 
@@ -185,6 +187,15 @@ function createAuth(env: Env) {
               ),
             },
           }),
+        },
+      },
+      account: {
+        delete: {
+          after: async (account) => {
+            if (account.providerId === "twitter" && competitionOpen(Date.now())) {
+              await trimVotes(db, account.userId, competitionBudget(false));
+            }
+          },
         },
       },
     },

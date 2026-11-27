@@ -125,7 +125,7 @@ function SignedInVotes({ me, open }: { me: Me; open: boolean }) {
       {me.x.claimed && (
         <div {...stylex.props(styles.steps)}>
           <span {...stylex.props(styles.note)}>
-            Following as @{me.x.handle ?? "your X account"}
+            {me.x.handle ? `Following as @${me.x.handle}` : "Following with your linked X account"}
           </span>
           {open && (
             <Button
