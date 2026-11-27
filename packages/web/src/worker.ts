@@ -546,6 +546,11 @@ const STATIC_OG: Readonly<Record<string, Omit<OgData, "url">>> = {
     description:
       "Answers to common questions about textures.gg, tgg-melee, Slippi, mod safety, ISOs, platforms, and open source.",
   },
+  "/competition": {
+    title: "Mod competition - textures.gg",
+    description:
+      "Make a Melee mod for tgg-melee. Entries and voting run Dec 4 to Dec 18, 2026. The top three share $500: $250, $150 and $100.",
+  },
   "/legal/terms": {
     title: "Terms of service - textures.gg",
     description: "Terms governing your use of textures.gg.",
@@ -667,7 +672,10 @@ export function buildSitemapXml(data: PublicSitemap): string {
     entry(`${BASE}/users/${encodeURIComponent(user.name)}`, "0.5", formatDate(user.updatedAt));
   }
 
-  // Code mods, sets, and mod docs (empty while code mods are off for people signed out)
+  // Code mods, sets, mod docs, and the competition (empty while code mods are off for people signed out)
+  if (data.mods.length > 0 || data.sets.length > 0 || data.docs.length > 0) {
+    entry(`${BASE}/competition`, "0.7");
+  }
   for (const mod of data.mods) {
     entry(`${BASE}/games/${PRIMARY_GAME_SLUG}/mods/${mod.id}`, "0.8", formatDate(mod.updatedAt));
   }

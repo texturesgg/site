@@ -9,14 +9,15 @@ import adminCompetitionRoutes from "./admin-competition";
 import competitionRoutes from "./competition";
 
 // The December competition's rules, as the owner set them: mods first
-// released from Dec 1 enter (official ones never), one vote per account plus
-// two with X linked and the follow claimed, no votes for your own mod or from
-// staff, voting closes at the end of Dec 31 Pacific, counts are public and a
-// voided vote drops out of them.
+// released from Dec 1 enter once entries open Dec 4 (official ones never), one
+// vote per account plus two with X linked and the follow claimed, no votes for
+// your own mod or from staff, voting closes at the end of Dec 18 Pacific,
+// counts are public and a voided vote drops out of them.
 const db = createDb(env.DB);
 const app = new Hono<HonoEnv>()
   .route("/api/competition", competitionRoutes)
   .route("/api/admin/competition", adminCompetitionRoutes);
+const ELIGIBLE_FROM = Date.parse(COMPETITION.eligibleFrom);
 const OPENS = Date.parse(COMPETITION.opens);
 const DAY = 24 * 60 * 60 * 1000;
 /** The post on X that shares an entry. */
@@ -101,8 +102,8 @@ beforeAll(async () => {
     createdAt: new Date(),
     updatedAt: new Date(),
   });
-  await addMod("maker.new", "maker", OPENS + DAY);
-  await addMod("maker.old", "maker", OPENS - DAY);
+  await addMod("maker.new", "maker", ELIGIBLE_FROM + DAY);
+  await addMod("maker.old", "maker", ELIGIBLE_FROM - DAY);
   await addMod("rival.new", "rival", OPENS + 2 * DAY);
   await addMod("tgg.rules", "admin", OPENS + DAY, true);
   await db.insert(accounts).values({
@@ -225,7 +226,7 @@ describe("the competition", () => {
     ]);
   });
 
-  it("closes at the end of Dec 31 Pacific", async () => {
+  it("closes at the end of Dec 18 Pacific", async () => {
     vi.setSystemTime(Date.parse(COMPETITION.closes) - 1000);
     const late = await signIn(db, "late");
     expect((await call("/api/competition/votes/maker.new", late, "PUT")).status).toBe(200);

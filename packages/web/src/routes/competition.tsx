@@ -15,7 +15,6 @@ import { color, font, radius, space, text } from "@/ui/tokens.stylex";
 
 // The December 2026 mod competition, behind the code-mods flag: its entries
 // and votes (the API enforces the rules, packages/shared/src/competition.ts).
-// What isn't decided yet shows as "To confirm", and the rules are a draft.
 
 const PRIZES = [
   { place: "1st", amount: "$250" },
@@ -34,9 +33,8 @@ export const Route = createFileRoute("/competition")({
       {
         name: "description",
         content:
-          "Make a Melee mod in December 2026. The top three share $500: $250, $150 and $100.",
+          "Make a Melee mod for tgg-melee. Entries and voting run Dec 4 to Dec 18, 2026. The top three share $500: $250, $150 and $100.",
       },
-      { name: "robots", content: "noindex" },
     ],
   }),
   component: Competition,
@@ -70,17 +68,6 @@ const styles = stylex.create({
     backgroundColor: color.surface,
   },
   amount: { fontFamily: font.mono, fontSize: text.h3, fontWeight: 700, color: color.accentText },
-  tbd: {
-    display: "inline-block",
-    padding: `0 ${space.xs}`,
-    borderRadius: radius.sm,
-    borderWidth: "1px",
-    borderStyle: "dashed",
-    borderColor: color.accent,
-    color: color.accentText,
-    fontSize: text.sm,
-    fontWeight: 600,
-  },
   entries: { display: "flex", flexDirection: "column", gap: space.md },
   heading: { margin: 0, fontSize: text.h3, fontWeight: 800 },
   list: {
@@ -109,22 +96,7 @@ const styles = stylex.create({
   author: { fontSize: text.sm, color: color.muted },
   count: { fontFamily: font.mono, fontSize: text.sm, whiteSpace: "nowrap" },
   empty: { margin: 0, fontSize: text.sm, color: color.muted },
-  draft: {
-    margin: 0,
-    padding: `${space.sm} ${space.md}`,
-    borderRadius: radius.md,
-    borderWidth: "1px",
-    borderStyle: "solid",
-    borderColor: color.lineStrong,
-    backgroundColor: color.surface,
-    fontSize: text.sm,
-  },
 });
-
-/** Something not decided yet: shown so it's easy to spot and fill in. */
-function ToConfirm({ children }: { children: ReactNode }) {
-  return <span {...stylex.props(styles.tbd)}>To confirm: {children}</span>;
-}
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -145,7 +117,7 @@ function Entries({ state }: { state: CompetitionState }) {
       <YourVotes state={state} />
       {state.entries.length === 0 ? (
         <p {...stylex.props(styles.empty)}>
-          {state.open ? "No entries yet." : "Entries show here from Dec 1."}
+          {state.open ? "No entries yet." : "Entries show here from Dec 4."}
         </p>
       ) : (
         <ol {...stylex.props(styles.list)}>
@@ -193,9 +165,9 @@ function Competition() {
         description="tgg-melee loads mods, stacks several at once, puts them in sets you can share, and matches players by the mods they run. In December, make one. Players vote, and the top three share $500."
       />
       <dl {...stylex.props(styles.facts)}>
-        <Fact label="Entries open">Dec 1</Fact>
-        <Fact label="Entries close">Dec 31</Fact>
-        <Fact label="Voting">Through Dec 31</Fact>
+        <Fact label="Entries open">Dec 4</Fact>
+        <Fact label="Entries close">Dec 18</Fact>
+        <Fact label="Voting">Dec 4 – Dec 18</Fact>
         <Fact label="Prizes">$500</Fact>
       </dl>
 
@@ -254,8 +226,9 @@ function Competition() {
 
           <ArticleSection title="Judging">
             <p>
-              Players vote on textures.gg through Dec 31. Every account gets one vote, and two more
-              with X linked and following @texturesgg. Vote counts are public while voting is open.
+              Players vote on textures.gg from Dec 4 through Dec 18. Every account gets one vote,
+              and two more with X linked and following @texturesgg. Vote counts are public while
+              voting is open.
             </p>
             <p>
               textures.gg admins confirm the winners from the results and announce them a few days
@@ -264,10 +237,6 @@ function Competition() {
           </ArticleSection>
 
           <ArticleSection title="Rules">
-            <p {...stylex.props(styles.draft)}>
-              <strong>Draft.</strong> These rules are waiting for review and may change before the
-              competition starts.
-            </p>
             <BulletList>
               <li>One account per person. You can enter more than one mod.</li>
               <li>
@@ -283,7 +252,10 @@ function Competition() {
                 can&apos;t win prizes.
               </li>
               <li>
-                <ToConfirm>eligibility, taxes and where it&apos;s void</ToConfirm>
+                Open to entrants 18 or older (or with parental consent) where legal; void where
+                prohibited. Prizes are paid through PayPal by Saavylab LLC. Winners are responsible
+                for any applicable taxes, and US winners at IRS reporting thresholds may need to
+                provide a W-9 before payout.
               </li>
             </BulletList>
           </ArticleSection>

@@ -141,6 +141,7 @@ describe("public catalog RPC rendering", () => {
     expect(xml).toContain("<lastmod>2026-08-02</lastmod>");
     expect(xml).toContain("https://textures.gg/games/melee/mods/tgg.ucf");
     expect(xml).toContain("https://textures.gg/games/melee/sets/competitive");
+    expect(xml).toContain("<loc>https://textures.gg/competition</loc>");
     expect(xml).toContain("<loc>https://textures.gg/docs/mods/latest</loc>");
     expect(xml).toContain("<loc>https://textures.gg/docs/mods/latest/start/quickstart</loc>");
     expect(xml).toContain("<loc>https://textures.gg/docs/mods/latest/guides/hud</loc>");
@@ -158,6 +159,7 @@ describe("public catalog RPC rendering", () => {
 
     expect(xml).toContain("<loc>https://textures.gg/users/a%26b%3C%2Floc%3E%3Cx%3E</loc>");
     expect(xml).not.toContain("<x>");
+    expect(xml).not.toContain("/competition");
   });
 });
 
