@@ -7,15 +7,17 @@ import {
   entryIneligible,
 } from "./competition";
 
+const eligibleFrom = Date.parse(COMPETITION.eligibleFrom);
 const opens = Date.parse(COMPETITION.opens);
 const day = 24 * 60 * 60 * 1000;
 const minute = 60 * 1000;
 
 describe("the competition", () => {
   it("takes mods first released on or after Dec 1, and never official ones", () => {
-    const mod = { official: false, deleted: false, listed: true, firstReleaseAt: opens };
+    const mod = { official: false, deleted: false, listed: true, firstReleaseAt: eligibleFrom };
     expect(entryIneligible(mod)).toBeNull();
-    expect(entryIneligible({ ...mod, firstReleaseAt: opens - 1 })).toBe(
+    expect(entryIneligible({ ...mod, firstReleaseAt: opens })).toBeNull();
+    expect(entryIneligible({ ...mod, firstReleaseAt: eligibleFrom - 1 })).toBe(
       "Only mods first released on or after Dec 1 can enter."
     );
     expect(entryIneligible({ ...mod, official: true })).toBe("Official mods aren't entries.");

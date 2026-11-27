@@ -31,7 +31,7 @@ const ID = COMPETITION.id;
 /** Why entering or voting can't happen now, or null while they're open. */
 export function closedReason(now: number): string | null {
   if (competitionOpen(now)) return null;
-  return now < Date.parse(COMPETITION.opens) ? "Voting opens Dec 1." : "Voting is closed.";
+  return now < Date.parse(COMPETITION.opens) ? "Voting opens Dec 4." : "Voting is closed.";
 }
 
 /** Each entry's public count: votes that weren't voided. */

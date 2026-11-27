@@ -5,11 +5,16 @@ import { z } from "zod";
  * the API answers. The API enforces every rule here; the site only shows them.
  */
 
-/** Entries and voting run from the start of Dec 1 to the end of Dec 31, Pacific time. */
+/**
+ * Entries and voting run from the start of Dec 4 to the end of Dec 18, Pacific
+ * time. Any mod first released on or after launch day (Dec 1, Pacific) is
+ * eligible to enter once entries open.
+ */
 export const COMPETITION = {
   id: "2026-12",
-  opens: "2026-12-01T08:00:00.000Z",
-  closes: "2027-01-01T08:00:00.000Z",
+  eligibleFrom: "2026-12-01T08:00:00.000Z",
+  opens: "2026-12-04T08:00:00.000Z",
+  closes: "2026-12-19T08:00:00.000Z",
 } as const;
 
 /** Every account's vote, and the extra ones for following @texturesgg with X linked. */
@@ -47,7 +52,7 @@ export function entryIneligible(mod: EntryFacts): string | null {
   if (mod.firstReleaseAt === null || !mod.listed) {
     return "It can be entered once a release is approved.";
   }
-  if (mod.firstReleaseAt < Date.parse(COMPETITION.opens)) {
+  if (mod.firstReleaseAt < Date.parse(COMPETITION.eligibleFrom)) {
     return "Only mods first released on or after Dec 1 can enter.";
   }
   return null;
